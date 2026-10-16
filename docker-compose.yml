@@ -1,0 +1,75 @@
+services:
+  # Base de Datos Relacional PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: bienestar_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bienestar_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bienestar_secret_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-bienestar_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bienestar_user} -d ${POSTGRES_DB:-bienestar_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bienestar_network
+
+  # Backend API con FastAPI (Python)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bienestar_backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bienestar_user}:${POSTGRES_PASSWORD:-bienestar_secret_pass}@postgres:5432/${POSTGRES_DB:-bienestar_db}
+      SECRET_KEY: ${SECRET_KEY:-super_secret_jwt_key_bienestar_2026}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bienestar_network
+
+  # Frontend Next.js (App Router + Tailwind CSS)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bienestar_frontend
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NODE_ENV: development
+      # Necesario en Windows: los bind mounts no propagan eventos de archivos
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - bienestar_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  bienestar_network:
+    driver: bridge
