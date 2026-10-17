@@ -59,3 +59,33 @@ export function getStatusBadgeStyle(estado: string): { bg: string; text: string;
       };
   }
 }
+
+/**
+ * Valida un RUN chileno usando el algoritmo módulo 11.
+ */
+export function isValidRun(value: string): boolean {
+  const clean = (value || '').replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length < 2) return false;
+  const body = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  if (!/^\d+$/.test(body)) return false;
+  let sum = 0;
+  let mult = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * mult;
+    mult = mult === 7 ? 2 : mult + 1;
+  }
+  const res = 11 - (sum % 11);
+  const expected = res === 11 ? '0' : res === 10 ? 'K' : String(res);
+  return dv === expected;
+}
+
+/**
+ * Formatea un RUN como "12.345.678-9".
+ */
+export function formatRun(value: string): string {
+  const clean = (value || '').replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length < 2) return value;
+  const body = clean.slice(0, -1).replace(/^0+/, '');
+  return `${body.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}-${clean.slice(-1)}`;
+}

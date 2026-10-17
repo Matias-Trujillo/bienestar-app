@@ -138,6 +138,14 @@ export default function LoginPage() {
             </button>
           </form>
 
+          <a
+            id="login-solicitar-incorporacion"
+            href="/afiliacion/solicitud"
+            className="mt-4 block w-full py-2.5 px-4 rounded-xl text-center font-semibold text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition"
+          >
+            ¿Aún no eres socio? Solicitar incorporación al Comité
+          </a>
+
           {/* Cuentas de prueba (solo desarrollo): rellenan el formulario */}
           {process.env.NODE_ENV !== 'production' && (
             <div className="mt-6 pt-5 border-t border-slate-100">

@@ -44,6 +44,18 @@ SEED_USERS = [
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Migraciones idempotentes para columnas de HU-02
+        nuevas_columnas = [
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_sesion VARCHAR(10);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS numero_acta VARCHAR(50);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_fin_carencia VARCHAR(10);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS observaciones_resolucion VARCHAR(500);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_por VARCHAR(120);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_at VARCHAR(30);",
+        ]
+        from sqlalchemy import text
+        for sql in nuevas_columnas:
+            await conn.execute(text(sql))
 
     async with AsyncSessionLocal() as db:
         for data in SEED_USERS:
