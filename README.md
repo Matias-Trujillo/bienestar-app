@@ -75,15 +75,85 @@ Sistema web integral de alta disponibilidad para la administración operativa, m
 
 ## 🚀 3. Puesta en Marcha con Docker Compose (Recomendado)
 
-El proyecto cuenta con un archivo `docker-compose.yml` que levanta los 3 servicios simultáneamente en una red interna dedicada:
+El proyecto cuenta con un archivo `docker-compose.yml` que levanta los 3 servicios (Frontend, Backend y PostgreSQL) simultáneamente en una red interna dedicada.
+
+### Paso 1: Requisitos previos
+*   Instalar [Docker Desktop](https://www.docker.com/products/docker-desktop/) y **abrirlo** (debe estar en ejecución).
+*   Verificar la instalación en una terminal:
 
 ```bash
-# Situarse en la raíz del proyecto
-cd bienestar-app
+docker --version
+docker compose version
+```
 
-# Construir y levantar los contenedores
+### Paso 2: Abrir una terminal
+*   **Windows:** Presionar `Win + R`, escribir `powershell` y presionar Enter (o abrir la terminal integrada de VS Code con `Ctrl + ñ`).
+*   **macOS / Linux:** Abrir la aplicación *Terminal*.
+
+### Paso 3: Buscar la carpeta del proyecto
+Si no sabes dónde está la carpeta `bienestar-app`, puedes buscarla:
+
+**Windows (PowerShell):**
+```powershell
+# Buscar la carpeta desde tu carpeta de usuario
+Get-ChildItem -Path $HOME -Directory -Recurse -Filter "bienestar-app" -ErrorAction SilentlyContinue | Select-Object FullName
+```
+
+**macOS / Linux:**
+```bash
+find ~ -type d -name "bienestar-app" 2>/dev/null
+```
+
+El comando mostrará la ruta completa, por ejemplo: `C:\Users\TuUsuario\Desktop\MPeralillo\bienestar-app`.
+
+### Paso 4: Posicionarse en la carpeta `bienestar-app`
+
+**Windows (PowerShell):**
+```powershell
+# Usar la ruta obtenida en el paso anterior (las comillas evitan problemas con espacios)
+cd "C:\Users\TuUsuario\Desktop\MPeralillo\bienestar-app"
+
+# Atajo si está en el Escritorio:
+cd "$HOME\Desktop\MPeralillo\bienestar-app"
+```
+
+**macOS / Linux:**
+```bash
+cd ~/Desktop/MPeralillo/bienestar-app
+```
+
+Comandos útiles para navegar:
+```bash
+pwd          # Muestra la carpeta actual
+ls           # Lista el contenido de la carpeta actual
+cd ..        # Sube un nivel
+cd carpeta   # Entra a una subcarpeta
+```
+
+Verifica que estás en la carpeta correcta: al ejecutar `ls` deben aparecer `docker-compose.yml`, `backend` y `frontend`.
+
+### Paso 5: Construir y levantar los contenedores
+```bash
 docker compose up --build
 ```
+> La primera vez puede tardar varios minutos mientras se descargan las imágenes e instalan dependencias.
+
+Para ejecutarlo en segundo plano (liberando la terminal):
+```bash
+docker compose up --build -d
+```
+
+### Paso 6: Comandos útiles de administración
+```bash
+docker compose ps                 # Ver el estado de los contenedores
+docker compose logs -f            # Ver los logs en tiempo real (Ctrl + C para salir)
+docker compose logs -f backend    # Logs de un servicio específico
+docker compose down               # Detener y eliminar los contenedores
+docker compose down -v            # Detener y BORRAR también los datos de la BD
+docker compose up --build         # Reconstruir tras cambios en dependencias
+```
+
+> Si se ejecutó sin `-d`, detener los servicios con `Ctrl + C` y luego `docker compose down`.
 
 ### URLs de Acceso:
 *   **Frontend (Next.js):** [http://localhost:3000](http://localhost:3000)
