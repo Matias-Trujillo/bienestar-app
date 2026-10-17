@@ -36,8 +36,10 @@ services:
       AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-false}
     ports:
       - "8000:8000"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app
     volumes:
       - ./backend:/app
+      - backend_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +72,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  backend_uploads:
     driver: local
 
 networks:
