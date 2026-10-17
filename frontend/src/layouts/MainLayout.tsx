@@ -10,21 +10,25 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
+// HU-01: el funcionario aún no es socio, por lo que la solicitud de incorporación es pública
+const PUBLIC_ROUTES = ['/login', '/afiliacion/solicitud'];
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Rutas públicas: no requieren sesión ni muestran Sidebar/Header
+  const isPublic = PUBLIC_ROUTES.includes(pathname);
+
   useEffect(() => {
     // Si terminó de cargar y no está autenticado, redirigir a /login
-    if (!isLoading && !isAuthenticated && pathname !== '/login') {
+    if (!isLoading && !isAuthenticated && !isPublic) {
       router.push('/login');
     }
-  }, [isLoading, isAuthenticated, pathname, router]);
+  }, [isLoading, isAuthenticated, isPublic, router]);
 
-  // Si estamos en la página de login, no mostrar Sidebar ni Header
-  if (pathname === '/login') {
+  if (isPublic) {
     return <>{children}</>;
   }
 

@@ -78,6 +78,18 @@ async def init_db() -> None:
         await conn.execute(text("ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS meses_antiguedad INTEGER DEFAULT 12;"))
         # Crear tablas nuevas si no existen
         await conn.run_sync(Base.metadata.create_all)
+        # Migraciones idempotentes para columnas de HU-02
+        nuevas_columnas = [
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_sesion VARCHAR(10);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS numero_acta VARCHAR(50);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_fin_carencia VARCHAR(10);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS observaciones_resolucion VARCHAR(500);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_por VARCHAR(120);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_at VARCHAR(30);",
+        ]
+        from sqlalchemy import text
+        for sql in nuevas_columnas:
+            await conn.execute(text(sql))
 
     async with AsyncSessionLocal() as db:
         # 1. Cargar Usuarios
