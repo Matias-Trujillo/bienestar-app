@@ -87,7 +87,6 @@ async def init_db() -> None:
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_por VARCHAR(120);",
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_at VARCHAR(30);",
         ]
-        from sqlalchemy import text
         for sql in nuevas_columnas:
             await conn.execute(text(sql))
 
