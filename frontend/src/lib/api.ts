@@ -45,7 +45,7 @@ export async function fetchFromApi<T>(endpoint: string, options: RequestInit = {
     ...options,
     headers: {
       ...defaultHeaders,
-      ...options.headers,
+      ...((options.headers as Record<string, string>) || {}),
     },
   });
 

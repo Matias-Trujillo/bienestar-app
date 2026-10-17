@@ -32,6 +32,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-super_secret_jwt_key_bienestar_2026}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: http://localhost:3000
+      # HU-01: en desarrollo se permite postular fuera del período ene-jun. Poner "true" en producción.
+      AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-false}
     ports:
       - "8000:8000"
     volumes:

@@ -86,6 +86,34 @@ docker --version
 docker compose version
 ```
 
+### Paso 1.1: Dependencias locales para el editor (importante al clonar)
+Docker instala las librerías **dentro de los contenedores**, pero la carpeta `node_modules` y el entorno `venv` **no se suben a GitHub** (están en `.gitignore`). Sin ellos, VS Code mostrará muchos **errores falsos en rojo** (p. ej. `No se encuentra el módulo 'react'`) aunque la app funcione.
+
+Herramientas necesarias en tu PC:
+
+| Herramienta | Versión | Descarga |
+| :--- | :--- | :--- |
+| Git | cualquiera | https://git-scm.com/downloads |
+| Docker Desktop | reciente | https://www.docker.com/products/docker-desktop/ |
+| Node.js (incluye npm) | 18 o superior (LTS) | https://nodejs.org/ |
+| Python | 3.11 | https://www.python.org/downloads/ (marcar *"Add Python to PATH"*) |
+
+Luego, **una sola vez** después de clonar (y cada vez que cambie `package.json` o `requirements.txt`), ejecutar desde la carpeta `bienestar-app`:
+
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup.ps1
+```
+
+**macOS / Linux:**
+```bash
+bash setup.sh
+```
+
+Finalmente recargar VS Code: `Ctrl + Shift + P` → **Developer: Reload Window**.
+
+> 💡 En PowerShell, si `npm` da error de *"ejecución de scripts deshabilitada"*, usa `npm.cmd` o ejecuta una vez: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
 ### Paso 2: Abrir una terminal
 *   **Windows:** Presionar `Win + R`, escribir `powershell` y presionar Enter (o abrir la terminal integrada de VS Code con `Ctrl + ñ`).
 *   **macOS / Linux:** Abrir la aplicación *Terminal*.

@@ -34,6 +34,7 @@ class UserOut(BaseModel):
     saldoSaludDisponible: int
     saldoSaludTotalAnual: int
     cargasRegistradas: int
+    mesesAntiguedad: int = 12
 
 
 class TokenResponse(BaseModel):
@@ -51,6 +52,7 @@ def to_out(u: User) -> UserOut:
         saldoSaludDisponible=u.saldo_salud_disponible,
         saldoSaludTotalAnual=u.saldo_salud_total_anual,
         cargasRegistradas=u.cargas_registradas,
+        mesesAntiguedad=getattr(u, "meses_antiguedad", 12) or 12,
     )
 
 

@@ -49,3 +49,4 @@ class User(Base, TimestampMixin):
     saldo_salud_disponible: Mapped[int] = mapped_column(Integer, default=250000)
     saldo_salud_total_anual: Mapped[int] = mapped_column(Integer, default=250000)
     cargas_registradas: Mapped[int] = mapped_column(Integer, default=0)
+    meses_antiguedad: Mapped[int] = mapped_column(Integer, default=12)

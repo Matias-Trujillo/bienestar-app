@@ -6,6 +6,18 @@ from app.models.reembolso import (
     TipoPrestacion,
     EstadoReembolso,
 )
+from app.models.afiliacion import (
+    CalidadContractual,
+    CargaFamiliar,
+    EstadoSolicitud,
+    SolicitudAfiliacion,
+)
+from app.models.beneficios import (
+    ParametroSistema,
+    SolicitudBeneficio,
+    NominaMasiva,
+    DetalleNominaMasiva,
+)
 
 __all__ = [
     "Base",
@@ -14,4 +26,12 @@ __all__ = [
     "SolicitudReembolso",
     "TipoPrestacion",
     "EstadoReembolso",
+    "SolicitudAfiliacion",
+    "CargaFamiliar",
+    "CalidadContractual",
+    "EstadoSolicitud",
+    "ParametroSistema",
+    "SolicitudBeneficio",
+    "NominaMasiva",
+    "DetalleNominaMasiva",
 ]
