@@ -1,6 +1,7 @@
 """Creación de tablas y carga inicial de las 7 credenciales del sistema."""
 import logging
 
+# pyrefly: ignore[missing-import]
 from sqlalchemy import select
 
 from app.core.security import get_password_hash
@@ -37,7 +38,15 @@ SEED_USERS = [
     dict(rut="15.489.123-K", email="cvalenzuela@mperalillo.cl", nombre_completo="Carlos Valenzuela M.",
          password="Socio#2026", rol=UserRole.SOCIO,
          departamento="DIDECO", antiguedad="5 Años, 4 Meses",
-         saldo_salud_disponible=150000, cargas_registradas=2),
+         saldo_salud_disponible=150000, saldo_salud_total_anual=150000, cargas_registradas=2),
+    dict(rut="18.567.890-1", email="faraya@mperalillo.cl", nombre_completo="Felipe Araya M. (> 6 meses)",
+         password="Socio#2026", rol=UserRole.SOCIO,
+         departamento="Obras Municipales", antiguedad="1 Año, 4 Meses",
+         saldo_salud_disponible=150000, saldo_salud_total_anual=150000, cargas_registradas=1),
+    dict(rut="19.876.543-2", email="fsepulveda@mperalillo.cl", nombre_completo="Francisca Sepúlveda T. (< 6 meses)",
+         password="Socio#2026", rol=UserRole.SOCIO,
+         departamento="Secretaría Municipal", antiguedad="3 Meses",
+         saldo_salud_disponible=150000, saldo_salud_total_anual=150000, cargas_registradas=0),
 ]
 
 

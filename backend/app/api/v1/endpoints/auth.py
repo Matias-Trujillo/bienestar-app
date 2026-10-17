@@ -6,11 +6,11 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_superuser
+from app.api.deps import get_current_user, require_roles
 from app.core.security import create_access_token, verify_password
 from app.db.session import get_db
 from app.models import User
-from app.models.user import ROLE_LABELS
+from app.models.user import ROLE_LABELS, UserRole
 
 router = APIRouter()
 
@@ -85,8 +85,8 @@ async def me(user: User = Depends(get_current_user)):
 
 @router.get("/usuarios", response_model=List[UserOut])
 async def listar_usuarios(
-    _: User = Depends(require_superuser), db: AsyncSession = Depends(get_db)
+    _: User = Depends(require_roles(UserRole.ADMIN)), db: AsyncSession = Depends(get_db)
 ):
-    """Listado completo de usuarios. Solo superusuario."""
+    """Listado completo de usuarios. Solo administrador y superusuario."""
     result = await db.scalars(select(User).order_by(User.id))
     return [to_out(u) for u in result]
