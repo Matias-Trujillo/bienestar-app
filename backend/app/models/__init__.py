@@ -14,15 +14,19 @@ from app.models.afiliacion import (
 )
 from app.models.beneficios import (
     ParametroSistema,
+    BonoCatalogo,
     SolicitudBeneficio,
     NominaMasiva,
     DetalleNominaMasiva,
 )
 
+from app.models.audit import AuditLog
+
 __all__ = [
     "Base",
     "User",
     "UserRole",
+    "AuditLog",
     "SolicitudReembolso",
     "TipoPrestacion",
     "EstadoReembolso",
@@ -31,6 +35,7 @@ __all__ = [
     "CalidadContractual",
     "EstadoSolicitud",
     "ParametroSistema",
+    "BonoCatalogo",
     "SolicitudBeneficio",
     "NominaMasiva",
     "DetalleNominaMasiva",

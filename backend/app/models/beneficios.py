@@ -21,6 +21,26 @@ class ParametroSistema(Base, TimestampMixin):
     descripcion: Mapped[str] = mapped_column(String(255), default="")
 
 
+class BonoCatalogo(Base, TimestampMixin):
+    """Catálogo dinámico de bonos y beneficios sociales administrable por el Superusuario."""
+    __tablename__ = "bonos_catalogo"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    codigo: Mapped[str] = mapped_column(String(60), unique=True, index=True) # ej: vacaciones, fiestas_patrias
+    nombre: Mapped[str] = mapped_column(String(150), nullable=False)
+    porcentaje: Mapped[float] = mapped_column(Float, nullable=False) # % sobre Grado 15
+    categoria: Mapped[str] = mapped_column(String(100), default="Beneficio Económico")
+    requisitos: Mapped[str] = mapped_column(Text, default="")
+    documentacion_requerida: Mapped[str] = mapped_column(Text, default="")
+    regla_asignacion: Mapped[str] = mapped_column(Text, default="")
+    periodo_devengo: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    permite_postulacion_socio: Mapped[bool] = mapped_column(Boolean, default=True)
+    es_calendario: Mapped[bool] = mapped_column(Boolean, default=False) # Invierno/Navidad vs Contingencia
+    activo: Mapped[bool] = mapped_column(Boolean, default=True) # Activar / Desactivar
+    icono: Mapped[str] = mapped_column(String(50), default="gift")
+
+
+
 class SolicitudBeneficio(Base, TimestampMixin):
     """Registro de postulación y liquidación individual de beneficios económicos."""
     __tablename__ = "solicitudes_beneficio"

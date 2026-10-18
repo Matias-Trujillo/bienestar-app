@@ -180,35 +180,67 @@ class BeneficiosService:
         """Genera el catálogo de beneficios con montos exactos actualizados al sueldo Grado 15."""
         base_g15 = await cls.get_sueldo_base_grado_15(db)
         porc_navidad = await cls.get_porcentaje_navidad(db)
-        
+
+        # Consulta a la tabla bonos_catalogo activa
+        from app.models.beneficios import BonoCatalogo
+        db_bonos = await db.scalars(
+            select(BonoCatalogo).where(BonoCatalogo.activo == True).order_by(BonoCatalogo.id)
+        )
+        bonos_list = list(db_bonos.all())
+
         contingencia_items: List[BonoCatalogoItem] = []
         calendario_items: List[BonoCatalogoItem] = []
-        
-        for item in CATALOGO_DEFINICION:
-            porc = item["porcentaje"]
-            if item["id"] == "navidad":
-                porc = porc_navidad
-            
-            monto_calc = int(round(base_g15 * (porc / 100.0)))
-            bono_dto = BonoCatalogoItem(
-                id=item["id"],
-                nombre=item["nombre"],
-                porcentaje=porc,
-                monto_calculado=monto_calc,
-                categoria=item["categoria"],
-                requisitos=item["requisitos"],
-                documentacion_requerida=item["documentacion_requerida"],
-                regla_asignacion=item["regla_asignacion"],
-                periodo_devengo=item.get("periodo_devengo"),
-                permite_postulacion_socio=item["permite_postulacion_socio"],
-                icono=item["icono"],
-            )
-            
-            if item["id"] in ["invierno", "navidad"]:
-                calendario_items.append(bono_dto)
-            else:
-                contingencia_items.append(bono_dto)
-                
+
+        if bonos_list:
+            for b in bonos_list:
+                porc = b.porcentaje
+                if b.codigo == "navidad":
+                    porc = porc_navidad
+
+                monto_calc = int(round(base_g15 * (porc / 100.0)))
+                bono_dto = BonoCatalogoItem(
+                    id=b.codigo,
+                    nombre=b.nombre,
+                    porcentaje=porc,
+                    monto_calculado=monto_calc,
+                    categoria=b.categoria,
+                    requisitos=b.requisitos,
+                    documentacion_requerida=b.documentacion_requerida,
+                    regla_asignacion=b.regla_asignacion,
+                    periodo_devengo=b.periodo_devengo,
+                    permite_postulacion_socio=b.permite_postulacion_socio,
+                    icono=b.icono,
+                )
+                if b.es_calendario or b.codigo in ["invierno", "navidad"]:
+                    calendario_items.append(bono_dto)
+                else:
+                    contingencia_items.append(bono_dto)
+        else:
+            # Fallback en caso de tabla recién creada antes del seed
+            for item in CATALOGO_DEFINICION:
+                porc = item["porcentaje"]
+                if item["id"] == "navidad":
+                    porc = porc_navidad
+
+                monto_calc = int(round(base_g15 * (porc / 100.0)))
+                bono_dto = BonoCatalogoItem(
+                    id=item["id"],
+                    nombre=item["nombre"],
+                    porcentaje=porc,
+                    monto_calculado=monto_calc,
+                    categoria=item["categoria"],
+                    requisitos=item["requisitos"],
+                    documentacion_requerida=item["documentacion_requerida"],
+                    regla_asignacion=item["regla_asignacion"],
+                    periodo_devengo=item.get("periodo_devengo"),
+                    permite_postulacion_socio=item["permite_postulacion_socio"],
+                    icono=item["icono"],
+                )
+                if item["id"] in ["invierno", "navidad"]:
+                    calendario_items.append(bono_dto)
+                else:
+                    contingencia_items.append(bono_dto)
+
         return CatalogoBeneficiosResponse(
             sueldo_base_grado_15=base_g15,
             fecha_actualizacion=datetime.now().strftime("%d-%m-%Y"),

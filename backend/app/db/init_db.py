@@ -1,7 +1,7 @@
 """Creación de tablas, migraciones seguras y carga inicial de usuarios y parámetros."""
 import logging
 from datetime import datetime, timezone
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 
 from app.core.security import get_password_hash
 from app.db.session import AsyncSessionLocal, engine
@@ -9,7 +9,9 @@ from app.models import (
     Base,
     User,
     UserRole,
+    AuditLog,
     ParametroSistema,
+    BonoCatalogo,
     SolicitudBeneficio,
     NominaMasiva,
     DetalleNominaMasiva,
@@ -119,6 +121,28 @@ async def init_db() -> None:
                 db.add(ParametroSistema(**param))
         await db.commit()
 
+        # 2.1 Cargar Catálogo Dinámico de Bonos (BonoCatalogo)
+        from app.services.beneficios_service import CATALOGO_DEFINICION
+        bonos_count = await db.scalar(select(func.count(BonoCatalogo.id)))
+        if not bonos_count:
+            for item in CATALOGO_DEFINICION:
+                db.add(BonoCatalogo(
+                    codigo=item["id"],
+                    nombre=item["nombre"],
+                    porcentaje=item["porcentaje"],
+                    categoria=item["categoria"],
+                    requisitos=item["requisitos"],
+                    documentacion_requerida=item["documentacion_requerida"],
+                    regla_asignacion=item["regla_asignacion"],
+                    periodo_devengo=item.get("periodo_devengo"),
+                    permite_postulacion_socio=item["permite_postulacion_socio"],
+                    es_calendario=item["id"] in ["invierno", "navidad"],
+                    activo=True,
+                    icono=item["icono"],
+                ))
+            await db.commit()
+            logger.info("Catálogo inicial de bonos creado en bonos_catalogo")
+
         # 3. Cargar Solicitudes Iniciales de Ejemplo para Demostración HU-05 y Hoja de Beneficios
         carlos = await db.scalar(select(User).where(User.email == "cvalenzuela@mperalillo.cl"))
         admin = await db.scalar(select(User).where(User.rol == UserRole.ADMIN))
@@ -226,3 +250,44 @@ async def init_db() -> None:
 
                 await db.commit()
                 logger.info("Beneficios iniciales creados para Carlos Valenzuela")
+
+        # 4. Semillas de Auditoría (Trazabilidad inicial)
+        audit_count = await db.scalar(select(func.count(AuditLog.id)))
+        if not audit_count:
+            db.add_all([
+                AuditLog(
+                    usuario_nombre="María Elena Soto",
+                    usuario_rut="12.345.678-9",
+                    usuario_rol="Presidente",
+                    modulo="AFILIACION",
+                    accion="APROBAR_INCORPORACION",
+                    recurso_tipo="SolicitudAfiliacion",
+                    recurso_id="AF-2026-00001",
+                    detalles="Aprobada postulación según Acta Ordinaria N° 04-2026. Se fija carencia legal de 6 meses.",
+                    ip_origen="192.168.1.45"
+                ),
+                AuditLog(
+                    usuario_nombre="Roberto Morales P.",
+                    usuario_rut="14.982.112-4",
+                    usuario_rol="Tesorero",
+                    modulo="BENEFICIOS",
+                    accion="LIQUIDAR_BONO",
+                    recurso_tipo="SolicitudBeneficio",
+                    recurso_id="BONO-1",
+                    detalles="Liquidación autorizada mediante cheque CHQ-885102 BancoEstado por $112.500.",
+                    ip_origen="192.168.1.50"
+                ),
+                AuditLog(
+                    usuario_nombre="Jorge Contreras L.",
+                    usuario_rut="16.234.567-8",
+                    usuario_rol="Admin",
+                    modulo="CONFIGURACION",
+                    accion="ACTUALIZAR_PARAMETRO",
+                    recurso_tipo="ParametroSistema",
+                    recurso_id="SUELDO_BASE_GRADO_15",
+                    detalles="Actualización de parámetro base Grado 15 fijado en $750.000 CLP.",
+                    ip_origen="192.168.1.10"
+                ),
+            ])
+            await db.commit()
+            logger.info("Registros de auditoría iniciales creados")

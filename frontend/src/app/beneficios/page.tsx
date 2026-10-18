@@ -11,18 +11,9 @@ import {
   SimularNominaResponse,
   SimularNominaItem,
 } from '@/types';
-import {
-  GiftIcon,
-  SnowflakeIcon,
-  PalmtreeIcon,
-  FileTextIcon,
-  CheckCircleIcon,
-  AlertTriangleIcon,
-  SettingsIcon,
-  ShieldCheckIcon,
-  RefreshCwIcon,
-  SlidersIcon,
-} from '@/components/beneficios/Icons';
+import { CheckCircleIcon, AlertTriangleIcon } from '@/components/beneficios/Icons';
+import { BeneficiosHeader } from '@/components/beneficios/BeneficiosHeader';
+import { BeneficiosNavTabs, BeneficiosTab } from '@/components/beneficios/BeneficiosNavTabs';
 import { CatalogoBonos } from '@/components/beneficios/CatalogoBonos';
 import { HojaBeneficiosTable } from '@/components/beneficios/HojaBeneficiosTable';
 import { GestionDirectivaTable } from '@/components/beneficios/GestionDirectivaTable';
@@ -37,7 +28,7 @@ export default function BeneficiosPage() {
   }, [token]);
 
   // Estados principales
-  const [activeTab, setActiveTab] = useState<'catalogo' | 'hoja_socio' | 'gestion_directiva' | 'liquidacion_masiva'>('catalogo');
+  const [activeTab, setActiveTab] = useState<BeneficiosTab>('catalogo');
   const [catalogo, setCatalogo] = useState<CatalogoBeneficios | null>(null);
   const [solicitudes, setSolicitudes] = useState<SolicitudBeneficio[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -386,61 +377,14 @@ export default function BeneficiosPage() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      {/* 1. Header Institucional & Parámetros */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white p-6 sm:p-8 shadow-xl border border-slate-700/50">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-              Municipalidad de Peralillo • Comité de Bienestar
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Módulo de Beneficios Sociales y Bonos
-            </h1>
-            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Gestión centralizada de asignaciones económicas calculadas sobre el{' '}
-              <strong className="text-white">Sueldo Imponible de Grado 15</strong>, validación legal de documentos de respaldo y liquidación automatizada de bonos de contingencia y calendario.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-            <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 flex flex-col justify-between">
-              <span className="text-slate-400 text-[11px] font-medium flex items-center justify-between">
-                Base Grado 15
-                {esDirectivaOAdmin && (
-                  <button
-                    onClick={() => setModalConfigBaseG15(true)}
-                    className="text-blue-300 hover:text-white transition"
-                    title="Configurar sueldo Grado 15"
-                  >
-                    <SettingsIcon className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </span>
-              <span className="text-lg font-black text-white mt-1">
-                {catalogo ? formatCurrency(catalogo.sueldo_base_grado_15) : '$750.000'}
-              </span>
-              <span className="text-[10px] text-emerald-300 mt-0.5">Base de cálculo activa</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 flex flex-col justify-between">
-              <span className="text-slate-400 text-[11px] font-medium">Requisito Permanencia</span>
-              <span className="text-base font-bold text-white mt-1">Mínimo 6 Meses</span>
-              <span className={`text-[10px] font-semibold mt-0.5 ${cumpleRequisito6Meses ? 'text-emerald-300' : 'text-amber-300'}`}>
-                {user?.nombreCompleto ? (cumpleRequisito6Meses ? '✓ Socio Habilitado' : '⚠ Antigüedad < 6 meses') : 'Regla activa'}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 col-span-2 sm:col-span-1 flex flex-col justify-between">
-              <span className="text-slate-400 text-[11px] font-medium">Próximo Bono Calendario</span>
-              <span className="text-sm font-bold text-blue-200 mt-1">Invierno (Julio, 15%)</span>
-              <span className="text-[10px] text-slate-300 mt-0.5">Navidad (Diciembre, 10-15%)</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* 1. Header Institucional & Parámetros Modular */}
+      <BeneficiosHeader
+        catalogo={catalogo}
+        user={user}
+        cumpleRequisito6Meses={cumpleRequisito6Meses}
+        esDirectivaOAdmin={esDirectivaOAdmin}
+        onOpenConfigBaseG15={() => setModalConfigBaseG15(true)}
+      />
 
       {/* Alertas */}
       {successMsg && (
@@ -467,86 +411,16 @@ export default function BeneficiosPage() {
         </div>
       )}
 
-      {/* 2. Barra de Navegación por Pestañas */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setActiveTab('catalogo')}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-              activeTab === 'catalogo'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <GiftIcon className="w-4 h-4" />
-            Catálogo & Reglas de Bonos
-          </button>
-
-          <button
-            onClick={() => setActiveTab('hoja_socio')}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-              activeTab === 'hoja_socio'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <FileTextIcon className="w-4 h-4" />
-            Mi Hoja de Beneficios
-            {solicitudes.length > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeTab === 'hoja_socio' ? 'bg-white text-blue-700' : 'bg-blue-100 text-blue-700'}`}>
-                {solicitudes.length}
-              </span>
-            )}
-          </button>
-
-          {esDirectivaOAdmin && (
-            <>
-              <button
-                onClick={() => setActiveTab('gestion_directiva')}
-                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-                  activeTab === 'gestion_directiva'
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <ShieldCheckIcon className="w-4 h-4" />
-                Gestión & Aprobaciones (Directiva)
-              </button>
-
-              <button
-                onClick={() => setActiveTab('liquidacion_masiva')}
-                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-                  activeTab === 'liquidacion_masiva'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <SlidersIcon className="w-4 h-4" />
-                Liquidación Masiva (HU-06)
-              </button>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {esDirectivaOAdmin && (
-            <button
-              onClick={() => setModalAsignacionDirecta(true)}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 shadow-sm flex items-center gap-1.5 transition"
-            >
-              <PalmtreeIcon className="w-3.5 h-3.5" />
-              Asignación Directa Vacaciones
-            </button>
-          )}
-          <button
-            onClick={cargarDatos}
-            className="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-xl transition"
-            title="Refrescar datos"
-          >
-            <RefreshCwIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+      {/* 2. Barra de Navegación por Pestañas Modular */}
+      <BeneficiosNavTabs
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        esDirectivaOAdmin={esDirectivaOAdmin}
+        totalSolicitudes={solicitudes.length}
+        isLoading={isLoading}
+        onRefresh={cargarDatos}
+        onOpenAsignacionDirecta={() => setModalAsignacionDirecta(true)}
+      />
 
       {/* 3. Componentes Modulares por Pestaña */}
       {activeTab === 'catalogo' && (
