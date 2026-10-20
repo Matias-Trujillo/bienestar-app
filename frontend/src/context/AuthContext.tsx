@@ -18,6 +18,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +37,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+  };
+
+  const refreshUser = async () => {
+    const stored = localStorage.getItem(TOKEN_KEY);
+    if (!stored) return;
+    try {
+      const me = await fetchFromApi<User>('/auth/me', { headers: { Authorization: `Bearer ${stored}` } });
+      setUser(me);
+      localStorage.setItem(USER_KEY, JSON.stringify(me));
+    } catch (e) {
+      console.error('Error al actualizar datos del usuario:', e);
+    }
   };
 
   useEffect(() => {
@@ -74,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated: !!user, isLoading, login, logout }}
+      value={{ user, token, isAuthenticated: !!user, isLoading, login, logout, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

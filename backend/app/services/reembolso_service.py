@@ -167,6 +167,14 @@ async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSoc
     puede, fecha_hab, msg_carencia = validar_carencia(user)
     meses = _parse_antiguedad_a_meses(user.antiguedad)
 
+    # Calcular monto total en revisión (comprometido preventivamente)
+    monto_en_revision = await db.scalar(
+        select(func.coalesce(func.sum(SolicitudReembolso.monto_reembolso), 0)).where(
+            SolicitudReembolso.socio_id == user.id,
+            SolicitudReembolso.estado == EstadoReembolso.EN_REVISION,
+        )
+    ) or 0
+
     # Calcular total reembolsado en el período (aprobado + pagado)
     total_reembolsado = await db.scalar(
         select(func.coalesce(func.sum(SolicitudReembolso.monto_reembolso), 0)).where(
@@ -178,14 +186,14 @@ async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSoc
         )
     ) or 0
 
-    en_revision = await db.scalar(
+    en_revision_count = await db.scalar(
         select(func.count(SolicitudReembolso.id)).where(
             SolicitudReembolso.socio_id == user.id,
             SolicitudReembolso.estado == EstadoReembolso.EN_REVISION,
         )
     ) or 0
 
-    aprobadas = await db.scalar(
+    aprobadas_count = await db.scalar(
         select(func.count(SolicitudReembolso.id)).where(
             SolicitudReembolso.socio_id == user.id,
             SolicitudReembolso.estado.in_([
@@ -196,8 +204,16 @@ async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSoc
     ) or 0
 
     total_anual = float(min(user.saldo_salud_total_anual, TOPE_ANUAL_SALUD))
-    disponible = float(max(0, min(user.saldo_salud_disponible, TOPE_ANUAL_SALUD)))
+    total_comprometido = float(monto_en_revision + total_reembolsado)
+    disponible = float(max(0.0, total_anual - total_comprometido))
     pct = ((total_anual - disponible) / total_anual * 100) if total_anual > 0 else 0
+
+    # Sincronizar en la BD el saldo_salud_disponible del usuario para que quede consistente
+    user_db = await db.get(User, user.id)
+    if user_db and user_db.saldo_salud_disponible != int(disponible):
+        user_db.saldo_salud_disponible = int(disponible)
+        db.add(user_db)
+        await db.commit()
 
     return ResumenSaludSocio(
         socio_id=user.id,
@@ -214,8 +230,8 @@ async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSoc
         saldo_salud_total_anual=total_anual,
         porcentaje_utilizado=round(pct, 1),
         total_reembolsado_periodo=float(total_reembolsado),
-        solicitudes_en_revision=en_revision,
-        solicitudes_aprobadas=aprobadas,
+        solicitudes_en_revision=en_revision_count,
+        solicitudes_aprobadas=aprobadas_count,
     )
 
 
@@ -228,9 +244,6 @@ async def crear_solicitud(
 ) -> SolicitudReembolso:
     """Crea y persiste una nueva solicitud de reembolso tras validar reglas de negocio."""
     codigo = await generar_codigo(db)
-
-    # Rebaja preventiva del cupo disponible mientras la solicitud está pendiente.
-    user.saldo_salud_disponible = int(user.saldo_salud_disponible - payload.monto_copago)
 
     solicitud = SolicitudReembolso(
         codigo=codigo,
@@ -252,6 +265,14 @@ async def crear_solicitud(
     )
 
     db.add(solicitud)
+    await db.flush()
+
+    # Actualizar preventivamente el saldo en BD
+    user_db = await db.get(User, user.id)
+    if user_db:
+        user_db.saldo_salud_disponible = max(0, int(user_db.saldo_salud_disponible - payload.monto_copago))
+        db.add(user_db)
+
     await db.commit()
     await db.refresh(solicitud)
     return solicitud

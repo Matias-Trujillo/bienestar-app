@@ -136,13 +136,14 @@ async def post_crear_solicitud(
                 detail=f"Fecha de {etiqueta}: {resultado_plazo.mensaje}",
             )
 
-    # 3. Verificar saldo disponible
-    if body.monto_copago > user.saldo_salud_disponible:
+    # 3. Verificar saldo disponible contra el saldo real
+    resumen_socio = await obtener_resumen_socio(user, db)
+    if body.monto_copago > resumen_socio.saldo_salud_disponible:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"El monto de copago solicitado (${body.monto_copago:,.0f}) "
-                f"supera su saldo disponible (${user.saldo_salud_disponible:,.0f})."
+                f"supera su saldo disponible (${resumen_socio.saldo_salud_disponible:,.0f})."
             ),
         )
 

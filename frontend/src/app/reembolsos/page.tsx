@@ -38,7 +38,7 @@ const EMPTY_RESUMEN: ResumenSaludSocio = {
 };
 
 export default function ReembolsosPage() {
-  const { user, token } = useAuth();
+  const { user, token, refreshUser } = useAuth();
 
   // Estados de datos
   const [resumen, setResumen] = useState<ResumenSaludSocio>(EMPTY_RESUMEN);
@@ -103,7 +103,21 @@ export default function ReembolsosPage() {
 
   useEffect(() => {
     cargarReembolsos();
+    if (refreshUser) {
+      refreshUser();
+    }
+    if (typeof window !== 'undefined' && window.location.search.includes('nueva=1')) {
+      setShowModal(true);
+    }
   }, [cargarReembolsos]);
+
+  const handleAbrirModal = async () => {
+    await cargarReembolsos();
+    if (refreshUser) {
+      await refreshUser();
+    }
+    setShowModal(true);
+  };
 
   const puedeSolicitar = resumen.puede_solicitar;
 
@@ -292,6 +306,9 @@ export default function ReembolsosPage() {
       }
 
       await cargarReembolsos();
+      if (refreshUser) {
+        await refreshUser();
+      }
 
       setShowModal(false);
       setUploadedFile(null);
@@ -335,7 +352,7 @@ export default function ReembolsosPage() {
             ← Dashboard
           </Link>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={handleAbrirModal}
             disabled={!puedeSolicitar}
             title={!puedeSolicitar ? 'Requiere al menos 6 meses de antigüedad' : undefined}
             id="btn-nueva-solicitud"
