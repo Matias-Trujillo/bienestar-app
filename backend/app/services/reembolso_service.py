@@ -12,7 +12,9 @@ from typing import List, Optional, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.models.audit import AuditLog
 from app.models.reembolso import (
     EstadoReembolso,
     ESTADO_REEMBOLSO_LABELS,
@@ -136,6 +138,10 @@ def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
     return ReembolsoOut(
         id=sol.id,
         codigo=sol.codigo,
+        socio_id=sol.socio_id,
+        socio_nombre=sol.socio.nombre_completo if sol.socio else "",
+        socio_rut=sol.socio.rut if sol.socio else "",
+        socio_departamento=sol.socio.departamento if sol.socio else "",
         tipo_prestacion=sol.tipo_prestacion.value,
         tipo_prestacion_label=TIPO_PRESTACION_LABELS.get(
             sol.tipo_prestacion, sol.tipo_prestacion.value
@@ -284,7 +290,85 @@ async def listar_solicitudes_socio(
     """Lista todas las solicitudes de reembolso del socio, ordenadas por fecha."""
     result = await db.scalars(
         select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio))
         .where(SolicitudReembolso.socio_id == user.id)
         .order_by(SolicitudReembolso.created_at.desc())
     )
     return list(result)
+
+
+async def listar_todas_solicitudes_admin(
+    db: AsyncSession, estado: Optional[str] = None
+) -> List[SolicitudReembolso]:
+    """Lista todas las solicitudes de reembolso de los socios para la bandeja de administración."""
+    query = (
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio))
+        .order_by(SolicitudReembolso.created_at.desc())
+    )
+    if estado and estado.lower() != "todos":
+        try:
+            estado_enum = EstadoReembolso(estado.lower())
+            query = query.where(SolicitudReembolso.estado == estado_enum)
+        except ValueError:
+            pass
+
+    result = await db.scalars(query)
+    return list(result)
+
+
+async def resolver_solicitud_reembolso(
+    solicitud_id: int,
+    accion: str,
+    motivo_rechazo: str,
+    admin_user: User,
+    db: AsyncSession,
+) -> SolicitudReembolso:
+    """Aprueba o rechaza una solicitud de reembolso de salud."""
+    solicitud = await db.get(SolicitudReembolso, solicitud_id)
+    if not solicitud:
+        raise ValueError("Solicitud de reembolso no encontrada.")
+
+    accion_upper = accion.upper().strip()
+    if accion_upper not in ("APROBAR", "RECHAZAR"):
+        raise ValueError("Acción no válida. Debe ser 'APROBAR' o 'RECHAZAR'.")
+
+    # Obtener el socio para actualizar saldos si se rechaza
+    socio = await db.get(User, solicitud.socio_id)
+
+    if accion_upper == "APROBAR":
+        solicitud.estado = EstadoReembolso.APROBADO
+        solicitud.motivo_rechazo = ""
+    else:
+        # Al rechazar, restauramos el saldo preventivo en el usuario
+        solicitud.estado = EstadoReembolso.RECHAZADO
+        solicitud.motivo_rechazo = motivo_rechazo or "Rechazado por administración"
+        if socio:
+            socio.saldo_salud_disponible = min(
+                socio.saldo_salud_total_anual,
+                int(socio.saldo_salud_disponible + solicitud.monto_reembolso)
+            )
+            db.add(socio)
+
+    # Registrar evento inmutable en AuditLog
+    audit = AuditLog(
+        usuario_id=admin_user.id,
+        usuario_nombre=admin_user.nombre_completo,
+        usuario_rut=admin_user.rut,
+        usuario_rol=admin_user.rol.value if hasattr(admin_user.rol, 'value') else str(admin_user.rol),
+        modulo="REEMBOLSOS",
+        accion=f"{accion_upper}_REEMBOLSO",
+        recurso_tipo="SolicitudReembolso",
+        recurso_id=solicitud.codigo,
+        detalles=(
+            f"Solicitud {solicitud.codigo} por ${solicitud.monto_copago:,.0f} "
+            f"resuelta como {accion_upper}. Socio: {socio.nombre_completo if socio else ''}"
+            + (f" | Motivo: {motivo_rechazo}" if accion_upper == "RECHAZAR" and motivo_rechazo else "")
+        ),
+    )
+    db.add(audit)
+    db.add(solicitud)
+    await db.commit()
+    await db.refresh(solicitud)
+    return solicitud
+

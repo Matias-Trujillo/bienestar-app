@@ -58,10 +58,20 @@ class ReembolsoCreateRequest(BaseModel):
 
 # ---------- Response Schemas ----------
 
+class ResolverReembolsoRequest(BaseModel):
+    """Acción de aprobación o rechazo ejecutada por admin o superusuario."""
+    accion: str = Field(..., description="'APROBAR' o 'RECHAZAR'")
+    motivo_rechazo: Optional[str] = Field("", description="Motivo en caso de rechazo")
+
+
 class ReembolsoOut(BaseModel):
     """Representación de una solicitud de reembolso para el frontend."""
     id: int
     codigo: str
+    socio_id: Optional[int] = None
+    socio_nombre: Optional[str] = ""
+    socio_rut: Optional[str] = ""
+    socio_departamento: Optional[str] = ""
     tipo_prestacion: str
     tipo_prestacion_label: str
     descripcion: str

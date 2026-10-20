@@ -2,6 +2,7 @@
 from app.schemas.common import MessageResponse, PaginatedResponse, SocioSummarySchema
 from app.schemas.reembolso import (
     ReembolsoCreateRequest,
+    ResolverReembolsoRequest,
     ReembolsoOut,
     ResumenSaludSocio,
     ValidacionFechaResponse,
@@ -13,6 +14,7 @@ __all__ = [
     "PaginatedResponse",
     "SocioSummarySchema",
     "ReembolsoCreateRequest",
+    "ResolverReembolsoRequest",
     "ReembolsoOut",
     "ResumenSaludSocio",
     "ValidacionFechaResponse",

@@ -13,7 +13,7 @@ import shutil
 import uuid
 from datetime import date
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from fastapi.responses import FileResponse
@@ -29,6 +29,7 @@ from app.models import User, UserRole
 from app.models.reembolso import SolicitudReembolso
 from app.schemas.reembolso import (
     ReembolsoCreateRequest,
+    ResolverReembolsoRequest,
     ReembolsoOut,
     ResumenSaludSocio,
     ValidacionFechaResponse,
@@ -37,6 +38,8 @@ from app.schemas.reembolso import (
 from app.services.reembolso_service import (
     crear_solicitud,
     listar_solicitudes_socio,
+    listar_todas_solicitudes_admin,
+    resolver_solicitud_reembolso,
     obtener_resumen_socio,
     solicitud_to_out,
     validar_carencia,
@@ -329,3 +332,59 @@ async def get_comprobante(
         filename=solicitud.comprobante_filename,
         content_disposition_type="inline",
     )
+
+
+# ---------- GET /reembolsos/admin/solicitudes ----------
+
+@router.get(
+    "/admin/solicitudes",
+    response_model=List[ReembolsoOut],
+    summary="Bandeja de administración: obtener todas las solicitudes de reembolso",
+)
+async def get_admin_solicitudes(
+    estado: Optional[str] = Query(None, description="Filtrar por estado (ej: 'en_revision')"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not (user.is_superuser or user.rol in (UserRole.ADMIN, UserRole.SUPERUSUARIO)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso restringido a Administradores y Superusuarios.",
+        )
+    solicitudes = await listar_todas_solicitudes_admin(db, estado=estado)
+    return [solicitud_to_out(s) for s in solicitudes]
+
+
+# ---------- PATCH /reembolsos/admin/solicitud/{solicitud_id}/resolver ----------
+
+@router.patch(
+    "/admin/solicitud/{solicitud_id}/resolver",
+    response_model=ReembolsoOut,
+    summary="Aprobar o rechazar solicitud de reembolso (Administrador / Superusuario)",
+)
+async def patch_resolver_solicitud(
+    solicitud_id: int,
+    body: ResolverReembolsoRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not (user.is_superuser or user.rol in (UserRole.ADMIN, UserRole.SUPERUSUARIO)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso restringido a Administradores y Superusuarios.",
+        )
+    try:
+        solicitud = await resolver_solicitud_reembolso(
+            solicitud_id=solicitud_id,
+            accion=body.accion,
+            motivo_rechazo=body.motivo_rechazo or "",
+            admin_user=user,
+            db=db,
+        )
+        return solicitud_to_out(solicitud)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+

@@ -214,6 +214,11 @@ export type EstadoReembolso =
 export interface SolicitudReembolso {
   id: number;
   codigo: string;
+  socio_id?: number;
+  socio_nombre?: string;
+  socio_rut?: string;
+  socio_departamento?: string;
+  socio_email?: string;
   tipo_prestacion: TipoPrestacion;
   tipo_prestacion_label: string;
   descripcion: string;

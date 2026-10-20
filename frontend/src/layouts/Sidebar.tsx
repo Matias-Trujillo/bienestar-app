@@ -3,13 +3,22 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const navigationItems = [
+export interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ReactNode;
+  badge?: string;
+  adminOnly?: boolean;
+}
+
+export const navigationItems: NavItem[] = [
   {
     name: 'Dashboard (Hoja Socio)',
     href: '/',
@@ -34,10 +43,21 @@ export const navigationItems = [
     href: '/reembolsos',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2-0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
       </svg>
     ),
     badge: 'Salud',
+  },
+  {
+    name: 'Aprobaciones',
+    href: '/aprobaciones',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+    ),
+    badge: 'Admin',
+    adminOnly: true,
   },
   {
     name: 'Beneficios Sociales',
@@ -71,6 +91,13 @@ export const navigationItems = [
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
+
+  const itemsVisibles = navigationItems.filter(
+    (item) => !item.adminOnly || esAdminOSuper
+  );
 
   return (
     <>
@@ -122,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Módulos Principales
           </p>
-          {navigationItems.map((item) => {
+          {itemsVisibles.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
