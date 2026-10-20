@@ -257,7 +257,16 @@ export default function ReembolsosPage() {
       return;
     }
 
+    const boleta = parseFloat(formData.monto_boleta) || 0;
     const copago = parseFloat(formData.monto_copago) || 0;
+
+    if (copago > boleta) {
+      setErrorMsg(
+        `El monto a reembolsar ($${copago.toLocaleString('es-CL')}) no puede ser mayor al monto total de la boleta ($${boleta.toLocaleString('es-CL')}).`
+      );
+      return;
+    }
+
     if (copago > resumen.saldo_salud_disponible) {
       setErrorMsg(
         `El monto de copago solicitado ($${copago.toLocaleString('es-CL')}) supera su saldo disponible ($${resumen.saldo_salud_disponible.toLocaleString('es-CL')}).`

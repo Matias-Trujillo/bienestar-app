@@ -136,7 +136,14 @@ async def post_crear_solicitud(
                 detail=f"Fecha de {etiqueta}: {resultado_plazo.mensaje}",
             )
 
-    # 3. Verificar saldo disponible contra el saldo real
+    # 3. Validar que el monto de copago no supere el monto de la boleta
+    if body.monto_copago > body.monto_boleta:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El copago a reembolsar no puede ser superior al monto total de la boleta.",
+        )
+
+    # 4. Verificar saldo disponible contra el saldo real
     resumen_socio = await obtener_resumen_socio(user, db)
     if body.monto_copago > resumen_socio.saldo_salud_disponible:
         raise HTTPException(

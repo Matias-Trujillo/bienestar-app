@@ -59,12 +59,14 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
 
   if (!show || !mounted) return null;
 
-  // Cálculos reactivos de saldo
+  // Cálculos reactivos de saldo y montos
+  const boletaNum = parseFloat(formData.monto_boleta) || 0;
   const copagoNum = parseFloat(formData.monto_copago) || 0;
   const saldoDisponible = Number(resumen.saldo_salud_disponible) || 0;
   const saldoTotal = Number(resumen.saldo_salud_total_anual) || 150000;
   const saldoRestanteProyectado = Math.max(0, saldoDisponible - copagoNum);
   const excedeSaldo = copagoNum > saldoDisponible;
+  const excedeBoleta = boletaNum > 0 && copagoNum > boletaNum;
 
   const pctUtilizadoActual = saldoTotal > 0
     ? Math.min(100, Math.round(((saldoTotal - saldoDisponible) / saldoTotal) * 100))
@@ -73,6 +75,40 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
   const pctProyectado = saldoTotal > 0
     ? Math.min(100, Math.round(((saldoTotal - saldoRestanteProyectado) / saldoTotal) * 100))
     : 0;
+
+  // Manejo de cambio en monto boleta: copia automática al copago y ajuste de topes
+  const handleMontoBoletaChange = (val: string) => {
+    const nuevaBoletaNum = parseFloat(val) || 0;
+    const copagoActualNum = parseFloat(formData.monto_copago) || 0;
+
+    // Si el copago estaba vacío, era igual a la boleta anterior,
+    // o si el copago actual excede el nuevo valor de la boleta:
+    // copiamos automáticamente el nuevo valor al copago a reembolsar.
+    const debeCopiar =
+      formData.monto_copago === '' ||
+      formData.monto_copago === formData.monto_boleta ||
+      (nuevaBoletaNum > 0 && copagoActualNum > nuevaBoletaNum);
+
+    setFormData((prev) => ({
+      ...prev,
+      monto_boleta: val,
+      monto_copago: debeCopiar ? val : prev.monto_copago,
+    }));
+  };
+
+  // Manejo de cambio en copago: permite modificarlo pero nunca superar el monto de la boleta
+  const handleMontoCopagoChange = (val: string) => {
+    const boletaActualNum = parseFloat(formData.monto_boleta) || 0;
+    const enteredNum = parseFloat(val) || 0;
+
+    // Si intenta ingresar un monto mayor al de la boleta, se fija al tope de la boleta
+    if (boletaActualNum > 0 && enteredNum > boletaActualNum) {
+      setFormData((prev) => ({ ...prev, monto_copago: prev.monto_boleta }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, monto_copago: val }));
+  };
 
   // Renderizado en Portal directo al body para cubrir el 100% de la ventana completa
   return createPortal(
@@ -275,30 +311,48 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                   placeholder="Ej: 35000"
                   min="1"
                   value={formData.monto_boleta}
-                  onChange={(e) => setFormData((p) => ({ ...p, monto_boleta: e.target.value }))}
+                  onChange={(e) => handleMontoBoletaChange(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
                   required
                   id="input-monto-boleta"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
-                  Copago a Reembolsar ($ CLP) <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-0.5">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Copago a Reembolsar ($ CLP) <span className="text-rose-500">*</span>
+                  </label>
+                  {boletaNum > 0 && (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      Tope: {formatCurrency(boletaNum)}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   placeholder="Ej: 20000"
                   min="1"
+                  max={formData.monto_boleta || undefined}
                   value={formData.monto_copago}
-                  onChange={(e) => setFormData((p) => ({ ...p, monto_copago: e.target.value }))}
+                  onChange={(e) => handleMontoCopagoChange(e.target.value)}
+                  onBlur={() => {
+                    if (boletaNum > 0 && copagoNum > boletaNum) {
+                      setFormData((p) => ({ ...p, monto_copago: p.monto_boleta }));
+                    }
+                  }}
                   className={`w-full px-2.5 py-1.5 text-xs sm:text-sm border rounded-lg bg-white focus:ring-2 focus:outline-none transition ${
-                    excedeSaldo
+                    excedeSaldo || excedeBoleta
                       ? 'border-rose-400 focus:ring-rose-500 bg-rose-50/30'
                       : 'border-slate-300 focus:ring-emerald-500'
                   }`}
                   required
                   id="input-monto-copago"
                 />
+                {excedeBoleta ? (
+                  <span className="text-[10px] font-semibold text-rose-600 mt-0.5 block">
+                    ⚠ El copago no puede ser mayor a la boleta ({formatCurrency(boletaNum)})
+                  </span>
+                ) : null}
               </div>
             </div>
 
@@ -400,9 +454,13 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
         {/* 3. Footer Fijo (Siempre visible al pie del modal) */}
         <div className="flex-shrink-0 px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 z-10">
           <div className="text-[11px] text-slate-500">
-            {copagoNum > 0 && !excedeSaldo ? (
+            {copagoNum > 0 && !excedeSaldo && !excedeBoleta ? (
               <span className="text-emerald-700 font-semibold">
                 Monto a solicitar: {formatCurrency(copagoNum)}
+              </span>
+            ) : excedeBoleta ? (
+              <span className="text-rose-600 font-semibold">
+                ⚠ El copago no puede superar la boleta ({formatCurrency(boletaNum)})
               </span>
             ) : (
               <span className="text-slate-400">Campos obligatorios marcados con (*)</span>
@@ -422,6 +480,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               disabled={
                 enviando ||
                 excedeSaldo ||
+                excedeBoleta ||
                 (fechaValidacion !== null && !fechaValidacion.dentro)
               }
               className="px-4 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
