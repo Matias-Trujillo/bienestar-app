@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { SolicitudReembolso } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { getEstadoBadge } from './TablaSolicitudes';
@@ -14,11 +15,17 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
   onClose,
   onVerComprobante,
 }) => {
-  if (!solicitud) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!solicitud || !mounted) return null;
   const badge = getEstadoBadge(solicitud.estado);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -109,6 +116,7 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

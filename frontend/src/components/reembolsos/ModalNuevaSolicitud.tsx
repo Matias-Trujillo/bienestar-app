@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { TipoPrestacion, TIPO_PRESTACION_LABELS, TIPOS_PRESTACION_SOLICITABLES, ResumenSaludSocio } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -50,7 +51,13 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
   onFileChange,
   onSubmit,
 }) => {
-  if (!show) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!show || !mounted) return null;
 
   // Cálculos reactivos de saldo
   const copagoNum = parseFloat(formData.monto_copago) || 0;
@@ -67,24 +74,25 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
     ? Math.min(100, Math.round(((saldoTotal - saldoRestanteProyectado) / saldoTotal) * 100))
     : 0;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-2 sm:p-4 flex items-center justify-center animate-fade-in">
-      {/* Contenedor del Modal con altura máxima estricta y min-h-0 para scroll interno */}
-      <div className="relative bg-white rounded-2xl max-w-lg sm:max-w-xl w-full max-h-[84vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden my-auto animate-scale-in">
+  // Renderizado en Portal directo al body para cubrir el 100% de la ventana completa
+  return createPortal(
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-3 sm:p-5 flex items-center justify-center animate-fade-in">
+      {/* Contenedor del Modal Vertical y Cómodo */}
+      <div className="relative bg-white rounded-2xl max-w-lg sm:max-w-xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden my-auto animate-scale-in">
         
-        {/* 1. Header Fijo (Nunca se corta ni se desplaza) */}
-        <div className="flex-shrink-0 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-slate-100 flex items-center justify-between bg-white z-10">
-          <div className="flex items-center gap-2.5">
+        {/* 1. Header Fijo */}
+        <div className="flex-shrink-0 px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white z-10">
+          <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-xs">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2-0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-800 leading-tight">
+              <h3 className="text-base font-bold text-slate-800 leading-tight">
                 Nueva Solicitud de Reembolso
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 leading-none mt-0.5">
                 Gastos médicos, medicamentos o dentales
               </p>
             </div>
@@ -92,24 +100,24 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-base font-bold transition"
+            className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center text-sm font-bold transition"
             aria-label="Cerrar modal"
           >
             ✕
           </button>
         </div>
 
-        {/* 2. Cuerpo del Modal con Scroll Interno Compacto (min-h-0 obligatorio) */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-3.5 space-y-3 text-xs">
+        {/* 2. Cuerpo con Flujo Vertical Hacia Abajo y Scroll Interno Fluido */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3.5 space-y-3 text-xs">
           
-          {/* Pequeña tarjeta compacta de Saldo Actual */}
-          <div className="rounded-xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-slate-50 p-2.5 sm:p-3 shadow-2xs">
+          {/* Tarjeta Reactiva de Saldo */}
+          <div className="rounded-xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-slate-50 p-3 shadow-2xs">
             <div className="flex items-center justify-between">
               <div>
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Saldo Actual Disponible
                 </span>
-                <span className="text-base sm:text-lg font-extrabold text-emerald-700">
+                <span className="text-lg font-extrabold text-emerald-700">
                   {formatCurrency(saldoDisponible)}
                 </span>
               </div>
@@ -136,7 +144,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
 
               {/* Indicador reactivo del copago ingresado */}
               {copagoNum > 0 ? (
-                <div className="mt-1 flex items-center justify-between text-[10px] sm:text-[11px]">
+                <div className="mt-1 flex items-center justify-between text-[11px]">
                   {excedeSaldo ? (
                     <span className="font-semibold text-rose-600">
                       ⚠ Excede el saldo disponible por {formatCurrency(copagoNum - saldoDisponible)}
@@ -157,9 +165,9 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
             </div>
           </div>
 
-          {/* Formulario con campos compactos */}
+          {/* Formulario Secuencial Vertical hacia Abajo */}
           <form id="form-reembolso" onSubmit={onSubmit} className="space-y-2.5">
-            {/* Tipo de prestación médica */}
+            {/* 1. Tipo de prestación médica */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
                 Tipo de Prestación Médica <span className="text-rose-500">*</span>
@@ -180,7 +188,37 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               </select>
             </div>
 
-            {/* Fechas en 2 columnas */}
+            {/* 2. Beneficiario */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                Beneficiario <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={formData.beneficiario_parentesco}
+                onChange={(e) => {
+                  const sel = e.target.value;
+                  const titular = usuarioNombre || 'Socio Titular';
+                  const nombres: Record<string, string> = {
+                    Titular: titular,
+                    Hija: 'Valentina Valenzuela',
+                    Hijo: 'Matías Valenzuela',
+                  };
+                  setFormData((p) => ({
+                    ...p,
+                    beneficiario_parentesco: sel,
+                    beneficiario_nombre: nombres[sel] || p.beneficiario_nombre,
+                  }));
+                }}
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                id="select-beneficiario"
+              >
+                <option value="Titular">{usuarioNombre || 'Socio Titular'} (Titular)</option>
+                <option value="Hija">Valentina Valenzuela (Hija / Carga)</option>
+                <option value="Hijo">Matías Valenzuela (Hijo / Carga)</option>
+              </select>
+            </div>
+
+            {/* 3. Fechas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
@@ -226,7 +264,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               </div>
             )}
 
-            {/* Montos en 2 columnas */}
+            {/* 4. Montos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
@@ -264,52 +302,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               </div>
             </div>
 
-            {/* Beneficiario y Descripción en 2 columnas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
-                  Beneficiario <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={formData.beneficiario_parentesco}
-                  onChange={(e) => {
-                    const sel = e.target.value;
-                    const titular = usuarioNombre || 'Socio Titular';
-                    const nombres: Record<string, string> = {
-                      Titular: titular,
-                      Hija: 'Valentina Valenzuela',
-                      Hijo: 'Matías Valenzuela',
-                    };
-                    setFormData((p) => ({
-                      ...p,
-                      beneficiario_parentesco: sel,
-                      beneficiario_nombre: nombres[sel] || p.beneficiario_nombre,
-                    }));
-                  }}
-                  className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
-                  id="select-beneficiario"
-                >
-                  <option value="Titular">{usuarioNombre || 'Socio Titular'} (Titular)</option>
-                  <option value="Hija">Valentina Valenzuela (Hija / Carga)</option>
-                  <option value="Hijo">Matías Valenzuela (Hijo / Carga)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
-                  Descripción del gasto
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: Medicamento con receta"
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData((p) => ({ ...p, descripcion: e.target.value }))}
-                  className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
-                  id="input-descripcion"
-                />
-              </div>
-            </div>
-
-            {/* Tipo de documento de respaldo */}
+            {/* 5. Tipo de documento de respaldo */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
                 Tipo de Documento de Respaldo <span className="text-rose-500">*</span>
@@ -328,7 +321,22 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               </select>
             </div>
 
-            {/* Adjuntar Comprobante Compacto */}
+            {/* 6. Descripción del gasto */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                Descripción del gasto
+              </label>
+              <input
+                type="text"
+                placeholder="Ej: Medicamento con receta"
+                value={formData.descripcion}
+                onChange={(e) => setFormData((p) => ({ ...p, descripcion: e.target.value }))}
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                id="input-descripcion"
+              />
+            </div>
+
+            {/* 7. Adjuntar Comprobante */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
                 Adjuntar Comprobante de Atención <span className="text-rose-500">*</span>
@@ -372,7 +380,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               </label>
             </div>
 
-            {/* Declaración de veracidad */}
+            {/* 8. Declaración de veracidad */}
             <label className="flex items-start gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80 cursor-pointer hover:bg-slate-100/60 transition">
               <input
                 type="checkbox"
@@ -382,27 +390,29 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                 required
                 id="check-declaracion"
               />
-              <span className="text-[10px] sm:text-[11px] text-slate-600 leading-tight">
+              <span className="text-[11px] text-slate-600 leading-tight">
                 Declaro bajo juramento que los antecedentes y comprobantes ingresados son verídicos, fidedignos y legales.
               </span>
             </label>
           </form>
         </div>
 
-        {/* 3. Footer Fijo (Siempre visible al pie) */}
-        <div className="flex-shrink-0 px-4 py-2.5 sm:px-5 sm:py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2 z-10">
+        {/* 3. Footer Fijo (Siempre visible al pie del modal) */}
+        <div className="flex-shrink-0 px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 z-10">
           <div className="text-[11px] text-slate-500">
-            {copagoNum > 0 && !excedeSaldo && (
+            {copagoNum > 0 && !excedeSaldo ? (
               <span className="text-emerald-700 font-semibold">
                 Monto a solicitar: {formatCurrency(copagoNum)}
               </span>
+            ) : (
+              <span className="text-slate-400">Campos obligatorios marcados con (*)</span>
             )}
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-lg transition"
+              className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-lg transition"
             >
               Cancelar
             </button>
@@ -423,6 +433,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

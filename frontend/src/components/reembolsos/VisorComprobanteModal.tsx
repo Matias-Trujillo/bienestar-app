@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface VisorComprobanteModalProps {
   previewComprobante: {
@@ -24,10 +25,16 @@ export const VisorComprobanteModal: React.FC<VisorComprobanteModalProps> = ({
   onSubirArchivo,
   onErrorLoading,
 }) => {
-  if (!previewComprobante) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!previewComprobante || !mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden animate-scale-in">
         {/* Header del visor */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
@@ -161,6 +168,7 @@ export const VisorComprobanteModal: React.FC<VisorComprobanteModalProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
