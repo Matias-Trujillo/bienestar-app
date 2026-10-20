@@ -39,6 +39,7 @@ from app.services.reembolso_service import (
     crear_solicitud,
     listar_solicitudes_socio,
     listar_todas_solicitudes_admin,
+    contar_solicitudes_pendientes_admin,
     resolver_solicitud_reembolso,
     obtener_resumen_socio,
     solicitud_to_out,
@@ -353,6 +354,25 @@ async def get_admin_solicitudes(
         )
     solicitudes = await listar_todas_solicitudes_admin(db, estado=estado)
     return [solicitud_to_out(s) for s in solicitudes]
+
+
+# ---------- GET /reembolsos/admin/conteo-pendientes ----------
+
+@router.get(
+    "/admin/conteo-pendientes",
+    summary="Obtener cantidad de solicitudes pendientes de aprobación (admin y superusuario)",
+)
+async def get_admin_conteo_pendientes(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not (user.is_superuser or user.rol in (UserRole.ADMIN, UserRole.SUPERUSUARIO)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso restringido a Administradores y Superusuarios.",
+        )
+    total = await contar_solicitudes_pendientes_admin(db)
+    return {"pendientes": total}
 
 
 # ---------- PATCH /reembolsos/admin/solicitud/{solicitud_id}/resolver ----------

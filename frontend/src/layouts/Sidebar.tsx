@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { fetchFromApi } from '@/lib/api';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -56,7 +57,6 @@ export const navigationItems: NavItem[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
       </svg>
     ),
-    badge: 'Admin',
     adminOnly: true,
   },
   {
@@ -86,18 +86,52 @@ export const navigationItems: NavItem[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
+    adminOnly: true,
   },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [pendientesCount, setPendientesCount] = useState<number | null>(null);
 
   const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
 
   const itemsVisibles = navigationItems.filter(
     (item) => !item.adminOnly || esAdminOSuper
   );
+
+  const cargarConteoPendientes = useCallback(async () => {
+    if (!esAdminOSuper || !token) return;
+    try {
+      const data = await fetchFromApi<{ pendientes: number }>('/reembolsos/admin/conteo-pendientes', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data && typeof data.pendientes === 'number') {
+        setPendientesCount(data.pendientes);
+      }
+    } catch {
+      // Ignorar silenciosamente si no está disponible o falla momentáneamente
+    }
+  }, [esAdminOSuper, token]);
+
+  useEffect(() => {
+    cargarConteoPendientes();
+
+    // Sondeo periódico cada 20 segundos
+    const interval = setInterval(cargarConteoPendientes, 20000);
+
+    // Escuchar evento personalizado emitido cuando se aprueba, rechaza o crea una solicitud
+    const handleUpdate = () => {
+      cargarConteoPendientes();
+    };
+    window.addEventListener('solicitudes-updated', handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('solicitudes-updated', handleUpdate);
+    };
+  }, [cargarConteoPendientes, pathname]);
 
   return (
     <>
@@ -151,6 +185,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </p>
           {itemsVisibles.map((item) => {
             const isActive = pathname === item.href;
+            const isAprobaciones = item.href === '/aprobaciones';
+
+            // Determinar contenido y apariencia del badge
+            let badgeText = item.badge;
+            let badgeTooltip: string | undefined = undefined;
+            let badgeClass = isActive
+              ? 'bg-emerald-200/60 text-emerald-800 font-semibold text-[10px]'
+              : 'bg-slate-100 text-slate-600 font-semibold text-[10px]';
+
+            if (isAprobaciones && esAdminOSuper) {
+              if (pendientesCount !== null) {
+                badgeText = pendientesCount > 99 ? '+99' : `${pendientesCount}`;
+                badgeTooltip = `${pendientesCount} aprobaciones pendientes de revisión`;
+                if (pendientesCount > 0) {
+                  badgeClass = isActive
+                    ? 'bg-amber-500 text-white font-bold text-xs shadow-sm ring-2 ring-amber-300'
+                    : 'bg-amber-100 text-amber-800 border border-amber-300 font-bold text-xs shadow-xs';
+                } else {
+                  badgeClass = 'bg-slate-100 text-slate-500 font-medium text-xs';
+                }
+              } else {
+                badgeText = undefined;
+              }
+            }
+
             return (
               <Link
                 key={item.href}
@@ -168,15 +227,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   </span>
                   <span>{item.name}</span>
                 </div>
-                {item.badge && (
+                {badgeText !== undefined && (
                   <span
-                    className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-                      isActive
-                        ? 'bg-emerald-200/60 text-emerald-800'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}
+                    title={badgeTooltip}
+                    className={`px-2 py-0.5 rounded-full transition-all flex items-center justify-center min-w-[24px] ${badgeClass}`}
                   >
-                    {item.badge}
+                    {badgeText}
                   </span>
                 )}
               </Link>

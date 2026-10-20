@@ -317,6 +317,16 @@ async def listar_todas_solicitudes_admin(
     return list(result)
 
 
+async def contar_solicitudes_pendientes_admin(db: AsyncSession) -> int:
+    """Retorna la cantidad de solicitudes de reembolso en estado EN_REVISION."""
+    count = await db.scalar(
+        select(func.count(SolicitudReembolso.id)).where(
+            SolicitudReembolso.estado == EstadoReembolso.EN_REVISION
+        )
+    )
+    return count or 0
+
+
 async def resolver_solicitud_reembolso(
     solicitud_id: int,
     accion: str,

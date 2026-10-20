@@ -318,6 +318,9 @@ export default function ReembolsosPage() {
       if (refreshUser) {
         await refreshUser();
       }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+      }
 
       setShowModal(false);
       setUploadedFile(null);

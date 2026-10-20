@@ -152,6 +152,9 @@ export default function AprobacionesPage() {
       setTimeout(() => setSuccessMsg(null), 5000);
       setSolicitudAprobar(null);
       await cargarSolicitudes();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+      }
     } catch (err) {
       setErrorMsg(
         err instanceof Error ? err.message : 'Error al procesar la aprobación de la solicitud.'
@@ -190,6 +193,9 @@ export default function AprobacionesPage() {
       setSolicitudRechazar(null);
       setMotivoRechazo('');
       await cargarSolicitudes();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+      }
     } catch (err) {
       setErrorMsg(
         err instanceof Error ? err.message : 'Error al procesar el rechazo de la solicitud.'
