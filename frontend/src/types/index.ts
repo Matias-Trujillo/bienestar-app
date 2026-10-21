@@ -164,8 +164,9 @@ export interface NavItem {
   badge?: string;
 }
 
-// ---------- Módulo Reembolsos Médicos (HU-03) ----------
+// ---------- Módulo Reembolsos Médicos (HU-03 y HU-04) ----------
 
+// [ESTUDIANTE INFORMÁTICA] Unión de literales para tipos de prestación; permite tipar fuertemente en TypeScript y evitar errores en tiempo de compilación.
 export type TipoPrestacion =
   | 'farmacia'
   | 'consulta'
@@ -204,6 +205,7 @@ export const TIPO_PRESTACION_LABELS: Record<TipoPrestacion, string> = {
   otros: 'Otros',
 };
 
+// [ESTUDIANTE INFORMÁTICA] Estados posibles de una solicitud; permite validar que solo se manejen estados reconocidos por el flujo del sistema.
 export type EstadoReembolso =
   | 'borrador'
   | 'en_revision'
@@ -211,6 +213,7 @@ export type EstadoReembolso =
   | 'rechazado'
   | 'pagado';
 
+// [ESTUDIANTE INFORMÁTICA] Interfaz TypeScript que refleja una Solicitud de Reembolso completa; permite el autocompletado y validación de tipos al manipular solicitudes en React.
 export interface SolicitudReembolso {
   id: number;
   codigo: string;

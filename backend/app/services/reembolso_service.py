@@ -43,6 +43,7 @@ DIAS_PLAZO_MAX = 30
 TOPE_ANUAL_SALUD = 150000
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función auxiliar convierte textos como '5 Años, 4 Meses' a una cantidad entera de meses; esto permite hacer comparaciones numéricas directas con la carencia mínima.
 def _parse_antiguedad_a_meses(antiguedad_str: str) -> int:
     """Convierte la cadena de antigüedad del usuario (ej: '5 Años, 4 Meses') a meses."""
     if not antiguedad_str:
@@ -69,6 +70,7 @@ def _parse_antiguedad_a_meses(antiguedad_str: str) -> int:
     return anios * 12 + meses
 
 
+# [ESTUDIANTE INFORMÁTICA] Esto calcula la fecha futura en que el socio cumplirá los 6 meses de permanencia; esto permite informarle con exactitud cuándo podrá solicitar beneficios.
 def _calcular_fecha_habilitacion(antiguedad_meses: int) -> Optional[str]:
     """Si faltan meses para alcanzar la carencia, retorna la fecha estimada."""
     if antiguedad_meses >= MESES_CARENCIA:
@@ -78,6 +80,7 @@ def _calcular_fecha_habilitacion(antiguedad_meses: int) -> Optional[str]:
     return fecha.isoformat()
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función implementa la regla de negocio de carencia (HU-03: mínimo 6 meses); esto valida si el socio está habilitado y permite bloquear el formulario en caso contrario.
 def validar_carencia(user: User) -> Tuple[bool, Optional[str], Optional[str]]:
     """Valida la carencia de 6 meses.
     
@@ -98,6 +101,7 @@ def validar_carencia(user: User) -> Tuple[bool, Optional[str], Optional[str]]:
     )
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función calcula los días transcurridos desde la atención médica hasta hoy; esto permite validar la regla de los 30 días corridos de caducidad que exige el reglamento.
 def validar_plazo_30_dias(fecha_atencion: date) -> ValidacionFechaResponse:
     """Verifica que la fecha de atención no supere los 30 días corridos."""
     hoy = date.today()
@@ -126,6 +130,7 @@ def validar_plazo_30_dias(fecha_atencion: date) -> ValidacionFechaResponse:
     )
 
 
+# [ESTUDIANTE INFORMÁTICA] Esto consulta la cantidad de solicitudes en la base de datos y genera el siguiente correlativo (ej: RMB-0005); esto permite mantener un orden numérico auditable.
 async def generar_codigo(db: AsyncSession) -> str:
     """Genera un código correlativo RMB-XXXX."""
     result = await db.scalar(select(func.count(SolicitudReembolso.id)))
@@ -133,6 +138,7 @@ async def generar_codigo(db: AsyncSession) -> str:
     return f"RMB-{siguiente:04d}"
 
 
+# [ESTUDIANTE INFORMÁTICA] Esto mapea una entidad ORM al DTO de salida ReembolsoOut; esto permite preparar los datos con formato legible para enviárselos al frontend.
 def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
     """Convierte una instancia ORM a su schema de salida."""
     return ReembolsoOut(
@@ -168,6 +174,7 @@ def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
     )
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función calcula las finanzas de salud del socio; suma lo que está en revisión y lo ya aprobado para restar del tope anual de $150.000 y permite saber exactamente cuánto saldo disponible le queda para nuevos gastos.
 async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSocio:
     """Calcula el resumen de salud y fondos del socio."""
     puede, fecha_hab, msg_carencia = validar_carencia(user)
@@ -241,6 +248,7 @@ async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSoc
     )
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función persiste la solicitud (HU-03) y descuenta de inmediato el copago del saldo del socio; esto permite apartar el dinero preventivamente para que no ingrese otra solicitud duplicada sin fondos.
 async def crear_solicitud(
     user: User,
     payload: ReembolsoCreateRequest,
@@ -284,6 +292,7 @@ async def crear_solicitud(
     return solicitud
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función recupera las solicitudes del socio autenticado ordenadas cronológicamente; permite renderizar la tabla del historial personal.
 async def listar_solicitudes_socio(
     user: User, db: AsyncSession
 ) -> List[SolicitudReembolso]:
@@ -297,6 +306,7 @@ async def listar_solicitudes_socio(
     return list(result)
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función carga todas las solicitudes de todos los socios (HU-04); esto permite a la Directiva y Administradores gestionar y auditar la bandeja central.
 async def listar_todas_solicitudes_admin(
     db: AsyncSession, estado: Optional[str] = None
 ) -> List[SolicitudReembolso]:
@@ -317,6 +327,7 @@ async def listar_todas_solicitudes_admin(
     return list(result)
 
 
+# [ESTUDIANTE INFORMÁTICA] Esto cuenta las solicitudes en estado 'en_revision'; permite mostrar el globito de alerta roja con la cantidad de pendientes en el menú.
 async def contar_solicitudes_pendientes_admin(db: AsyncSession) -> int:
     """Retorna la cantidad de solicitudes de reembolso en estado EN_REVISION."""
     count = await db.scalar(
@@ -327,6 +338,7 @@ async def contar_solicitudes_pendientes_admin(db: AsyncSession) -> int:
     return count or 0
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función es el corazón de la HU-04: resuelve la solicitud (APROBAR o RECHAZAR). Si se rechaza, le devuelve el saldo al socio; además, registra el suceso en AuditLog para que quede constancia inmutable de quién tomó la decisión y por qué.
 async def resolver_solicitud_reembolso(
     solicitud_id: int,
     accion: str,

@@ -37,10 +37,11 @@ const EMPTY_RESUMEN: ResumenSaludSocio = {
   solicitudes_aprobadas: 0,
 };
 
+// [ESTUDIANTE INFORMÁTICA] Componente principal de la vista del socio para el Módulo 2 (HU-03); orquesta la presentación del saldo de salud, historial de reembolsos y el formulario de ingreso.
 export default function ReembolsosPage() {
   const { user, token, refreshUser } = useAuth();
 
-  // Estados de datos
+  // [ESTUDIANTE INFORMÁTICA] Estados de React: guardan la información reactiva traída desde la API (resumen financiero y lista de solicitudes) y controlan la visibilidad de los modales.
   const [resumen, setResumen] = useState<ResumenSaludSocio>(EMPTY_RESUMEN);
   const [solicitudes, setSolicitudes] = useState<SolicitudReembolso[]>([]);
   const [, setCargando] = useState(true);
@@ -52,7 +53,7 @@ export default function ReembolsosPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  // Visor de comprobante adjunto
+  // [ESTUDIANTE INFORMÁTICA] Estado para el visor modal de comprobantes; permite mostrar el documento adjunto (PDF o imagen) sin salir de la página.
   const [previewComprobante, setPreviewComprobante] = useState<{
     id: number;
     url: string;
@@ -64,7 +65,7 @@ export default function ReembolsosPage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [subiendoArchivoDirecto, setSubiendoArchivoDirecto] = useState<boolean>(false);
 
-  // Formulario de nueva solicitud
+  // [ESTUDIANTE INFORMÁTICA] Estado del formulario controlado: almacena los valores tipeados por el socio para enviarlos luego al backend.
   const [formData, setFormData] = useState({
     tipo_prestacion: '' as TipoPrestacion | '',
     descripcion: '',
@@ -78,14 +79,14 @@ export default function ReembolsosPage() {
     declaracion_aceptada: false,
   });
 
-  // Validación de fecha en tiempo real
+  // [ESTUDIANTE INFORMÁTICA] Estado de validación en tiempo real; almacena si las fechas ingresadas están dentro de los 30 días corridos para avisarle al usuario al instante.
   const [fechaValidacion, setFechaValidacion] = useState<{
     dentro: boolean;
     mensaje: string;
     dias: number;
   } | null>(null);
 
-  // Carga resumen e historial
+  // [ESTUDIANTE INFORMÁTICA] Función asíncrona que consume 'GET /reembolsos/'; obtiene el resumen actualizado y las solicitudes para alimentar los componentes hijos.
   const cargarReembolsos = useCallback(async () => {
     if (!token) return;
     try {
@@ -258,13 +259,15 @@ export default function ReembolsosPage() {
     const boleta = parseFloat(formData.monto_boleta) || 0;
     const copago = parseFloat(formData.monto_copago) || 0;
 
+    // [ESTUDIANTE INFORMÁTICA] Validación lógica: el copago a reembolsar no puede superar el total pagado en la boleta.
     if (copago > boleta) {
       setErrorMsg(
-        `El monto a reembolsar ($${copago.toLocaleString('es-CL')}) no puede ser mayor al monto total de la boleta cshupalo karol dance ($${boleta.toLocaleString('es-CL')}).`
+        `El monto a reembolsar ($${copago.toLocaleString('es-CL')}) no puede ser mayor al monto total de la boleta ($${boleta.toLocaleString('es-CL')}).`
       );
       return;
     }
 
+    // [ESTUDIANTE INFORMÁTICA] Validación financiera: el copago no puede superar el saldo de salud disponible del socio.
     if (copago > resumen.saldo_salud_disponible) {
       setErrorMsg(
         `El monto de copago solicitado ($${copago.toLocaleString('es-CL')}) supera su saldo disponible ($${resumen.saldo_salud_disponible.toLocaleString('es-CL')}).`
@@ -272,16 +275,19 @@ export default function ReembolsosPage() {
       return;
     }
 
+    // [ESTUDIANTE INFORMÁTICA] Validación documental: es obligatorio adjuntar el archivo físico de respaldo.
     if (!uploadedFile) {
       setErrorMsg('Debe adjuntar el comprobante de atención o boleta digital.');
       return;
     }
 
+    // [ESTUDIANTE INFORMÁTICA] Validación legal: el socio debe haber marcado la declaración jurada de veracidad.
     if (!formData.declaracion_aceptada) {
       setErrorMsg('Debe aceptar que la información y documentación ingresada es correcta y legal.');
       return;
     }
 
+    // [ESTUDIANTE INFORMÁTICA] Proceso de guardado en dos pasos: 1° crea la entidad en la base de datos vía JSON; 2° sube el archivo binario asociado al ID generado.
     setEnviando(true);
     try {
       const nueva = await fetchFromApi<SolicitudReembolso>('/reembolsos/solicitud', {
@@ -302,6 +308,7 @@ export default function ReembolsosPage() {
         }),
       });
 
+      // [ESTUDIANTE INFORMÁTICA] Segundo paso: envío del archivo adjunto como multipart/form-data.
       if (uploadedFile) {
         const formArchivo = new FormData();
         formArchivo.append('archivo', uploadedFile);

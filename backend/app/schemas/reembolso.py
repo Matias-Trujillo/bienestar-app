@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 # ---------- Request Schemas ----------
 
+# [ESTUDIANTE INFORMÁTICA] Esto valida el payload que envía el socio al crear una solicitud (HU-03) y permite asegurar tipos correctos, campos obligatorios y montos mayores a cero.
 class ReembolsoCreateRequest(BaseModel):
     """Datos que el socio envía al crear una solicitud de reembolso."""
     tipo_prestacion: str = Field(..., description="Clave del tipo de prestación médica")
@@ -22,6 +23,7 @@ class ReembolsoCreateRequest(BaseModel):
         ..., description="El socio declara que la información y documentación es verídica y legal"
     )
 
+    # [ESTUDIANTE INFORMÁTICA] Esto intercepta las fechas y valida que no sean del futuro; permite evitar inconsistencias cronológicas antes de tocar la base de datos.
     @field_validator("fecha_atencion", "fecha_boleta")
     @classmethod
     def fecha_no_futura(cls, v: date) -> date:
@@ -29,6 +31,7 @@ class ReembolsoCreateRequest(BaseModel):
             raise ValueError("La fecha no puede ser futura")
         return v
 
+    # [ESTUDIANTE INFORMÁTICA] Esto valida que el tipo de prestación pertenezca a la lista de tipos solicitables vigentes de la HU-03.
     @field_validator("tipo_prestacion")
     @classmethod
     def tipo_prestacion_valido(cls, v: str) -> str:
@@ -38,6 +41,7 @@ class ReembolsoCreateRequest(BaseModel):
             raise ValueError("Tipo de prestación no válido. Opciones: " + ", ".join(validos))
         return v
 
+    # [ESTUDIANTE INFORMÁTICA] Esto valida que el documento adjunto sea uno de los respaldos legalmente aceptados por Bienestar.
     @field_validator("tipo_documento")
     @classmethod
     def tipo_documento_valido(cls, v: str) -> str:
@@ -46,6 +50,7 @@ class ReembolsoCreateRequest(BaseModel):
             raise ValueError("Tipo de documento no válido. Opciones: " + ", ".join(TIPOS_DOCUMENTO))
         return v
 
+    # [ESTUDIANTE INFORMÁTICA] Esto valida que el checkbox de declaración jurada esté estrictamente en True; permite blindar legalmente la veracidad de la solicitud.
     @field_validator("declaracion_aceptada")
     @classmethod
     def declaracion_obligatoria(cls, v: bool) -> bool:
@@ -58,12 +63,14 @@ class ReembolsoCreateRequest(BaseModel):
 
 # ---------- Response Schemas ----------
 
+# [ESTUDIANTE INFORMÁTICA] Esto valida la petición enviada por directivos/administradores al resolver una solicitud (HU-04); permite recibir la acción (APROBAR o RECHAZAR) y exigir un motivo en caso de rechazo.
 class ResolverReembolsoRequest(BaseModel):
     """Acción de aprobación o rechazo ejecutada por admin o superusuario."""
     accion: str = Field(..., description="'APROBAR' o 'RECHAZAR'")
     motivo_rechazo: Optional[str] = Field("", description="Motivo en caso de rechazo")
 
 
+# [ESTUDIANTE INFORMÁTICA] Este DTO define el formato con el que el backend envía la solicitud al frontend; permite transformar los campos internos de la base de datos a un formato JSON limpio y estructurado con etiquetas amigables.
 class ReembolsoOut(BaseModel):
     """Representación de una solicitud de reembolso para el frontend."""
     id: int
@@ -95,6 +102,7 @@ class ReembolsoOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# [ESTUDIANTE INFORMÁTICA] Esto agrupa el estado de cuenta médico del socio (saldo anual, disponible, consumido y carencia); permite al frontend pintar las tarjetas de resumen y bloquear la solicitud si no cumple 6 meses de permanencia.
 class ResumenSaludSocio(BaseModel):
     """Resumen del estado de salud/fondos del socio."""
     socio_id: int
@@ -115,6 +123,7 @@ class ResumenSaludSocio(BaseModel):
     solicitudes_aprobadas: int
 
 
+# [ESTUDIANTE INFORMÁTICA] Esto modela la respuesta del cálculo dinámico de la regla de los 30 días corridos; permite mostrar un mensaje en tiempo real al socio mientras elige la fecha.
 class ValidacionFechaResponse(BaseModel):
     """Resultado de la validación de plazo de 30 días corridos."""
     fecha_atencion: str
@@ -124,6 +133,7 @@ class ValidacionFechaResponse(BaseModel):
     mensaje: str
 
 
+# [ESTUDIANTE INFORMÁTICA] Esto encapsula tanto el resumen financiero como la lista histórica de reembolsos; permite responder al frontend en una sola petición HTTP eficiente.
 class ReembolsoHistorialResponse(BaseModel):
     """Lista de reembolsos con resumen."""
     resumen: ResumenSaludSocio

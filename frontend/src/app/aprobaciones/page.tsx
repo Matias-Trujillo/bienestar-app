@@ -10,6 +10,7 @@ import { getEstadoBadge } from '@/components/reembolsos/TablaSolicitudes';
 import { DetalleSolicitudModal } from '@/components/reembolsos/DetalleSolicitudModal';
 import { VisorComprobanteModal } from '@/components/reembolsos/VisorComprobanteModal';
 
+// [ESTUDIANTE INFORMÁTICA] Componente principal de la bandeja de administración (HU-04); permite al Directorio y Administradores revisar, auditar, aprobar o rechazar solicitudes de reembolso.
 export default function AprobacionesPage() {
   const { user, token } = useAuth();
 
@@ -39,10 +40,11 @@ export default function AprobacionesPage() {
   const [motivoRechazo, setMotivoRechazo] = useState<string>('');
   const [procesandoAccion, setProcesandoAccion] = useState(false);
 
+  // [ESTUDIANTE INFORMÁTICA] Control de acceso basado en roles (RBAC); restringe la visibilidad de los controles solo a Administradores o Superusuarios.
   const esAdminOSuper =
     user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
 
-  // Cargar todas las solicitudes para el panel de administración
+  // [ESTUDIANTE INFORMÁTICA] Esta función consume 'GET /reembolsos/admin/solicitudes'; obtiene la nómina completa de solicitudes de todos los funcionarios para ser evaluadas.
   const cargarSolicitudes = useCallback(async () => {
     if (!token || !esAdminOSuper) return;
     setCargando(true);
@@ -66,7 +68,7 @@ export default function AprobacionesPage() {
     cargarSolicitudes();
   }, [cargarSolicitudes]);
 
-  // Manejo de visualización de comprobante
+  // [ESTUDIANTE INFORMÁTICA] Esta función arma la URL segura con token y abre el modal visor; permite inspeccionar la boleta médica sin descargarla manualmente.
   const handleVerComprobante = (sol: SolicitudReembolso) => {
     if (!sol.comprobante_filename) return;
     const ext = sol.comprobante_filename.split('.').pop()?.toLowerCase() || '';
@@ -126,7 +128,7 @@ export default function AprobacionesPage() {
     }
   };
 
-  // Resolver: Aprobar Solicitud
+  // [ESTUDIANTE INFORMÁTICA] Esta función ejecuta la resolución de APROBACIÓN (HU-04); hace un PATCH al backend pasando accion='APROBAR' y actualiza la tabla tras confirmar.
   const handleConfirmarAprobar = async () => {
     if (!solicitudAprobar || !token) return;
     setProcesandoAccion(true);
@@ -164,7 +166,7 @@ export default function AprobacionesPage() {
     }
   };
 
-  // Resolver: Rechazar Solicitud
+  // [ESTUDIANTE INFORMÁTICA] Esta función ejecuta la resolución de RECHAZO (HU-04); exige un motivo obligatorio, hace un PATCH con accion='RECHAZAR' y notifica que el saldo fue liberado al socio.
   const handleConfirmarRechazar = async () => {
     if (!solicitudRechazar || !token) return;
     if (!motivoRechazo.trim()) {

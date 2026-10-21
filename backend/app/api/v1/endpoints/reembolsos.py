@@ -55,6 +55,7 @@ router = APIRouter()
 
 # ---------- GET /reembolsos/ ----------
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint atiende la carga inicial de la pantalla de reembolsos del socio; consulta el resumen de fondos y el listado de solicitudes para devolver ambos en una sola respuesta.
 @router.get(
     "/",
     response_model=ReembolsoHistorialResponse,
@@ -74,6 +75,7 @@ async def get_reembolsos(
 
 # ---------- GET /reembolsos/resumen-socio ----------
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint retorna únicamente las métricas de saldo de salud del socio; permite actualizar las tarjetas de saldo sin tener que recargar toda la lista de solicitudes.
 @router.get(
     "/resumen-socio",
     response_model=ResumenSaludSocio,
@@ -92,6 +94,7 @@ class ValidarFechaRequest(BaseModel):
     fecha_atencion: date
 
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint recibe una fecha y verifica si está dentro del plazo de 30 días corridos; permite al frontend validar en vivo mientras el usuario selecciona la fecha en el calendario.
 @router.post(
     "/validar-fecha",
     response_model=ValidacionFechaResponse,
@@ -106,6 +109,7 @@ async def post_validar_fecha(
 
 # ---------- POST /reembolsos/solicitud ----------
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint es el núcleo de HU-03 (Crear Solicitud); ejecuta 4 validaciones estrictas (carencia 6 meses, plazo 30 días, copago <= boleta y copago <= saldo disponible) y permite guardar la solicitud en estado 'en_revision'.
 @router.post(
     "/solicitud",
     response_model=ReembolsoOut,
@@ -223,6 +227,7 @@ async def _obtener_usuario_auth(
 
 # ---------- POST /reembolsos/solicitud/{solicitud_id}/comprobante ----------
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint recibe el archivo multipart (PDF/JPG/PNG) del comprobante; valida extensiones permitidas, guarda físicamente el archivo en la carpeta 'uploads/reembolsos/' con un nombre único y permite actualizar la URL de descarga en la solicitud.
 @router.post(
     "/solicitud/{solicitud_id}/comprobante",
     response_model=ReembolsoOut,
@@ -280,6 +285,7 @@ async def post_subir_comprobante(
 
 # ---------- GET /reembolsos/solicitud/{solicitud_id}/comprobante ----------
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint sirve el archivo físico al navegador; verifica que quien lo pide sea el propio socio o un directivo/auditor autorizado y permite previsualizar el PDF o imagen inline dentro del visor modal.
 @router.get(
     "/solicitud/{solicitud_id}/comprobante",
     summary="Ver o descargar el archivo comprobante de una solicitud de reembolso",
@@ -337,6 +343,7 @@ async def get_comprobante(
 
 # ---------- GET /reembolsos/admin/solicitudes ----------
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint abastece la bandeja de Directiva/Administración (HU-04); restringe el acceso solo a administradores y permite filtrar solicitudes por su estado (ej: 'en_revision').
 @router.get(
     "/admin/solicitudes",
     response_model=List[ReembolsoOut],
@@ -358,6 +365,7 @@ async def get_admin_solicitudes(
 
 # ---------- GET /reembolsos/admin/conteo-pendientes ----------
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint entrega un contador rápido de pendientes; permite que la barra lateral y los badges del menú muestren la alerta numérica sin demoras.
 @router.get(
     "/admin/conteo-pendientes",
     summary="Obtener cantidad de solicitudes pendientes de aprobación (admin y superusuario)",
@@ -377,6 +385,7 @@ async def get_admin_conteo_pendientes(
 
 # ---------- PATCH /reembolsos/admin/solicitud/{solicitud_id}/resolver ----------
 
+# [ESTUDIANTE INFORMÁTICA] Este endpoint ejecuta la resolución de HU-04 (Aprobar o Rechazar); valida que el usuario sea Administrador o Superusuario, llama al servicio para actualizar el estado, maneja la restitución de saldo y permite auditar la operación.
 @router.patch(
     "/admin/solicitud/{solicitud_id}/resolver",
     response_model=ReembolsoOut,
