@@ -189,9 +189,8 @@ export default function ReembolsosPage() {
     const ext = sol.comprobante_filename.split('.').pop()?.toLowerCase() || '';
     const isPdf = ext === 'pdf';
     const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
-    const url = `${API_BASE_URL}/reembolsos/solicitud/${sol.id}/comprobante${
-      token ? `?token=${encodeURIComponent(token)}` : ''
-    }`;
+    const url = `${API_BASE_URL}/reembolsos/solicitud/${sol.id}/comprobante${token ? `?token=${encodeURIComponent(token)}` : ''
+      }`;
 
     setPreviewError(null);
     setPreviewComprobante({
@@ -222,9 +221,8 @@ export default function ReembolsosPage() {
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const isPdf = ext === 'pdf';
       const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
-      const url = `${API_BASE_URL}/reembolsos/solicitud/${previewComprobante.id}/comprobante${
-        token ? `?token=${encodeURIComponent(token)}&t=${Date.now()}` : `?t=${Date.now()}`
-      }`;
+      const url = `${API_BASE_URL}/reembolsos/solicitud/${previewComprobante.id}/comprobante${token ? `?token=${encodeURIComponent(token)}&t=${Date.now()}` : `?t=${Date.now()}`
+        }`;
 
       setPreviewComprobante({
         id: previewComprobante.id,
@@ -262,7 +260,7 @@ export default function ReembolsosPage() {
 
     if (copago > boleta) {
       setErrorMsg(
-        `El monto a reembolsar ($${copago.toLocaleString('es-CL')}) no puede ser mayor al monto total de la boleta ($${boleta.toLocaleString('es-CL')}).`
+        `El monto a reembolsar ($${copago.toLocaleString('es-CL')}) no puede ser mayor al monto total de la boleta cshupalo karol dance ($${boleta.toLocaleString('es-CL')}).`
       );
       return;
     }
@@ -368,11 +366,10 @@ export default function ReembolsosPage() {
             disabled={!puedeSolicitar}
             title={!puedeSolicitar ? 'Requiere al menos 6 meses de antigüedad' : undefined}
             id="btn-nueva-solicitud"
-            className={`px-5 py-2 text-xs font-semibold rounded-xl transition-all ${
-              puedeSolicitar
+            className={`px-5 py-2 text-xs font-semibold rounded-xl transition-all ${puedeSolicitar
                 ? 'text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-md shadow-emerald-600/20 hover:shadow-lg active:scale-[0.98]'
                 : 'text-slate-400 bg-slate-200 cursor-not-allowed'
-            }`}
+              }`}
           >
             ✚ Nueva Solicitud
           </button>
