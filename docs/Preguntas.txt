@@ -1,0 +1,76 @@
+📋 Preguntas de Validación y Supuestos — Módulo 1 (Afiliación, Socios y Cargas)
+
+Preguntas Pendientes para la Reunión (Módulo 1)
+
+1. Período de postulación: La ficha menciona que las postulaciones digitales de funcionarios (Planta y Contrata) se reciben entre enero y junio. ¿Este período es estrictamente así de enero a junio o existe flexibilidad? ¿Qué ocurre con un funcionario que ingresa a la municipalidad pasada esa fecha?
+
+2. Datos requeridos en el formulario y documentos: No debemos asumir que solo se piden datos básicos. ¿Qué campos exactos mínimos debe completar el funcionario en el formulario web y es necesario que adjunten algún documento digitalizado (como decreto de nombramiento, contrato o certificados) al momento de postular?
+
+3. Autorización y respaldo del descuento por planilla (4%): La ficha habla de una autorización expresa del 4% del sueldo base. ¿El funcionario solo marcará una casilla digital de aceptación en el sistema, o se exigirá que firme un documento físico de autorización que luego deba escanear y subir a la plataforma para respaldar este descuento?
+
+4. Cargas familiares: ¿Qué parentescos exactos son válidos como carga legal, existe un número máximo de cargas por socio y se exige algún documento o certificado (del Registro Civil o asignación familiar) para respaldarlas en la plataforma?
+
+5. Proceso de aprobación del Directorio: La ficha indica que está a cargo del Presidente o Secretario. ¿Quiénes participan o validan formalmente la aceptación de un socio en la práctica? ¿Se requiere un acuerdo de acta de sesión ordinaria previa para que el sistema permita dar el vamos?
+Extra - Respecto a los rechazos: nos parece muy adecuado mantener la obligatoriedad de ingresar observaciones manuales detalladas para que el postulante sepa exactamente qué está mal y por qué se rechaza para poder subsanarlo. ¿Están de acuerdo con este mecanismo de retroalimentación?
+
+6. Período de carencia y antigüedad: Necesitamos que esto quede perfectamente explicado. ¿Desde qué fecha exacta comienza a correr la antigüedad de los 6 meses de carencia? ¿Empiezan a contar estrictamente desde el momento en que el Directorio aprueba la solicitud en el sistema para que el socio pueda empezar a obtener los beneficios, o se toma en cuenta otra fecha (como el ingreso al municipio)?
+
+7. Notificaciones al socio: ¿Cómo se le notificará formalmente al funcionario el resultado de su postulación (aprobado o rechazado con observaciones)? ¿Prefieren que el sistema envíe un correo electrónico automático o se gestionará por otro canal interno?
+
+
+Preguntas y Supuestos — Módulo 2 (Reembolsos Médicos y Salud: HU-03 y HU-04)
+
+1. Validación de la antigüedad y bloqueos (HU-03): La ficha indica que el sistema debe validar y bloquear a los socios con menos de 6 meses de antigüedad. ¿Este bloqueo de 6 meses es estricto y sin excepciones para todos los socios, o la directiva contempla alguna situación de emergencia o caso excepcional donde se pueda liberar el reembolso antes de cumplir ese plazo?
+
+2. Control estricto de caducidad documental (30 días corridos) (HU-03): Se establece un plazo máximo de 30 días corridos desde la prestación médica o compra en farmacia para presentar el documento. ¿Estos 30 días se calculan estrictamente desde la fecha del documento tributario/médico hasta el día en que el socio sube la solicitud a la plataforma? Si una boleta vence un fin de semana o feriado, ¿existe algún margen de tolerancia o el bloqueo del sistema es absoluto?
+
+3. Tope presupuestario anual y retención preventiva (HU-03): Se define un tope anual de copagos de $150.000 por socio con una retención preventiva de saldo al postular. Cuando un socio ingresa una solicitud que queda "Pendiente de Revisión", el cupo se retiene de inmediato. ¿Qué pasa si la solicitud queda en estado pendiente por mucho tiempo o se rechaza definitivamente? ¿El saldo retenido vuelve a estar disponible de forma automática e inmediata para el socio?
+
+4. Carga de respaldos y Declaración Jurada (HU-03): La ficha menciona la carga de respaldos médicos/tributarios y la aceptación de una declaración jurada de autenticidad. ¿Qué documentos específicos exige obligatoriamente el Comité para aceptar un reembolso (por ejemplo: receta médica, boleta detallada, bono de Isapre/Fonasa o el timbre de "no reembolsable")? ¿Es suficiente con una casilla de aceptación digital en la plataforma como "Declaración Jurada", o exigen que el documento físico quede guardado en alguna oficina del Comité?
+
+5. Revisión colegiada y validación de timbres (HU-04): El directorio verifica copagos, bonos y los timbres de "no reembolsable" en sesión directiva. ¿Cómo se realiza esta revisión en la práctica? ¿El directorio revisa los archivos PDF/imágenes directamente en la pantalla de la plataforma durante su sesión, o se sigue imprimiendo el expediente para revisarlo en físico y luego solo registrar el resultado en el sistema?
+
+6. Liquidación formal de egreso y pagos (HU-04): La liquidación de egreso exige registrar la fecha, el número de cheque o transferencia y la hora del proceso. ¿El Comité emite exclusivamente pagos mediante cheque de Tesorería Municipal o también se realizan transferencias bancarias directas? Cuando se emite un número de cheque, ¿lo asigna de forma correlativa el sistema del Comité o se debe digitar el número real que entrega Tesorería?
+
+7. Devolución de expedientes con observaciones (HU-04): Si un expediente carece de documentos (como la receta o el timbre), se devuelve al socio con observaciones y se repone automáticamente el cupo retenido. ¿Cómo se le comunica al socio que su reembolso fue devuelto para que pueda corregirlo? ¿El sistema le habilita nuevamente el mismo registro para adjuntar el documento faltante o debe iniciar una solicitud completamente nueva?
+
+
+Preguntas y Supuestos — Módulo 3 (Beneficios Sociales y Bonos: HU-05 y HU-06)
+
+1. Motor de cálculo indexado al Grado 15 y bonos automáticos (HU-05): La ficha detalla porcentajes fijos sobre el sueldo imponible de Grado 15 para distintos bonos (Vacaciones 15%, Escolaridad 8%, Nacimiento 20%, Fallecimientos, Enfermedad Catastrófica y Catástrofes). ¿Cómo se actualiza este valor del Grado 15 en el sistema cuando cambia por reajustes del sector público? ¿El Bono de Vacaciones (15%) se genera de forma 100% automática en el sistema al registrarse la respuesta "Aceptado" en el Directorio, o requiere que el socio o administrador postule manualmente?
+
+2. Visación directa de la administración en casos sensibles (HU-05): Para bonos críticos como el fallecimiento de afiliado, enfermedad catastrófica o siniestros (FIBE/Bomberos), la ficha exige una "visación directa de Administrador/Secretario". ¿Estas postulaciones especiales se ingresan directamente por la administración o el socio las solicita en la web y queda un botón de autorización exclusiva para que el Administrador o Secretario las apruebe de inmediato?
+
+3. Requisitos documentales y validación de cargas/estudios (HU-05): Se exigen documentos específicos según el bono (certificado de alumno regular hasta 24 años para escolaridad, certificado de nacimiento, defunción de cargas reconocidas, etc.). ¿El sistema debe validar automáticamente alguna regla (por ejemplo, que la edad del hijo no supere los 24 años para el bono escolar), o la revisión de la vigencia de los certificados queda completamente a criterio visual del administrador al adjuntar el archivo?
+
+4. Liquidación masiva de Bonos de Invierno y Navidad (HU-06): El Bono de Invierno se calcula automáticamente (15% del sueldo base) la primera semana de agosto para socios con antigüedad mínima, y el de Navidad aplica un porcentaje de tabla acordado entre 10% y 15%. ¿Cómo se define o aprueba formalmente ese porcentaje variable del Bono de Navidad en el Directorio antes de ejecutar la nómina en diciembre?
+
+5. Carga masiva en Excel y asociación de decretos digitalizados (HU-06): La liquidación masiva se realiza cargando un archivo Excel (con RUN, nombres y decreto) enlazando paralelamente los decretos digitalizados. ¿El formato de este archivo Excel de Recursos Humanos o Tesorería es estandarizado mes a mes o el sistema necesitará una interfaz para mapear las columnas? Al enlazar los decretos digitalizados en paralelo, ¿se suben en un lote comprimido o se adjunta un PDF por cada registro en el sistema?
+
+
+Preguntas y Supuestos — Módulo 4 (Módulo Financiero, Ingresos Municipales y Descuentos: HU-07 y HU-08)
+
+1. Conciliación de descuentos por planilla y formato de RRHH (HU-07): La ficha indica que mensualmente se realiza una importación masiva de la planilla de Recursos Humanos (código 47, retención del 4%) para cruzarla con el abono bancario de BancoEstado. ¿El formato de este archivo Excel o planilla que remite Recursos Humanos es completamente estandarizado mes a mes (mismas columnas y orden), o el sistema necesitará una herramienta flexible para mapear los campos cada vez que se importe?
+
+2. Detección de brechas y regularización manual (HU-07): Cuando el sistema detecta diferencias, socios sin descuento o licencias no subsidiadas, genera alertas de no pago y cuenta con un módulo de regularización manual (indicando monto, fecha y documento de pago). ¿Cómo prefiere el administrador realizar esta regularización cuando un socio paga por fuera o se ajusta su grado? ¿Se permite que el administrador ingrese un pago manual individual por socio en el sistema para cambiar su estado previsional a "Al día"?
+
+3. Padrón cerrado para el cálculo del aporte municipal (HU-08): El cálculo de la subvención municipal se basa en un padrón cerrado de socios activos al 31 de diciembre del año anterior. ¿Quién es el encargado de oficializar y congelar este padrón de socios al 31 de diciembre en el sistema, y qué ocurre si un socio es dado de baja o ingresa en los primeros días de enero (queda completamente excluido de este cálculo anual)?
+
+4. Ejecución de la fórmula de subvención en UTM (HU-08): La fórmula aplicada es: (Socios Activos al 31 de diciembre) x (4 UTM) x (Valor UTM del mes del decreto de transferencia). Al momento de registrar este ingreso presupuestario en caja, ¿el administrador será siempre el encargado de digitar manualmente el valor oficial de la UTM vigente a la fecha del decreto, o existe algún otro mecanismo interno para ingresar este valor?
+
+
+Preguntas y Supuestos — Módulo 5 (Seguridad, Perfiles y Auditoría: HU-09 y HU-10)
+
+1. Restricción y gestión de las 7 cuentas directivas (HU-09): La ficha establece una regla de negocio estricta de un máximo cerrado de 7 cuentas para el Directorio (1 Superusuario/Administrador [Presidente] y 6 Directores Revisores con voz y voto). ¿Cómo se procederá cuando cambie una directiva o asuma un nuevo miembro? ¿El Presidente actual tendrá la facultad de dar de baja o reasignar estas credenciales directamente desde un panel de administración en el sistema, o requerirá de soporte técnico externo?
+
+2. Bitácora inmutable de auditoría y acciones sensibles (HU-09): Se contempla una bitácora de auditoría (logs) que captura el RUN del usuario, dirección IP, fecha y marca temporal ante cualquier acción sensible (como aprobar cheques, modificar saldos de salud o dar altas/bajas de socios). ¿Existe algún requerimiento específico por parte del Comité o de la municipalidad sobre cuánto tiempo se deben conservar estos registros de auditoría o quiénes deben tener acceso para revisarlos en caso de una auditoría interna?
+
+3. Visualización y desglose en la "Hoja Socio" (HU-10): La "Hoja Socio" despliega la cartola de salud (con fecha, medio de pago, monto liquidado, saldo remanente sobre el tope de $150.000 y estado de recepción conforme) además del historial de asignaciones sociales y bonos cobrados. ¿Los socios podrán consultar esta cartola histórica en tiempo real desde cualquier dispositivo de manera autónoma, o se contempla que solo los directivos la visualicen para entregársela al socio cuando lo solicite?
+
+4. Trazabilidad del comprobante de recepción conforme (HU-10): La ficha indica que debe existir trazabilidad del comprobante de recepción conforme por cada egreso extendido. ¿Cómo se materializa esta "recepción conforme" en la práctica? ¿El socio debe firmar un documento físico al retirar su cheque/transferencia que luego se digitaliza y se sube al sistema, o el sistema generará algún mecanismo digital para que el socio acuse recibo conforme?
+
+
+
+
+
+
