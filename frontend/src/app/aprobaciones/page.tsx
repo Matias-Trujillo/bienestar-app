@@ -10,6 +10,63 @@ import { getEstadoBadge } from '@/components/reembolsos/TablaSolicitudes';
 import { DetalleSolicitudModal } from '@/components/reembolsos/DetalleSolicitudModal';
 import { VisorComprobanteModal } from '@/components/reembolsos/VisorComprobanteModal';
 
+type TramoDias = 'verde' | 'amarillo' | 'rojo';
+
+/**
+ * Calcula de forma sutil los días de antigüedad de la solicitud:
+ * - Menos de 5 días: Verde
+ * - Entre 5 y 9 días: Amarillo
+ * - Mayor a 10 días: Rojo
+ */
+function obtenerIndicadorDias(fechaIngresoStr?: string, fechaFallbackStr?: string) {
+  const raw = fechaIngresoStr || fechaFallbackStr || '';
+  let dias = 0;
+
+  if (raw) {
+    const fecha = new Date(raw);
+    if (!isNaN(fecha.getTime())) {
+      const diffMs = Date.now() - fecha.getTime();
+      dias = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    }
+  }
+
+  const texto = dias === 0 ? 'Hoy' : dias === 1 ? '1 día' : `${dias} días`;
+
+  if (dias >= 10) {
+    return {
+      dias,
+      texto,
+      tramo: 'rojo' as TramoDias,
+      pill: 'bg-rose-50 text-rose-700 border-rose-200',
+      dot: 'bg-rose-500',
+      rowBorder: 'border-l-4 border-l-rose-500',
+      tooltip: `${dias} días en bandeja (Mayor a 10 días)`,
+    };
+  }
+
+  if (dias >= 5) {
+    return {
+      dias,
+      texto,
+      tramo: 'amarillo' as TramoDias,
+      pill: 'bg-amber-50 text-amber-700 border-amber-200',
+      dot: 'bg-amber-500',
+      rowBorder: 'border-l-4 border-l-amber-400',
+      tooltip: `${dias} días en bandeja (Entre 5 y 9 días)`,
+    };
+  }
+
+  return {
+    dias,
+    texto,
+    tramo: 'verde' as TramoDias,
+    pill: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    dot: 'bg-emerald-500',
+    rowBorder: 'border-l-4 border-l-emerald-500',
+    tooltip: `${dias} días en bandeja (Menos de 5 días)`,
+  };
+}
+
 // [ESTUDIANTE INFORMÁTICA] Componente principal de la bandeja de administración (HU-04); permite al Directorio y Administradores revisar, auditar, aprobar o rechazar solicitudes de reembolso.
 export default function AprobacionesPage() {
   const { user, token } = useAuth();
@@ -17,6 +74,7 @@ export default function AprobacionesPage() {
   const [solicitudes, setSolicitudes] = useState<SolicitudReembolso[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState<string>('en_revision');
+  const [filtroDias, setFiltroDias] = useState<'todos' | TramoDias>('todos');
   const [busqueda, setBusqueda] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -221,6 +279,11 @@ export default function AprobacionesPage() {
     if (filtroEstado !== 'todos' && sol.estado !== filtroEstado) {
       return false;
     }
+    // Filtro por tramo de días
+    if (filtroDias !== 'todos') {
+      const infoDias = obtenerIndicadorDias(sol.created_at, sol.fecha_boleta);
+      if (infoDias.tramo !== filtroDias) return false;
+    }
     // Filtro por búsqueda
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase().trim();
@@ -419,65 +482,114 @@ export default function AprobacionesPage() {
       {/* Contenedor Principal: Filtros y Tabla */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         {/* Barra de Filtros y Búsqueda */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Tabs de Estado */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-            <button
-              onClick={() => setFiltroEstado('en_revision')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-                filtroEstado === 'en_revision'
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <span>Pendientes</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Tabs de Estado */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setFiltroEstado('en_revision')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
                   filtroEstado === 'en_revision'
-                    ? 'bg-white text-amber-700 font-bold'
-                    : 'bg-amber-100 text-amber-800'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {pendientes.length}
-              </span>
-            </button>
+                <span>Pendientes</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    filtroEstado === 'en_revision'
+                      ? 'bg-white text-amber-700 font-bold'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {pendientes.length}
+                </span>
+              </button>
 
-            <button
-              onClick={() => setFiltroEstado('aprobado')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                filtroEstado === 'aprobado'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Aprobadas ({aprobadas.length})
-            </button>
+              <button
+                onClick={() => setFiltroEstado('aprobado')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  filtroEstado === 'aprobado'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Aprobadas ({aprobadas.length})
+              </button>
 
-            <button
-              onClick={() => setFiltroEstado('rechazado')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                filtroEstado === 'rechazado'
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Rechazadas ({rechazadas.length})
-            </button>
+              <button
+                onClick={() => setFiltroEstado('rechazado')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  filtroEstado === 'rechazado'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Rechazadas ({rechazadas.length})
+              </button>
 
-            <button
-              onClick={() => setFiltroEstado('todos')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                filtroEstado === 'todos'
-                  ? 'bg-slate-800 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Todas ({solicitudes.length})
-            </button>
+              <button
+                onClick={() => setFiltroEstado('todos')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  filtroEstado === 'todos'
+                    ? 'bg-slate-800 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Todas ({solicitudes.length})
+              </button>
+            </div>
+
+            {/* Separador sutil y leyenda/filtro discreto de días */}
+            <div className="hidden sm:block h-4 w-px bg-slate-200 mx-1" />
+
+            <div className="flex items-center gap-1 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setFiltroDias(filtroDias === 'verde' ? 'todos' : 'verde')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium transition border ${
+                  filtroDias === 'verde'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold'
+                    : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-emerald-50/60'
+                }`}
+                title="Filtrar solicitudes con menos de 5 días"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                &lt; 5 días
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFiltroDias(filtroDias === 'amarillo' ? 'todos' : 'amarillo')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium transition border ${
+                  filtroDias === 'amarillo'
+                    ? 'bg-amber-100 text-amber-800 border-amber-300 font-semibold'
+                    : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-amber-50/60'
+                }`}
+                title="Filtrar solicitudes entre 5 y 9 días"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                5 a 9 días
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFiltroDias(filtroDias === 'rojo' ? 'todos' : 'rojo')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium transition border ${
+                  filtroDias === 'rojo'
+                    ? 'bg-rose-100 text-rose-800 border-rose-300 font-semibold'
+                    : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-rose-50/60'
+                }`}
+                title="Filtrar solicitudes mayores a 10 días"
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                &gt; 10 días
+              </button>
+            </div>
           </div>
 
           {/* Campo de Búsqueda */}
-          <div className="relative min-w-[240px] sm:min-w-[280px]">
+          <div className="relative min-w-[240px] sm:min-w-[270px]">
             <input
               type="text"
               placeholder="Buscar por código, socio, RUT o beneficiario..."
@@ -519,13 +631,23 @@ export default function AprobacionesPage() {
             solicitudesFiltradas.map((sol) => {
               const badge = getEstadoBadge(sol.estado);
               const esPendiente = sol.estado === 'en_revision';
+              const infoDias = obtenerIndicadorDias(sol.created_at, sol.fecha_boleta);
 
               return (
-                <div key={sol.id} className="p-4 space-y-3">
+                <div key={sol.id} className={`p-4 space-y-3 ${infoDias.rowBorder}`}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-slate-800 font-mono text-xs bg-slate-100 px-2.5 py-0.5 rounded">
-                      {sol.codigo}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800 font-mono text-xs bg-slate-100 px-2.5 py-0.5 rounded">
+                        {sol.codigo}
+                      </span>
+                      <span
+                        title={infoDias.tooltip}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${infoDias.pill}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${infoDias.dot}`} />
+                        {infoDias.texto}
+                      </span>
+                    </div>
                     <span
                       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${badge.bg}`}
                     >
@@ -622,19 +744,19 @@ export default function AprobacionesPage() {
           )}
         </div>
 
-        {/* Vista Tablet / Desktop: Tabla Tradicional */}
-        <div className="hidden md:block overflow-x-auto">
+        {/* Vista Tablet / Desktop: Diseño Original Limpio con Indicador Sutil de Días */}
+        <div className="hidden md:block">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-100 uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="py-3 px-4">Código / Fecha</th>
-                <th className="py-3 px-4">Socio Solicitante</th>
-                <th className="py-3 px-4">Prestación / Beneficiario</th>
-                <th className="py-3 px-4 text-right">Monto Boleta</th>
-                <th className="py-3 px-4 text-right">Copago Solicitado</th>
-                <th className="py-3 px-4 text-center">Comprobante</th>
-                <th className="py-3 px-4 text-center">Estado</th>
-                <th className="py-3 px-4 text-center">Acciones de Resolución</th>
+                <th className="py-3 px-3.5">Código / Fecha</th>
+                <th className="py-3 px-3.5">Socio Solicitante</th>
+                <th className="py-3 px-3.5">Prestación / Beneficiario</th>
+                <th className="py-3 px-3.5 text-right">Monto Boleta</th>
+                <th className="py-3 px-3.5 text-right">Copago Solicitado</th>
+                <th className="py-3 px-3.5 text-center">Comprobante</th>
+                <th className="py-3 px-3.5 text-center">Estado</th>
+                <th className="py-3 px-3.5 text-center">Acciones de Resolución</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -663,17 +785,27 @@ export default function AprobacionesPage() {
                 solicitudesFiltradas.map((sol) => {
                   const badge = getEstadoBadge(sol.estado);
                   const esPendiente = sol.estado === 'en_revision';
+                  const infoDias = obtenerIndicadorDias(sol.created_at, sol.fecha_boleta);
 
                   return (
                     <tr
                       key={sol.id}
-                      className="hover:bg-slate-50/70 transition-colors"
+                      className={`hover:bg-slate-50/70 transition-colors ${infoDias.rowBorder}`}
                     >
-                      {/* Código y Fechas */}
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="font-bold text-slate-800 font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded">
-                          {sol.codigo}
-                        </span>
+                      {/* Código, Fechas y Etiqueta Sutil de Días */}
+                      <td className="py-3 px-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-800 font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded">
+                            {sol.codigo}
+                          </span>
+                          <span
+                            title={infoDias.tooltip}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${infoDias.pill}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${infoDias.dot}`} />
+                            {infoDias.texto}
+                          </span>
+                        </div>
                         <div className="text-[10px] text-slate-400 mt-1">
                           Ingreso: {formatDate(sol.created_at)}
                         </div>
@@ -683,7 +815,7 @@ export default function AprobacionesPage() {
                       </td>
 
                       {/* Socio Solicitante */}
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-3.5">
                         <div className="font-bold text-slate-800">
                           {sol.socio_nombre || 'Socio Solicitante'}
                         </div>
@@ -700,7 +832,7 @@ export default function AprobacionesPage() {
                       </td>
 
                       {/* Prestación y Beneficiario */}
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-3.5">
                         <div className="font-semibold text-slate-700">
                           {sol.tipo_prestacion_label}
                         </div>
@@ -715,19 +847,19 @@ export default function AprobacionesPage() {
                       </td>
 
                       {/* Monto Boleta */}
-                      <td className="py-3 px-4 text-right font-medium text-slate-600 whitespace-nowrap">
+                      <td className="py-3 px-3.5 text-right font-medium text-slate-600 whitespace-nowrap">
                         {formatCurrency(sol.monto_boleta)}
                       </td>
 
                       {/* Copago Solicitado */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <td className="py-3 px-3.5 text-right whitespace-nowrap">
                         <span className="font-bold text-emerald-700 text-sm">
                           {formatCurrency(sol.monto_copago)}
                         </span>
                       </td>
 
                       {/* Comprobante */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <td className="py-3 px-3.5 text-center whitespace-nowrap">
                         {sol.comprobante_filename ? (
                           <button
                             type="button"
@@ -747,7 +879,7 @@ export default function AprobacionesPage() {
                       </td>
 
                       {/* Estado */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <td className="py-3 px-3.5 text-center whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${badge.bg}`}
                         >
@@ -757,7 +889,7 @@ export default function AprobacionesPage() {
                       </td>
 
                       {/* Acciones de Resolución */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <td className="py-3 px-3.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
                           {esPendiente ? (
                             <>

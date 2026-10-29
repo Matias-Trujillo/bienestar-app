@@ -53,7 +53,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex">
-      {/* Experiencia animada de bienvenida post-login (Portal Glassmorphic + Cápsula Dynamic Island) */}
+      {/* Experiencia animada de bienvenida post-login */}
       <WelcomeLoginExperience />
 
       {/* Barra Lateral / Sidebar (Desktop fija, Móvil deslizante) */}

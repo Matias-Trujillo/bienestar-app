@@ -7,7 +7,7 @@ Implementa las reglas de negocio indicadas en los criterios de aceptación:
   - Cálculo de resumen de saldo anual y porcentaje utilizado.
 """
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func, select
@@ -135,7 +135,11 @@ async def generar_codigo(db: AsyncSession) -> str:
     """Genera un código correlativo RMB-XXXX."""
     result = await db.scalar(select(func.count(SolicitudReembolso.id)))
     siguiente = (result or 0) + 1
-    return f"RMB-{siguiente:04d}"
+    codigo = f"RMB-{siguiente:04d}"
+    while await db.scalar(select(SolicitudReembolso.id).where(SolicitudReembolso.codigo == codigo)):
+        siguiente += 1
+        codigo = f"RMB-{siguiente:04d}"
+    return codigo
 
 
 # [ESTUDIANTE INFORMÁTICA] Esto mapea una entidad ORM al DTO de salida ReembolsoOut; esto permite preparar los datos con formato legible para enviárselos al frontend.
@@ -234,7 +238,7 @@ async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSoc
         rut=user.rut,
         tipo_socio="Socio Activo" if user.is_active else "Inactivo",
         estado_previsional=user.estado_previsional,
-        fecha_afiliacion="",  # Se puede enriquecer cuando se tenga el campo
+        fecha_afiliacion="",
         meses_antiguedad=meses,
         puede_solicitar=puede,
         fecha_habilitacion=fecha_hab,
@@ -268,7 +272,7 @@ async def crear_solicitud(
         beneficiario_parentesco=payload.beneficiario_parentesco,
         monto_boleta=payload.monto_boleta,
         monto_copago=payload.monto_copago,
-        monto_reembolso=payload.monto_copago,  # Inicialmente el reembolso = copago solicitado
+        monto_reembolso=payload.monto_copago,
         fecha_atencion=payload.fecha_atencion,
         fecha_boleta=payload.fecha_boleta,
         tipo_documento=payload.tipo_documento,
@@ -306,11 +310,104 @@ async def listar_solicitudes_socio(
     return list(result)
 
 
+async def _asegurar_semillas_sla_demo(db: AsyncSession) -> None:
+    """Garantiza de forma idempotente 3 solicitudes de demostración con distintos tramos de antigüedad SLA (<5d, 5-9d, >10d)."""
+    existe_demo = await db.scalar(
+        select(SolicitudReembolso.id).where(SolicitudReembolso.codigo == "RMB-0091")
+    )
+    if existe_demo:
+        return
+
+    carlos = await db.scalar(select(User).where(User.email == "cvalenzuela@mperalillo.cl"))
+    javiera = await db.scalar(select(User).where(User.email == "jherrera@mperalillo.cl"))
+    felipe = await db.scalar(select(User).where(User.email == "faraya@mperalillo.cl"))
+
+    socio_1 = carlos or javiera or felipe
+    if not socio_1:
+        return
+    socio_2 = javiera or socio_1
+    socio_3 = felipe or socio_1
+
+    ahora = datetime.now(timezone.utc)
+    hoy = date.today()
+
+    semillas = [
+        # 1. ROJO (> 10 días): 14 días en bandeja
+        SolicitudReembolso(
+            codigo="RMB-0091",
+            socio_id=socio_1.id,
+            tipo_prestacion=TipoPrestacion.EXAMENES,
+            descripcion="Resonancia magnética lumbar y perfil bioquímico completo",
+            beneficiario_nombre=socio_1.nombre_completo,
+            beneficiario_parentesco="Titular",
+            monto_boleta=85000,
+            monto_copago=42500,
+            monto_reembolso=42500,
+            fecha_atencion=hoy - timedelta(days=16),
+            fecha_boleta=hoy - timedelta(days=15),
+            tipo_documento="bono_copago",
+            declaracion_aceptada=True,
+            estado=EstadoReembolso.EN_REVISION,
+            created_at=ahora - timedelta(days=14),
+            updated_at=ahora - timedelta(days=14),
+        ),
+        # 2. AMARILLO (5 a 9 días): 7 días en bandeja
+        SolicitudReembolso(
+            codigo="RMB-0092",
+            socio_id=socio_2.id,
+            tipo_prestacion=TipoPrestacion.CONSULTA,
+            descripcion="Consulta médica especialista en traumatología",
+            beneficiario_nombre=socio_2.nombre_completo,
+            beneficiario_parentesco="Titular",
+            monto_boleta=48000,
+            monto_copago=24000,
+            monto_reembolso=24000,
+            fecha_atencion=hoy - timedelta(days=9),
+            fecha_boleta=hoy - timedelta(days=8),
+            tipo_documento="bono_copago",
+            declaracion_aceptada=True,
+            estado=EstadoReembolso.EN_REVISION,
+            created_at=ahora - timedelta(days=7),
+            updated_at=ahora - timedelta(days=7),
+        ),
+        # 3. VERDE (< 5 días): 2 días en bandeja
+        SolicitudReembolso(
+            codigo="RMB-0093",
+            socio_id=socio_3.id,
+            tipo_prestacion=TipoPrestacion.FARMACIA,
+            descripcion="Medicamentos crónicos con receta médica retenida",
+            beneficiario_nombre=socio_3.nombre_completo,
+            beneficiario_parentesco="Titular",
+            monto_boleta=32000,
+            monto_copago=18500,
+            monto_reembolso=18500,
+            fecha_atencion=hoy - timedelta(days=3),
+            fecha_boleta=hoy - timedelta(days=2),
+            tipo_documento="receta_medica",
+            declaracion_aceptada=True,
+            estado=EstadoReembolso.EN_REVISION,
+            created_at=ahora - timedelta(days=2),
+            updated_at=ahora - timedelta(days=2),
+        ),
+    ]
+
+    for s in semillas:
+        ya_existe = await db.scalar(
+            select(SolicitudReembolso.id).where(SolicitudReembolso.codigo == s.codigo)
+        )
+        if not ya_existe:
+            db.add(s)
+
+    await db.commit()
+
+
 # [ESTUDIANTE INFORMÁTICA] Esta función carga todas las solicitudes de todos los socios (HU-04); esto permite a la Directiva y Administradores gestionar y auditar la bandeja central.
 async def listar_todas_solicitudes_admin(
     db: AsyncSession, estado: Optional[str] = None
 ) -> List[SolicitudReembolso]:
     """Lista todas las solicitudes de reembolso de los socios para la bandeja de administración."""
+    await _asegurar_semillas_sla_demo(db)
+
     query = (
         select(SolicitudReembolso)
         .options(selectinload(SolicitudReembolso.socio))
@@ -330,6 +427,8 @@ async def listar_todas_solicitudes_admin(
 # [ESTUDIANTE INFORMÁTICA] Esto cuenta las solicitudes en estado 'en_revision'; permite mostrar el globito de alerta roja con la cantidad de pendientes en el menú.
 async def contar_solicitudes_pendientes_admin(db: AsyncSession) -> int:
     """Retorna la cantidad de solicitudes de reembolso en estado EN_REVISION."""
+    await _asegurar_semillas_sla_demo(db)
+
     count = await db.scalar(
         select(func.count(SolicitudReembolso.id)).where(
             SolicitudReembolso.estado == EstadoReembolso.EN_REVISION
@@ -393,4 +492,3 @@ async def resolver_solicitud_reembolso(
     await db.commit()
     await db.refresh(solicitud)
     return solicitud
-
