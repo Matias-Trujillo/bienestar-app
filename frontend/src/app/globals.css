@@ -6,6 +6,13 @@
   --foreground-rgb: 15, 23, 42;
   --background-start-rgb: 248, 250, 252;
   --background-end-rgb: 255, 255, 255;
+  --peralillo-blue: #0077b6;
+  --peralillo-blue-dark: #0369a1;
+  --peralillo-green: #558b2f;
+  --peralillo-green-leaf: #65a30d;
+  --peralillo-red: #dc2626;
+  --peralillo-gold: #ca8a04;
+  --peralillo-orange: #ea580c;
 }
 
 body {

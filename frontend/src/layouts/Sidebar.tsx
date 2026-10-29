@@ -149,20 +149,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo y Encabezado del Sidebar */}
-        <div className="flex items-center justify-between h-20 px-6 border-b border-slate-100 bg-white">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-md shadow-emerald-500/20">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
+        {/* Logo y Encabezado del Sidebar con Logo Oficial de Peralillo */}
+        <div className="flex items-center justify-between h-24 px-5 border-b border-slate-100 bg-gradient-to-b from-white to-sky-50/20">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center justify-center p-1.5 bg-white rounded-xl border border-sky-100 shadow-sm shrink-0">
+              <img
+                src="/logo-peralillo.png"
+                alt="Ilustre Municipalidad de Peralillo"
+                className="h-11 w-auto max-w-[65px] object-contain"
+              />
             </div>
-            <div>
-              <span className="block text-base font-bold text-slate-800 tracking-tight leading-tight">
-                Comité Bienestar
+            <div className="min-w-0">
+              <span className="block text-sm font-bold text-slate-900 tracking-tight leading-tight truncate">
+                Comité de Bienestar
               </span>
-              <span className="block text-xs font-medium text-emerald-600">
-                Portal de Gestión Socio
+              <span className="block text-[11px] font-semibold text-[#0077b6] truncate">
+                I. Municipalidad de Peralillo
+              </span>
+              <span className="block text-[10px] text-[#ea580c] font-medium italic truncate">
+                La comuna que soñamos
               </span>
             </div>
           </div>
@@ -191,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             let badgeText = item.badge;
             let badgeTooltip: string | undefined = undefined;
             let badgeClass = isActive
-              ? 'bg-emerald-200/60 text-emerald-800 font-semibold text-[10px]'
+              ? 'bg-sky-200/70 text-sky-900 font-semibold text-[10px]'
               : 'bg-slate-100 text-slate-600 font-semibold text-[10px]';
 
             if (isAprobaciones && esAdminOSuper) {
@@ -217,12 +222,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 onClick={() => onClose()}
                 className={`flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-emerald-50 text-emerald-800 font-semibold shadow-sm shadow-emerald-100'
+                    ? 'bg-sky-50 text-sky-900 font-semibold shadow-sm shadow-sky-100 border-l-4 border-[#0077b6]'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className={`${isActive ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                  <span className={`${isActive ? 'text-[#0077b6]' : 'text-slate-400 group-hover:text-slate-600'}`}>
                     {item.icon}
                   </span>
                   <span>{item.name}</span>
@@ -241,19 +246,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Tarjeta de Asistencia / Contacto en la parte inferior */}
-        <div className="p-4 mx-4 mb-4 rounded-xl bg-slate-50 border border-slate-100">
+        <div className="p-4 mx-4 mb-4 rounded-xl bg-gradient-to-br from-slate-50 to-sky-50/40 border border-sky-100/80">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="flex w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs font-semibold text-slate-700">Mesa de Ayuda</span>
+            <span className="flex w-2 h-2 rounded-full bg-[#558b2f] animate-pulse"></span>
+            <span className="text-xs font-semibold text-slate-800">Mesa de Ayuda Peralillo</span>
           </div>
           <p className="text-xs text-slate-500 mb-2">
             ¿Dudas con tus reembolsos o beneficios?
           </p>
           <a
-            href="mailto:bienestar@corporativo.cl"
-            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
+            href="mailto:bienestar@mperalillo.cl"
+            className="text-xs font-semibold text-[#0077b6] hover:text-[#0369a1] hover:underline"
           >
-            bienestar@corporativo.cl
+            bienestar@mperalillo.cl
           </a>
         </div>
       </aside>

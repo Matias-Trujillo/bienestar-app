@@ -27,14 +27,15 @@ export const AdminDashboardHeader: React.FC<AdminDashboardHeaderProps> = ({ stat
   return (
     <div className="space-y-4">
       {/* Banner Principal Superusuario */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-white p-6 sm:p-8 shadow-xl border border-purple-500/20">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0b2742] via-[#0f3b5e] to-[#1a3818] text-white p-6 sm:p-8 shadow-xl border border-sky-800/30">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-[#0077b6]/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-[#558b2f]/15 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-              <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-              Consola de Control Maestro • Nivel Super Administrador
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-sky-200 border border-white/15 backdrop-blur-sm">
+              <span className="w-2 h-2 rounded-full bg-[#558b2f] animate-pulse" />
+              Ilustre Municipalidad de Peralillo • Consola de Control Maestro
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Administración Central del Comité

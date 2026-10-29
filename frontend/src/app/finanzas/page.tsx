@@ -51,7 +51,7 @@ export default function FinanzasPage() {
         </div>
         <Link
           href="/"
-          className="px-4 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition"
+          className="px-4 py-2 text-xs font-semibold text-[#0077b6] bg-sky-50 hover:bg-sky-100 rounded-xl transition"
         >
           ← Volver al Dashboard
         </Link>

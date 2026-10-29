@@ -24,13 +24,13 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
       {/* Tarjeta 1: Saldo Anual de Salud Disponible */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition">
         {/* Decoración de fondo */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-emerald-500/10 blur-xl pointer-events-none" />
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#558b2f]/10 blur-xl pointer-events-none" />
 
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Fondo Médico y Dental
           </span>
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-lime-50 text-[#558b2f] border border-lime-100">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
@@ -50,10 +50,10 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
           </span>
         </div>
 
-        {/* Barra de progreso de saldo */}
+        {/* Barra de progreso de saldo con Verde y Azul Peralillo */}
         <div className="w-full bg-slate-100 rounded-full h-2.5 mb-2 overflow-hidden">
           <div
-            className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2.5 rounded-full transition-all duration-500"
+            className="bg-gradient-to-r from-[#558b2f] via-[#65a30d] to-[#0077b6] h-2.5 rounded-full transition-all duration-500"
             style={{ width: `${porcentajeDisponible}%` }}
           />
         </div>
@@ -67,13 +67,13 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
       {/* Tarjeta 2: Estado Previsional */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition">
         {/* Decoración de fondo */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-blue-500/10 blur-xl pointer-events-none" />
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#0077b6]/10 blur-xl pointer-events-none" />
 
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Condición de Afiliado
           </span>
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-100 text-blue-700">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-sky-50 text-[#0077b6] border border-sky-100">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
@@ -88,8 +88,8 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
           <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
             {estadoPrevisional}
           </span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-50 text-[#0077b6] border border-sky-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#558b2f]"></span>
             Habilitado
           </span>
         </div>
@@ -103,13 +103,13 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
       {/* Tarjeta 3: Cargas Familiares y Cobertura (Complementaria) */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition md:col-span-2 lg:col-span-1">
         {/* Decoración de fondo */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-indigo-500/10 blur-xl pointer-events-none" />
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-amber-500/10 blur-xl pointer-events-none" />
 
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Grupo Familiar
           </span>
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-50 text-amber-700 border border-amber-100">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>

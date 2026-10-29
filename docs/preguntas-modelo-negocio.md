@@ -61,8 +61,17 @@ Registro vivo de dudas surgidas durante el desarrollo. Cada pregunta indica el *
 | P-28 | ¿Cuál es el texto reglamentario oficial exacto que debe mostrarse? (artículo del reglamento) | Texto redactado por el equipo de desarrollo. | |
 
 ---
+## Modulo 2 Reembolsos medicos y salud. 
+¿Cual es el tope minimo y maximo para realizar el reembolso?
+R: No hay minimo y el valor maximo a $150.000.
 
-## 2. Generales del sistema
+¿Como es el proceso de pago o deposito (ahorro)?
+¿Como es el proceso de pago de bonificaciones???
+¿Hay algún plazo en el que el admin deba autorizar o rechazar el pago? Que pasa si no lo autoriza en un tiempo?
+¿Quienes tienen permisos para aprobar o rechazar los beneficios.?
+
+
+## x. Generales del sistema
 | # | Pregunta | Supuesto actual | Respuesta |
 | :-- | :-- | :-- | :-- |
 | G-01 | ¿Qué roles existen realmente en la Directiva y qué puede hacer cada uno? | Presidente y Secretario tienen poder resolutivo de incorporaciones en sesión; Tesorero, Admin y Auditor tienen vista consultiva y auditoría; Socio gestiona sus prestaciones. | |
@@ -71,3 +80,7 @@ Registro vivo de dudas surgidas durante el desarrollo. Cada pregunta indica el *
 ---
 
 *Última actualización: HU-01 (Afiliación) y HU-02 (Aprobación en Sesión de Directorio y Nómina de Retenciones).*
+
+
+
+

@@ -50,27 +50,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 flex items-center justify-center p-4 sm:p-6">
-      {/* Fondo decorativo */}
+    <div className="min-h-screen bg-gradient-to-br from-[#0a233a] via-[#0e314f] to-[#1a3818] flex items-center justify-center p-4 sm:p-6">
+      {/* Fondo decorativo con luces institucionales Peralillo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#0077b6]/15 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#558b2f]/15 rounded-full blur-3xl"></div>
+        <div className="absolute top-2/3 right-1/3 w-80 h-80 bg-[#d97706]/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="relative z-10 w-full max-w-lg space-y-6">
-        {/* Cabecera / Marca */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/25 mb-2">
-            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
+        {/* Cabecera / Marca con Logo Oficial de Peralillo */}
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center justify-center p-3 sm:p-4 bg-white rounded-3xl shadow-2xl border border-white/20 backdrop-blur-md">
+            <img
+              src="/logo-peralillo.png"
+              alt="Ilustre Municipalidad de Peralillo"
+              className="h-16 sm:h-20 w-auto object-contain mx-auto"
+            />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Comité de Bienestar
-          </h1>
-          <p className="text-sm text-slate-400">
-            Portal Oficial de Gestión Operativa y Financiera • Ilustre Municipalidad de Peralillo
-          </p>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Comité de Bienestar
+            </h1>
+            <p className="text-sm text-sky-200 font-medium">
+              Portal Oficial de Gestión Operativa y Financiera
+            </p>
+            <p className="text-xs text-[#ea580c] font-medium italic mt-0.5">
+              "La comuna que soñamos"
+            </p>
+          </div>
         </div>
 
         {/* Tarjeta de Inicio de Sesión */}
@@ -80,7 +88,7 @@ export default function LoginPage() {
               <h2 className="text-lg font-bold text-slate-800">Iniciar Sesión</h2>
               <p className="text-xs text-slate-500">Ingresa tus credenciales institucionales</p>
             </div>
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sky-50 text-[#0077b6] border border-sky-200">
               Período 2026
             </span>
           </div>
@@ -97,7 +105,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Ej: 15.489.123-K o usuario@mperalillo.cl"
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0077b6] transition"
               />
             </div>
 
@@ -112,7 +120,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0077b6] transition"
               />
             </div>
 
@@ -132,9 +140,9 @@ export default function LoginPage() {
               id="login-submit"
               type="submit"
               disabled={submitting}
-              className="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-md shadow-emerald-600/20 transition active:scale-[0.99] disabled:opacity-60"
+              className="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-[#0077b6] via-[#0284c7] to-[#558b2f] hover:from-[#0369a1] hover:to-[#436b1f] shadow-lg shadow-sky-950/20 transition active:scale-[0.99] disabled:opacity-60"
             >
-              {submitting ? 'Verificando…' : 'Iniciar Sesión'}
+              {submitting ? 'Verificando…' : 'Ingresar al Portal'}
             </button>
           </form>
 

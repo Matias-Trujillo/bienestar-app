@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       <div className="flex items-center gap-4">
         <button
           onClick={onToggleSidebar}
-          className="p-2 text-slate-500 rounded-xl lg:hidden hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="p-2 text-slate-500 rounded-xl lg:hidden hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0077b6]"
           aria-label="Abrir menú"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -48,11 +48,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </button>
 
         <div className="hidden sm:block">
-          <h1 className="text-lg font-bold text-slate-800 leading-tight">
-            Portal de Bienestar
+          <h1 className="text-lg font-bold text-slate-800 leading-tight flex items-center gap-2">
+            <span>Portal de Bienestar</span>
+            <span className="text-[11px] font-semibold text-[#558b2f] bg-[#558b2f]/10 px-2.5 py-0.5 rounded-full border border-[#558b2f]/20">
+              Peralillo 2026
+            </span>
           </h1>
           <p className="text-xs text-slate-500">
-            Período Activo 2026 • Municipalidad de Peralillo
+            Ilustre Municipalidad de Peralillo • <span className="text-[#ea580c] font-medium italic">La comuna que soñamos</span>
           </p>
         </div>
       </div>
@@ -73,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
             />
           </svg>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ea580c] ring-2 ring-white"></span>
         </button>
 
         {/* Separador vertical */}
@@ -82,11 +85,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         {/* Ficha Usuario Dinámica */}
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 text-emerald-800 font-bold text-sm ring-2 ring-emerald-500/30">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-100 text-[#0077b6] font-bold text-sm ring-2 ring-[#0077b6]/30">
               {getInitials(user?.nombreCompleto)}
             </div>
             <span
-              className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white"
+              className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#558b2f] ring-2 ring-white"
               title="En línea"
             ></span>
           </div>
@@ -96,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               <span className="text-sm font-semibold text-slate-800">
                 {user?.nombreCompleto || 'Invitado'}
               </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 text-[#0077b6] border border-sky-200">
                 {user?.rolLabel || 'Socio Activo'}
               </span>
             </div>

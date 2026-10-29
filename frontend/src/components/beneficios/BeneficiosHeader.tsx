@@ -19,14 +19,15 @@ export const BeneficiosHeader: React.FC<BeneficiosHeaderProps> = ({
   onOpenConfigBaseG15,
 }) => {
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white p-6 sm:p-8 shadow-xl border border-slate-700/50">
-      <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0b2742] via-[#0f3b5e] to-[#1a3818] text-white p-6 sm:p-8 shadow-xl border border-sky-800/30">
+      <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-[#0077b6]/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-[#558b2f]/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-            Municipalidad de Peralillo • Comité de Bienestar
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-sky-200 border border-white/15 backdrop-blur-sm">
+            <span className="w-2 h-2 rounded-full bg-[#558b2f] animate-pulse" />
+            Ilustre Municipalidad de Peralillo • Comité de Bienestar
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             Módulo de Beneficios Sociales y Bonos

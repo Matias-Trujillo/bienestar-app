@@ -12,36 +12,38 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Banner de Bienvenida / Ficha Resumen del Socio ("Hoja Socio") */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white p-6 sm:p-8 shadow-xl border border-slate-700/40">
-        {/* Patrón sutil de fondo */}
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0b2742] via-[#0f3b5e] to-[#1a3818] text-white p-6 sm:p-8 shadow-xl border border-sky-800/30">
+        {/* Patrón sutil de fondo y luces ambientales */}
+        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-[#0077b6]/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-72 h-72 bg-[#558b2f]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 right-1/4 w-48 h-48 bg-[#d97706]/10 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              {user?.rolLabel || 'Socio Activo'} • N° Registro #{user?.id || '1042'}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-sky-200 border border-white/15 backdrop-blur-sm">
+              <span className="w-2 h-2 rounded-full bg-[#558b2f] animate-pulse"></span>
+              {user?.rolLabel || 'Socio Activo'} • N° Registro #{user?.id || '1042'} • <span className="text-amber-300 italic font-medium">La comuna que soñamos</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Bienvenido, {user?.nombreCompleto || 'Socio'}
             </h1>
-            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Bienvenido a tu portal de Bienestar. Aquí puedes consultar tu saldo anual médico, revisar el estado de tus cotizaciones previsionales, tramitar solicitudes de reembolso y postular a los beneficios del comité.
+            <p className="text-sm text-slate-200 max-w-2xl leading-relaxed">
+              Portal Oficial de Bienestar • <strong className="text-white font-medium">Ilustre Municipalidad de Peralillo</strong>. Aquí puedes consultar tu saldo anual médico, revisar el estado de tus cotizaciones previsionales, tramitar solicitudes de reembolso y postular a los beneficios del comité.
             </p>
           </div>
 
           {/* Micro-datos del socio en pastillas dinámicas */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
             <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10">
-              <span className="block text-slate-400 text-[11px]">RUT Afiliado</span>
+              <span className="block text-sky-200 text-[11px]">RUT Afiliado</span>
               <span className="font-bold text-white tracking-wide">{user?.rut || 'Sin especificar'}</span>
             </div>
             <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10">
-              <span className="block text-slate-400 text-[11px]">Dependencia</span>
-              <span className="font-bold text-white">{user?.departamento || 'Municipalidad'}</span>
+              <span className="block text-sky-200 text-[11px]">Dependencia</span>
+              <span className="font-bold text-white">{user?.departamento || 'I. Municipalidad de Peralillo'}</span>
             </div>
             <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 col-span-2 sm:col-span-1">
-              <span className="block text-slate-400 text-[11px]">Antigüedad</span>
+              <span className="block text-sky-200 text-[11px]">Antigüedad</span>
               <span className="font-bold text-emerald-300">{user?.antiguedad || '1 Año'}</span>
             </div>
           </div>

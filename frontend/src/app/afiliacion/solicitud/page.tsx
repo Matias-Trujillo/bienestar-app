@@ -142,15 +142,27 @@ export default function SolicitudAfiliacionPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 py-8 px-4 print:bg-white print:py-0">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a233a] via-[#0e314f] to-[#1a3818] py-8 px-4 print:bg-white print:py-0">
       <div className="max-w-3xl mx-auto space-y-6">
-        <header className="text-center space-y-1 print:hidden">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Solicitud de Incorporación al Comité de Bienestar
-          </h1>
-          <p className="text-sm text-slate-400">
-            Ilustre Municipalidad de Peralillo • Funcionarios de Planta o Contrata
-          </p>
+        <header className="text-center space-y-3 print:hidden">
+          <div className="inline-flex items-center justify-center p-3 bg-white rounded-2xl shadow-xl border border-white/20">
+            <img
+              src="/logo-peralillo.png"
+              alt="Ilustre Municipalidad de Peralillo"
+              className="h-14 sm:h-16 w-auto object-contain mx-auto"
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Solicitud de Incorporación al Comité de Bienestar
+            </h1>
+            <p className="text-sm text-sky-200">
+              Ilustre Municipalidad de Peralillo • Funcionarios de Planta o Contrata
+            </p>
+            <p className="text-xs text-[#ea580c] font-medium italic mt-0.5">
+              "La comuna que soñamos"
+            </p>
+          </div>
         </header>
 
         {comprobante ? (
