@@ -6,13 +6,13 @@
   --foreground-rgb: 15, 23, 42;
   --background-start-rgb: 248, 250, 252;
   --background-end-rgb: 255, 255, 255;
-  --peralillo-blue: #0077b6;
-  --peralillo-blue-dark: #0369a1;
-  --peralillo-green: #558b2f;
-  --peralillo-green-leaf: #65a30d;
-  --peralillo-red: #dc2626;
-  --peralillo-gold: #ca8a04;
-  --peralillo-orange: #ea580c;
+  --peralillo-blue: #006799;
+  --peralillo-blue-dark: #004e75;
+  --peralillo-green: #5b7c29;
+  --peralillo-green-leaf: #78a200;
+  --peralillo-red: #d9231a;
+  --peralillo-gold: #cfa145;
+  --peralillo-orange: #e06324;
 }
 
 body {
@@ -72,11 +72,11 @@ body {
 @keyframes pulseAura {
   0%, 100% {
     transform: scale(1);
-    opacity: 0.55;
+    opacity: 0.45;
   }
   50% {
-    transform: scale(1.12);
-    opacity: 0.9;
+    transform: scale(1.08);
+    opacity: 0.75;
   }
 }
 
@@ -85,7 +85,7 @@ body {
     transform: rotate(0deg) scale(1);
   }
   50% {
-    transform: rotate(180deg) scale(1.06);
+    transform: rotate(180deg) scale(1.04);
   }
   100% {
     transform: rotate(360deg) scale(1);
@@ -104,13 +104,13 @@ body {
 @keyframes splashLogoIn {
   0% {
     opacity: 0;
-    filter: blur(16px);
-    transform: scale(0.82) translateY(24px);
+    filter: blur(18px);
+    transform: scale(0.86) translateY(24px);
   }
-  60% {
+  65% {
     opacity: 1;
     filter: blur(0px);
-    transform: scale(1.02) translateY(-4px);
+    transform: scale(1.01) translateY(-3px);
   }
   100% {
     opacity: 1;
@@ -131,8 +131,8 @@ body {
 @keyframes revealCardSpring {
   0% {
     opacity: 0;
-    filter: blur(10px);
-    transform: translateY(28px) scale(0.96);
+    filter: blur(12px);
+    transform: translateY(32px) scale(0.95);
   }
   100% {
     opacity: 1;
@@ -145,11 +145,14 @@ body {
   0% {
     width: 0%;
   }
-  30% {
-    width: 38%;
+  25% {
+    width: 30%;
   }
-  70% {
-    width: 78%;
+  60% {
+    width: 68%;
+  }
+  85% {
+    width: 90%;
   }
   100% {
     width: 100%;
@@ -157,42 +160,41 @@ body {
 }
 
 .animate-pulse-aura {
-  animation: pulseAura 4s ease-in-out infinite;
+  animation: pulseAura 8s ease-in-out infinite;
 }
 
 .animate-rotate-halo {
-  animation: rotateHalo 12s linear infinite;
+  animation: rotateHalo 24s linear infinite;
 }
 
 .animate-float-slow {
-  animation: floatSlow 5s ease-in-out infinite;
+  animation: floatSlow 7s ease-in-out infinite;
 }
 
 .animate-splash-logo {
-  animation: splashLogoIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: splashLogoIn 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-reveal-card {
-  animation: revealCardSpring 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: revealCardSpring 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-progress-fill-slow {
-  animation: progressLineSlow 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: progressLineSlow 6.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .shimmer-text {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.85) 0%,
-    rgba(255, 255, 255, 1) 25%,
-    rgba(186, 230, 253, 1) 50%,
-    rgba(255, 255, 255, 1) 75%,
-    rgba(255, 255, 255, 0.85) 100%
+    #ffffff 0%,
+    #f8fafc 30%,
+    #f3e3be 50%,
+    #f8fafc 70%,
+    #ffffff 100%
   );
   background-size: 200% auto;
   color: transparent;
   -webkit-background-clip: text;
   background-clip: text;
-  animation: shimmerSweep 4s linear infinite;
+  animation: shimmerSweep 7s linear infinite;
 }
-
