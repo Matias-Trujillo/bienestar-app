@@ -140,43 +140,81 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       {confirmOpen &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#061523]/70 backdrop-blur-md animate-fade-in"
             onClick={() => setConfirmOpen(false)}
             role="dialog"
             aria-modal="true"
             aria-labelledby="logout-title"
           >
             <div
-              className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 space-y-4"
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.45)] ring-1 ring-[#cfa145]/35 overflow-hidden animate-scale-in"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-rose-100 text-rose-600">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
+              {/* Filete superior institucional Peralillo */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
+
+              <div className="p-6 sm:p-7 space-y-5">
+                <div className="flex items-start gap-4">
+                  {/* Icono ejecutivo de cierre de sesión */}
+                  <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-[#061523] to-[#0c2b45] text-[#f3e3be] shadow-md ring-1 ring-[#cfa145]/40">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#006799] block mb-0.5">
+                      Seguridad del Portal • Peralillo
+                    </span>
+                    <h2 id="logout-title" className="text-lg font-extrabold text-slate-800 tracking-tight">
+                      ¿Finalizar tu sesión actual?
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Se cerrará de forma segura el acceso de{' '}
+                      <strong className="text-slate-700 font-semibold">{user?.nombreCompleto || 'tu cuenta'}</strong> y se protegerán tus datos previsionales en este equipo.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 id="logout-title" className="text-base font-bold text-slate-800">Cerrar sesión</h2>
-                  <p className="text-xs text-slate-500">¿Deseas cerrar la sesión del portal de Bienestar?</p>
+
+                {/* Resumen compacto de la sesión que se cerrará */}
+                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-[#5b7c29]" />
+                    <span className="font-semibold text-slate-700 truncate">
+                      {user?.rolLabel || 'Socio Activo'} • {user?.departamento || 'I. Municipalidad'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400 shrink-0 ml-2">
+                    {user?.rut || ''}
+                  </span>
                 </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  id="logout-cancel"
-                  onClick={() => setConfirmOpen(false)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  id="logout-confirm"
-                  autoFocus
-                  onClick={() => { setConfirmOpen(false); logout(); }}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition"
-                >
-                  Cerrar sesión
-                </button>
+
+                {/* Acciones */}
+                <div className="flex items-center justify-end gap-2.5 pt-1">
+                  <button
+                    id="logout-cancel"
+                    type="button"
+                    onClick={() => setConfirmOpen(false)}
+                    className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                  >
+                    Permanecer en el portal
+                  </button>
+                  <button
+                    id="logout-confirm"
+                    type="button"
+                    autoFocus
+                    onClick={() => {
+                      setConfirmOpen(false);
+                      logout();
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#061523] via-[#0c2b45] to-[#006799] hover:from-[#0a2133] hover:to-[#00547d] rounded-xl shadow-md transition"
+                  >
+                    <svg className="w-4 h-4 text-[#f3e3be]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Cerrar sesión de forma segura
+                  </button>
+                </div>
               </div>
             </div>
           </div>,

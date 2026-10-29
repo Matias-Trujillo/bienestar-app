@@ -16,6 +16,8 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  justLoggedIn: boolean;
+  dismissWelcome: () => void;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -25,18 +27,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const TOKEN_KEY = 'bienestar_token';
 const USER_KEY = 'bienestar_current_user';
+export const SPLASH_SEEN_KEY = 'bienestar_splash_seen';
+export const LOGOUT_USER_KEY = 'bienestar_logout_user';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [justLoggedIn, setJustLoggedIn] = useState<boolean>(false);
   const router = useRouter();
 
   const clearSession = () => {
     setUser(null);
     setToken(null);
+    setJustLoggedIn(false);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+  };
+
+  const dismissWelcome = () => {
+    setJustLoggedIn(false);
   };
 
   const refreshUser = async () => {
@@ -73,21 +83,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(SPLASH_SEEN_KEY, '1');
+      sessionStorage.removeItem(LOGOUT_USER_KEY);
+    }
     setToken(res.access_token);
     setUser(res.user);
+    setJustLoggedIn(true);
     localStorage.setItem(TOKEN_KEY, res.access_token);
     localStorage.setItem(USER_KEY, JSON.stringify(res.user));
     router.push('/');
   };
 
   const logout = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(SPLASH_SEEN_KEY, '1');
+      if (user?.nombreCompleto) {
+        sessionStorage.setItem(LOGOUT_USER_KEY, user.nombreCompleto);
+      }
+    }
     clearSession();
     router.push('/login');
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated: !!user, isLoading, login, logout, refreshUser }}
+      value={{
+        user,
+        token,
+        isAuthenticated: !!user,
+        isLoading,
+        justLoggedIn,
+        dismissWelcome,
+        login,
+        logout,
+        refreshUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

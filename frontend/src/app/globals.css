@@ -159,6 +159,48 @@ body {
   }
 }
 
+@keyframes welcomePortalIn {
+  0% {
+    opacity: 0;
+    filter: blur(16px);
+    transform: scale(0.88) translateY(20px);
+  }
+  60% {
+    opacity: 1;
+    filter: blur(0px);
+    transform: scale(1.02) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0px);
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes drawRingStroke {
+  0% {
+    stroke-dashoffset: 283;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes popBadgeSpring {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-35deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.18) rotate(6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 .animate-pulse-aura {
   animation: pulseAura 8s ease-in-out infinite;
 }
@@ -181,6 +223,23 @@ body {
 
 .animate-progress-fill-slow {
   animation: progressLineSlow 6.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.animate-welcome-portal-in {
+  animation: welcomePortalIn 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-draw-ring {
+  animation: drawRingStroke 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+}
+
+.animate-pop-badge {
+  opacity: 0;
+  animation: popBadgeSpring 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.7s forwards;
+}
+
+.animate-welcome-bar {
+  animation: progressLineSlow 2.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .shimmer-text {

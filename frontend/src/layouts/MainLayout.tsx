@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
+import { WelcomeLoginExperience } from '@/components/ui/WelcomeLoginExperience';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -52,6 +53,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex">
+      {/* Experiencia animada de bienvenida post-login (Portal Glassmorphic + Cápsula Dynamic Island) */}
+      <WelcomeLoginExperience />
+
       {/* Barra Lateral / Sidebar (Desktop fija, Móvil deslizante) */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
