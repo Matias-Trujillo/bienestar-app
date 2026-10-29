@@ -34,19 +34,29 @@ export default function LoginPage() {
   // Estados para la animación moderna de bienvenida / splash
   const [showSplash, setShowSplash] = useState(true);
   const [isExitingSplash, setIsExitingSplash] = useState(false);
+  const [splashStatus, setSplashStatus] = useState('Inicializando entorno municipal...');
 
   const startLoginTransition = () => {
     setIsExitingSplash(true);
     setTimeout(() => {
       setShowSplash(false);
-    }, 450); // Tiempo para la salida suave
+    }, 600); // Salida cinematográfica suave de 600ms
   };
 
   React.useEffect(() => {
-    // Transición automática tras 1.9 segundos de presentación del logo
-    const timer = setTimeout(() => {
+    // Progresión gradual de estados del splash (ritmo más pausado y cinematográfico)
+    const statusTimer1 = setTimeout(() => {
+      setSplashStatus('Cargando módulos y convenios de salud...');
+    }, 1100);
+
+    const statusTimer2 = setTimeout(() => {
+      setSplashStatus('Comité de Bienestar listo...');
+    }, 2200);
+
+    // Transición automática tras ~3.1 segundos para apreciar la presentación
+    const mainTimer = setTimeout(() => {
       startLoginTransition();
-    }, 1900);
+    }, 3100);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
@@ -56,7 +66,9 @@ export default function LoginPage() {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(statusTimer1);
+      clearTimeout(statusTimer2);
+      clearTimeout(mainTimer);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
@@ -80,12 +92,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#061523] via-[#0b2842] to-[#122e17] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden select-none">
+    <div className="min-h-screen bg-gradient-to-br from-[#05131d] via-[#092236] to-[#0f2814] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden select-none">
       {/* Luces y auras ambientales institucionales Peralillo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-20 -left-20 w-[500px] h-[500px] bg-[#0077b6]/20 rounded-full blur-[100px] animate-pulse-aura" />
-        <div className="absolute -bottom-20 -right-20 w-[500px] h-[500px] bg-[#558b2f]/20 rounded-full blur-[100px] animate-pulse-aura" style={{ animationDelay: '1.5s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#ca8a04]/10 rounded-full blur-[90px]" />
+        <div className="absolute -top-28 -left-28 w-[550px] h-[550px] bg-[#0077b6]/20 rounded-full blur-[110px] animate-pulse-aura" />
+        <div className="absolute -bottom-28 -right-28 w-[550px] h-[550px] bg-[#558b2f]/20 rounded-full blur-[110px] animate-pulse-aura" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] h-[450px] bg-[#ca8a04]/10 rounded-full blur-[100px]" />
+        
+        {/* Trama sutil de cuadrícula futurista / moderna */}
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
       </div>
 
       {/* =========================================================================
@@ -94,58 +109,60 @@ export default function LoginPage() {
       {showSplash && (
         <div
           onClick={startLoginTransition}
-          className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 cursor-pointer transition-all duration-500 backdrop-blur-md ${
+          className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 cursor-pointer transition-all duration-700 backdrop-blur-lg ${
             isExitingSplash
-              ? 'opacity-0 scale-105 pointer-events-none'
-              : 'opacity-100 scale-100'
+              ? 'opacity-0 scale-105 blur-md pointer-events-none'
+              : 'opacity-100 scale-100 blur-0'
           }`}
           title="Haz clic o presiona Enter para omitir"
         >
-          {/* Contenedor central del logo con aura pulsante */}
-          <div className="relative animate-splash-logo flex flex-col items-center text-center max-w-md w-full space-y-6">
+          {/* Contenedor central con animación de entrada suave */}
+          <div className="relative animate-splash-logo flex flex-col items-center text-center max-w-lg w-full space-y-7">
             
-            {/* Halo de luz tricolor Peralillo detrás del logo */}
+            {/* Halo de luz rotatorio tricolor Peralillo detrás del logo */}
             <div className="relative group">
-              <div className="absolute -inset-4 bg-gradient-to-tr from-[#0077b6] via-[#ca8a04] to-[#558b2f] rounded-[36px] blur-2xl opacity-75 animate-pulse-aura" />
+              <div className="absolute -inset-6 bg-gradient-to-tr from-[#0077b6] via-[#ca8a04] to-[#558b2f] rounded-[48px] blur-2xl opacity-80 animate-rotate-halo" />
               
-              <div className="relative p-5 sm:p-7 bg-white/95 rounded-[32px] shadow-2xl border-2 border-white/50 backdrop-blur-xl transition transform hover:scale-105">
+              <div className="relative animate-float-slow p-6 sm:p-8 bg-white/95 rounded-[36px] shadow-[0_20px_60px_-15px_rgba(0,119,182,0.4)] border-2 border-white/60 backdrop-blur-2xl transition transform hover:scale-105">
                 <img
                   src="/logo-peralillo.png"
                   alt="Ilustre Municipalidad de Peralillo"
-                  className="h-20 sm:h-28 w-auto object-contain mx-auto drop-shadow-md"
+                  className="h-24 sm:h-32 w-auto object-contain mx-auto drop-shadow-md"
                 />
               </div>
             </div>
 
-            {/* Tipografía institucional de bienvenida */}
-            <div className="space-y-2">
-              <span className="text-[11px] sm:text-xs font-extrabold uppercase tracking-[0.25em] text-sky-300 drop-shadow">
+            {/* Tipografía institucional de bienvenida con Shimmer moderno */}
+            <div className="space-y-2.5">
+              <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.28em] text-sky-300 drop-shadow flex items-center justify-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ca8a04] animate-ping" />
                 Ilustre Municipalidad de Peralillo
+                <span className="w-1.5 h-1.5 rounded-full bg-[#558b2f]" />
               </span>
-              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight drop-shadow-lg">
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight shimmer-text drop-shadow-2xl">
                 Comité de Bienestar
               </h1>
-              <p className="text-sm sm:text-base text-slate-200 font-medium">
+              <p className="text-sm sm:text-base text-slate-200 font-medium tracking-wide">
                 Portal Oficial de Gestión Operativa y Financiera
               </p>
-              <p className="text-xs sm:text-sm text-[#ea580c] font-semibold italic drop-shadow">
+              <p className="text-xs sm:text-sm text-[#ea580c] font-bold italic tracking-wider drop-shadow">
                 «La comuna que soñamos»
               </p>
             </div>
 
-            {/* Barra de progreso de carga estilizada */}
-            <div className="w-48 sm:w-56 space-y-2 pt-2">
-              <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/10">
-                <div className="h-full bg-gradient-to-r from-[#0077b6] via-[#ca8a04] to-[#558b2f] rounded-full animate-progress-fill" />
+            {/* Barra de progreso de carga estilizada y mensaje dinámico */}
+            <div className="w-56 sm:w-64 space-y-2.5 pt-1">
+              <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/15 shadow-inner">
+                <div className="h-full bg-gradient-to-r from-[#0077b6] via-[#ca8a04] to-[#558b2f] rounded-full animate-progress-fill-slow" />
               </div>
-              <p className="text-[11px] text-sky-200/80 font-mono tracking-wider">
-                Iniciando portal seguro…
+              <p className="text-[11px] text-sky-200/90 font-mono tracking-wider transition-all duration-300">
+                {splashStatus}
               </p>
             </div>
 
             {/* Botón sutil para saltar */}
-            <div className="pt-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold text-white/70 bg-white/10 border border-white/15 hover:bg-white/20 transition">
+            <div className="pt-2">
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-semibold text-white/80 bg-white/10 border border-white/20 hover:bg-white/25 hover:text-white transition shadow-sm">
                 Toca la pantalla para continuar ➔
               </span>
             </div>
@@ -154,42 +171,23 @@ export default function LoginPage() {
       )}
 
       {/* =========================================================================
-          FASE 2: FORMULARIO DE LOGIN REVELADO CON TRANSICIÓN SUAVE
+          FASE 2: FORMULARIO DE LOGIN LIMPIO Y MODERNO (SIN DUPLICACIÓN SUPERIOR)
           ========================================================================= */}
       <div
-        className={`relative z-10 w-full max-w-lg space-y-6 transition-all duration-700 ${
+        className={`relative z-10 w-full max-w-lg space-y-5 transition-all duration-700 ${
           showSplash && !isExitingSplash
-            ? 'opacity-0 scale-95 translate-y-6 pointer-events-none'
+            ? 'opacity-0 scale-95 translate-y-8 pointer-events-none'
             : 'animate-reveal-card opacity-100 scale-100 translate-y-0'
         }`}
       >
-        {/* Cabecera / Marca con Logo Oficial de Peralillo */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center p-3 sm:p-4 bg-white rounded-3xl shadow-2xl border border-white/20 backdrop-blur-md transition hover:scale-105">
-            <img
-              src="/logo-peralillo.png"
-              alt="Ilustre Municipalidad de Peralillo"
-              className="h-14 sm:h-16 w-auto object-contain mx-auto"
-            />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Comité de Bienestar
-            </h1>
-            <p className="text-sm text-sky-200 font-medium">
-              Portal Oficial de Gestión Operativa y Financiera
-            </p>
-            <p className="text-xs text-[#ea580c] font-medium italic mt-0.5">
-              «La comuna que soñamos»
-            </p>
-          </div>
-        </div>
-
-        {/* Tarjeta de Inicio de Sesión */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100">
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+        {/* Tarjeta de Inicio de Sesión Limpia */}
+        <div className="bg-white rounded-3xl p-6 sm:p-9 shadow-2xl border border-slate-100">
+          <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Iniciar Sesión</h2>
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#0077b6] block mb-0.5">
+                Portal de Bienestar • Peralillo
+              </span>
+              <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Iniciar Sesión</h2>
               <p className="text-xs text-slate-500">Ingresa tus credenciales institucionales</p>
             </div>
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sky-50 text-[#0077b6] border border-sky-200">

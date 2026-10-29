@@ -72,43 +72,84 @@ body {
 @keyframes pulseAura {
   0%, 100% {
     transform: scale(1);
-    opacity: 0.5;
+    opacity: 0.55;
   }
   50% {
-    transform: scale(1.08);
-    opacity: 0.85;
+    transform: scale(1.12);
+    opacity: 0.9;
+  }
+}
+
+@keyframes rotateHalo {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.06);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
   }
 }
 
 @keyframes splashLogoIn {
   0% {
     opacity: 0;
-    transform: scale(0.8) translateY(20px);
+    filter: blur(16px);
+    transform: scale(0.82) translateY(24px);
   }
   60% {
     opacity: 1;
-    transform: scale(1.03) translateY(-4px);
+    filter: blur(0px);
+    transform: scale(1.02) translateY(-4px);
   }
   100% {
     opacity: 1;
+    filter: blur(0px);
     transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes shimmerSweep {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
   }
 }
 
 @keyframes revealCardSpring {
   0% {
     opacity: 0;
-    transform: translateY(32px) scale(0.97);
+    filter: blur(10px);
+    transform: translateY(28px) scale(0.96);
   }
   100% {
     opacity: 1;
+    filter: blur(0px);
     transform: translateY(0) scale(1);
   }
 }
 
-@keyframes progressLine {
+@keyframes progressLineSlow {
   0% {
     width: 0%;
+  }
+  30% {
+    width: 38%;
+  }
+  70% {
+    width: 78%;
   }
   100% {
     width: 100%;
@@ -116,18 +157,42 @@ body {
 }
 
 .animate-pulse-aura {
-  animation: pulseAura 3s ease-in-out infinite;
+  animation: pulseAura 4s ease-in-out infinite;
+}
+
+.animate-rotate-halo {
+  animation: rotateHalo 12s linear infinite;
+}
+
+.animate-float-slow {
+  animation: floatSlow 5s ease-in-out infinite;
 }
 
 .animate-splash-logo {
-  animation: splashLogoIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: splashLogoIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-reveal-card {
-  animation: revealCardSpring 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: revealCardSpring 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.animate-progress-fill {
-  animation: progressLine 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.animate-progress-fill-slow {
+  animation: progressLineSlow 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 255, 255, 1) 25%,
+    rgba(186, 230, 253, 1) 50%,
+    rgba(255, 255, 255, 1) 75%,
+    rgba(255, 255, 255, 0.85) 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmerSweep 4s linear infinite;
 }
 
