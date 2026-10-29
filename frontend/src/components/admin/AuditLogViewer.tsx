@@ -95,55 +95,90 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ logs, loading, o
       ) : logsFiltrados.length === 0 ? (
         <p className="p-8 text-center text-sm text-slate-400 italic">No hay registros que coincidan con los filtros.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase">
-                <th className="py-3 px-3">Fecha y Hora</th>
-                <th className="py-3 px-3">Usuario Responsable</th>
-                <th className="py-3 px-3">Módulo</th>
-                <th className="py-3 px-3">Acción Registrada</th>
-                <th className="py-3 px-3">Recurso / Folio</th>
-                <th className="py-3 px-3">Detalle del Evento</th>
-                <th className="py-3 px-3 text-right">IP</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {logsFiltrados.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/60 transition">
-                  <td className="py-3 px-3 text-slate-500 whitespace-nowrap font-mono text-[11px]">
-                    {new Date(log.created_at).toLocaleString('es-CL')}
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="font-semibold text-slate-800 block">{log.usuario_nombre}</span>
-                    <span className="text-[10px] text-slate-400 block font-mono">
+        <>
+          {/* Vista Móvil: Bitácora en Tarjetas */}
+          <div className="block md:hidden divide-y divide-slate-100">
+            {logsFiltrados.map((log) => (
+              <div key={log.id} className="py-3.5 space-y-2 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-slate-800 text-sm block">{log.usuario_nombre}</span>
+                    <span className="text-[10px] text-slate-400 font-mono block">
                       {log.usuario_rol} {log.usuario_rut ? `• ${log.usuario_rut}` : ''}
                     </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
-                      {log.modulo}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
-                      {log.accion}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 font-mono font-bold text-slate-700">
-                    {log.recurso_id || '—'}
-                  </td>
-                  <td className="py-3 px-3 text-slate-600 text-xs max-w-xs break-words">
-                    {log.detalles || 'Sin detalles adicionales'}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-slate-400 text-[10px]">
-                    {log.ip_origen || '127.0.0.1'}
-                  </td>
+                  </div>
+                  <span className="font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-[10px] flex-shrink-0">
+                    {log.accion}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-2.5 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-mono text-slate-600 font-bold">Módulo: {log.modulo}</span>
+                    <span className="font-mono text-slate-500 font-semibold">{log.recurso_id || 'Folio: —'}</span>
+                  </div>
+                  <p className="text-slate-700 text-xs">{log.detalles || 'Sin detalles'}</p>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <span>{new Date(log.created_at).toLocaleString('es-CL')}</span>
+                  <span>IP: {log.ip_origen || '127.0.0.1'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Vista Desktop: Tabla Completa */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase">
+                  <th className="py-3 px-3">Fecha y Hora</th>
+                  <th className="py-3 px-3">Usuario Responsable</th>
+                  <th className="py-3 px-3">Módulo</th>
+                  <th className="py-3 px-3">Acción Registrada</th>
+                  <th className="py-3 px-3">Recurso / Folio</th>
+                  <th className="py-3 px-3">Detalle del Evento</th>
+                  <th className="py-3 px-3 text-right">IP</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {logsFiltrados.map((log) => (
+                  <tr key={log.id} className="hover:bg-slate-50/60 transition">
+                    <td className="py-3 px-3 text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                      {new Date(log.created_at).toLocaleString('es-CL')}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-semibold text-slate-800 block">{log.usuario_nombre}</span>
+                      <span className="text-[10px] text-slate-400 block font-mono">
+                        {log.usuario_rol} {log.usuario_rut ? `• ${log.usuario_rut}` : ''}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                        {log.modulo}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
+                        {log.accion}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 font-mono font-bold text-slate-700">
+                      {log.recurso_id || '—'}
+                    </td>
+                    <td className="py-3 px-3 text-slate-600 text-xs max-w-xs break-words">
+                      {log.detalles || 'Sin detalles adicionales'}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-slate-400 text-[10px]">
+                      {log.ip_origen || '127.0.0.1'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

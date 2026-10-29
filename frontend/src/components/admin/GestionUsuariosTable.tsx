@@ -75,64 +75,118 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
       ) : filtrados.length === 0 ? (
         <p className="p-8 text-center text-sm text-slate-400 italic">No se encontraron usuarios.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase">
-                <th className="py-3 px-4">Funcionario</th>
-                <th className="py-3 px-4">RUT</th>
-                <th className="py-3 px-4">Rol Asignado</th>
-                <th className="py-3 px-4">Departamento</th>
-                <th className="py-3 px-4">Antigüedad</th>
-                <th className="py-3 px-4 text-right">Saldo Salud</th>
-                <th className="py-3 px-4 text-center">Estado</th>
-                <th className="py-3 px-4 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtrados.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50/60 transition">
-                  <td className="py-3.5 px-4">
-                    <span className="font-semibold text-slate-800 block">{u.nombreCompleto}</span>
-                    <span className="text-[11px] text-slate-400 block">{u.email}</span>
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-slate-600">{u.rut}</td>
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                        u.rol === 'superusuario'
-                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                          : u.rol === 'socio'
-                          ? 'bg-slate-100 text-slate-700'
-                          : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                      }`}
-                    >
-                      {u.rolLabel}
+        <>
+          {/* Vista Móvil: Tarjetas de Usuarios */}
+          <div className="block md:hidden divide-y divide-slate-100">
+            {filtrados.map((u) => (
+              <div key={u.id} className="py-3.5 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-slate-800 text-sm block">{u.nombreCompleto}</span>
+                    <span className="text-[11px] text-slate-400 block font-mono">{u.rut} • {u.email}</span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${
+                      u.rol === 'superusuario'
+                        ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                        : u.rol === 'socio'
+                        ? 'bg-slate-100 text-slate-700'
+                        : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                    }`}
+                  >
+                    {u.rolLabel}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl text-xs">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Depto / Antigüedad</span>
+                    <span className="font-semibold text-slate-700 block truncate">{u.departamento}</span>
+                    <span className="text-[10px] text-slate-500">{u.antiguedad}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Saldo Salud</span>
+                    <span className="font-bold text-emerald-700 block font-mono">
+                      {formatCurrency(u.saldoSaludDisponible)}
                     </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600">{u.departamento}</td>
-                  <td className="py-3.5 px-4 text-slate-600">{u.antiguedad}</td>
-                  <td className="py-3.5 px-4 text-right font-mono font-semibold text-emerald-700">
-                    {formatCurrency(u.saldoSaludDisponible)}
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Activo
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <button
-                      onClick={() => onEditarUsuario(u)}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
-                    >
-                      Editar / Rol
-                    </button>
-                  </td>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Activo
+                  </span>
+                  <button
+                    onClick={() => onEditarUsuario(u)}
+                    className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                  >
+                    Editar / Rol
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Vista Desktop: Tabla */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase">
+                  <th className="py-3 px-4">Funcionario</th>
+                  <th className="py-3 px-4">RUT</th>
+                  <th className="py-3 px-4">Rol Asignado</th>
+                  <th className="py-3 px-4">Departamento</th>
+                  <th className="py-3 px-4">Antigüedad</th>
+                  <th className="py-3 px-4 text-right">Saldo Salud</th>
+                  <th className="py-3 px-4 text-center">Estado</th>
+                  <th className="py-3 px-4 text-center">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtrados.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50/60 transition">
+                    <td className="py-3.5 px-4">
+                      <span className="font-semibold text-slate-800 block">{u.nombreCompleto}</span>
+                      <span className="text-[11px] text-slate-400 block">{u.email}</span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-600">{u.rut}</td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                          u.rol === 'superusuario'
+                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                            : u.rol === 'socio'
+                            ? 'bg-slate-100 text-slate-700'
+                            : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                        }`}
+                      >
+                        {u.rolLabel}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600">{u.departamento}</td>
+                    <td className="py-3.5 px-4 text-slate-600">{u.antiguedad}</td>
+                    <td className="py-3.5 px-4 text-right font-mono font-semibold text-emerald-700">
+                      {formatCurrency(u.saldoSaludDisponible)}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Activo
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <button
+                        onClick={() => onEditarUsuario(u)}
+                        className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                      >
+                        Editar / Rol
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

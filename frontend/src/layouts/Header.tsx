@@ -36,10 +36,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-20 px-4 sm:px-8 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all">
       {/* Botón hamburguesa para móvil y saludo */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2.5 sm:gap-4">
         <button
           onClick={onToggleSidebar}
-          className="p-2 text-slate-500 rounded-xl lg:hidden hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0077b6]"
+          className="p-2 text-slate-500 rounded-xl lg:hidden hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0077b6] min-w-[40px] min-h-[40px] flex items-center justify-center"
           aria-label="Abrir menú"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -47,6 +47,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           </svg>
         </button>
 
+        {/* Identidad compacta en pantallas móviles */}
+        <div className="flex items-center gap-2 sm:hidden">
+          <img
+            src="/logo-peralillo.png"
+            alt="Peralillo"
+            className="h-8 w-auto object-contain"
+          />
+          <div className="leading-tight">
+            <span className="block text-xs font-bold text-slate-800">Bienestar</span>
+            <span className="block text-[10px] font-semibold text-[#0077b6]">Peralillo</span>
+          </div>
+        </div>
+
+        {/* Identidad en pantallas medianas y grandes */}
         <div className="hidden sm:block">
           <h1 className="text-lg font-bold text-slate-800 leading-tight flex items-center gap-2">
             <span>Portal de Bienestar</span>

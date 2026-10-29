@@ -83,8 +83,8 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
     <>
       {/* MODAL 1: POSTULAR A UN BONO (HU-05) */}
       {modalPostularBono && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
@@ -119,7 +119,7 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                   <span className="font-bold text-slate-800 block text-xs">
                     Datos del Hijo o Hija Estudiante (Hasta 24 años)
                   </span>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="font-semibold text-slate-700 block mb-1">Nombre Completo del Estudiante</label>
                       <input
@@ -143,8 +143,8 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
                       <label className="font-semibold text-slate-700 block mb-1">Establecimiento Educacional</label>
                       <input
                         type="text"
@@ -174,7 +174,7 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
               {modalPostularBono.id === 'nacimiento' && (
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                   <span className="font-bold text-slate-800 block text-xs">Datos del Recién Nacido</span>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="font-semibold text-slate-700 block mb-1">Nombre Hijo/Hija</label>
                       <input
@@ -206,7 +206,7 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                   <span className="font-bold text-slate-800 block text-xs">
                     Datos de la Carga Legal / Beneficiario
                   </span>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="font-semibold text-slate-700 block mb-1">Nombre Familiar / Beneficiario</label>
                       <input
@@ -282,8 +282,8 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
 
       {/* MODAL 2: ASIGNACIÓN DIRECTA BONO DE VACACIONES (ESCENARIO 3) */}
       {modalAsignacionDirecta && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
@@ -322,7 +322,7 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">N° Decreto Alcaldicio</label>
                   <input
@@ -401,8 +401,8 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
 
       {/* MODAL 3: RESOLUCIÓN Y VALIDACIÓN INDIVIDUAL (DIRECTIVA) */}
       {modalValidarSolicitud && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">
@@ -533,8 +533,8 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
 
       {/* MODAL 4: VISOR DE DOCUMENTO DIGITAL / DECRETO ALCALDICIO */}
       {modalVisorDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
@@ -603,8 +603,8 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
 
       {/* MODAL 5: CONFIGURACIÓN BASE SUELDO GRADO 15 */}
       {modalConfigBaseG15 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <SettingsIcon className="w-5 h-5 text-blue-600" />
@@ -673,8 +673,8 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
 
       {/* MODAL 6: EXPORTACIÓN PARA TESORERÍA MUNICIPAL */}
       {modalExportarTesoreria && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <CheckCircleIcon className="w-6 h-6 text-emerald-600" />

@@ -496,8 +496,134 @@ export default function AprobacionesPage() {
           </div>
         </div>
 
-        {/* Tabla de Solicitudes */}
-        <div className="overflow-x-auto">
+        {/* Vista Móvil: Tarjetas de Resolución para Smartphones */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {cargando ? (
+            <div className="py-12 text-center text-slate-400">
+              <div className="inline-block w-6 h-6 border-2 border-[#0077b6] border-t-transparent rounded-full animate-spin mb-2"></div>
+              <p className="text-xs">Cargando bandeja de aprobaciones...</p>
+            </div>
+          ) : solicitudesFiltradas.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 p-4">
+              <svg className="w-10 h-10 text-slate-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="font-semibold text-slate-600 text-sm">No hay solicitudes en esta sección.</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {filtroEstado === 'en_revision'
+                  ? '¡Excelente! No hay solicitudes pendientes de aprobación en este momento.'
+                  : 'No se encontraron registros para los filtros seleccionados.'}
+              </p>
+            </div>
+          ) : (
+            solicitudesFiltradas.map((sol) => {
+              const badge = getEstadoBadge(sol.estado);
+              const esPendiente = sol.estado === 'en_revision';
+
+              return (
+                <div key={sol.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-800 font-mono text-xs bg-slate-100 px-2.5 py-0.5 rounded">
+                      {sol.codigo}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${badge.bg}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                      {sol.estado.replace('_', ' ')}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm">
+                      {sol.socio_nombre || 'Socio Solicitante'}
+                    </h4>
+                    <p className="text-xs text-slate-500 font-mono">
+                      {sol.socio_rut || 'Sin RUT'} • {sol.socio_departamento || 'Municipalidad'}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-50 rounded-xl text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Prestación:</span>
+                      <span className="font-semibold text-slate-700">{sol.tipo_prestacion_label}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Beneficiario:</span>
+                      <span className="text-slate-700">{sol.beneficiario_nombre} ({sol.beneficiario_parentesco})</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Fecha Atención:</span>
+                      <span className="text-slate-700">{formatDate(sol.fecha_atencion)}</span>
+                    </div>
+                    {sol.descripcion && (
+                      <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                        {sol.descripcion}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-sky-50/50 border border-sky-100/60">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Boleta: {formatCurrency(sol.monto_boleta)}</span>
+                      <span className="text-xs font-bold text-emerald-700">
+                        Copago: {formatCurrency(sol.monto_copago)}
+                      </span>
+                    </div>
+                    {sol.comprobante_filename && (
+                      <button
+                        type="button"
+                        onClick={() => handleVerComprobante(sol)}
+                        className="px-2.5 py-1 text-xs font-semibold text-[#0077b6] bg-white border border-sky-200 rounded-lg shadow-2xs hover:bg-sky-50 transition"
+                      >
+                        Ver Boleta
+                      </button>
+                    )}
+                  </div>
+
+                  {esPendiente ? (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setSolicitudAprobar(sol)}
+                        className="w-full py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition flex items-center justify-center gap-1 active:scale-95"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Aprobar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSolicitudRechazar(sol);
+                          setMotivoRechazo('');
+                        }}
+                        className="w-full py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition flex items-center justify-center gap-1 active:scale-95"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Rechazar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowDetalle(sol)}
+                      className="w-full py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition text-center"
+                    >
+                      Ver Detalle Completo
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Vista Tablet / Desktop: Tabla Tradicional */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-100 uppercase text-[10px] tracking-wider">
               <tr>

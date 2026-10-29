@@ -171,7 +171,7 @@ export default function SolicitudAfiliacionPage() {
           <form
             onSubmit={handleSubmit}
             noValidate
-            className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-8"
+            className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 sm:space-y-8"
           >
             {/* Período de postulación */}
             {periodo && (

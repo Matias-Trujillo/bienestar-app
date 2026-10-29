@@ -112,44 +112,79 @@ export default function FinanzasPage() {
         ) : !nomina || nomina.socios.length === 0 ? (
           <p className="text-xs text-slate-400 italic">No hay socios aprobados en nómina de retenciones aún.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase">
-                  <th className="py-3 px-4">Folio Solicitud</th>
-                  <th className="py-3 px-4">RUN</th>
-                  <th className="py-3 px-4">Funcionario</th>
-                  <th className="py-3 px-4">Grado / Contrato</th>
-                  <th className="py-3 px-4">% Retención</th>
-                  <th className="py-3 px-4">Aprobación (Acta)</th>
-                  <th className="py-3 px-4">Término Carencia (6 Meses)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {nomina.socios.map((s) => (
-                  <tr key={s.folio} className="hover:bg-slate-50/60 transition">
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-700">{s.folio}</td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600">{s.run}</td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-800">{s.nombreCompleto}</td>
-                    <td className="py-3.5 px-4 text-slate-600">{s.grado} • {s.calidadContractual}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {s.porcentajeRetencion}% sueldo base
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      <div>{s.fechaSesionAprobacion}</div>
-                      <div className="text-[10px] text-slate-400">{s.numeroActa || 'Acta Ordinaria'}</div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-emerald-700">{s.finCarencia}</div>
-                      <div className="text-[10px] text-slate-400">Derecho a beneficios</div>
-                    </td>
+          <>
+            {/* Vista Móvil: Tarjetas de Nómina */}
+            <div className="block md:hidden divide-y divide-slate-100">
+              {nomina.socios.map((s) => (
+                <div key={s.folio} className="py-3.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded">
+                      {s.folio}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-[#0077b6] border border-sky-200">
+                      {s.porcentajeRetencion}% sueldo base
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm">{s.nombreCompleto}</h4>
+                    <p className="text-xs text-slate-500 font-mono">RUN: {s.run} • Grado {s.grado} ({s.calidadContractual})</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs p-2.5 bg-slate-50 rounded-xl">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase">Sesión / Acta</span>
+                      <span className="text-slate-700">{s.fechaSesionAprobacion}</span>
+                      <span className="text-[10px] text-slate-400 block truncate">{s.numeroActa || 'Acta Ordinaria'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase">Fin Carencia</span>
+                      <span className="font-semibold text-emerald-700">{s.finCarencia}</span>
+                      <span className="text-[10px] text-slate-400 block">Derecho a beneficios</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Vista Tablet / Desktop: Tabla Tradicional */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase">
+                    <th className="py-3 px-4">Folio Solicitud</th>
+                    <th className="py-3 px-4">RUN</th>
+                    <th className="py-3 px-4">Funcionario</th>
+                    <th className="py-3 px-4">Grado / Contrato</th>
+                    <th className="py-3 px-4">% Retención</th>
+                    <th className="py-3 px-4">Aprobación (Acta)</th>
+                    <th className="py-3 px-4">Término Carencia (6 Meses)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {nomina.socios.map((s) => (
+                    <tr key={s.folio} className="hover:bg-slate-50/60 transition">
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700">{s.folio}</td>
+                      <td className="py-3.5 px-4 font-mono text-slate-600">{s.run}</td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-800">{s.nombreCompleto}</td>
+                      <td className="py-3.5 px-4 text-slate-600">{s.grado} • {s.calidadContractual}</td>
+                      <td className="py-3.5 px-4">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 text-[#0077b6] border border-sky-200">
+                          {s.porcentajeRetencion}% sueldo base
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600">
+                        <div>{s.fechaSesionAprobacion}</div>
+                        <div className="text-[10px] text-slate-400">{s.numeroActa || 'Acta Ordinaria'}</div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-semibold text-emerald-700">{s.finCarencia}</div>
+                        <div className="text-[10px] text-slate-400">Derecho a beneficios</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

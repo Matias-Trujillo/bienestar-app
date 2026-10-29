@@ -59,7 +59,107 @@ export const HojaBeneficiosTable: React.FC<HojaBeneficiosTableProps> = ({
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Vista Móvil: Tarjetas de Beneficios */}
+          <div className="block md:hidden divide-y divide-slate-100">
+            {solicitudes.map((sol) => (
+              <div key={sol.id} className="p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                      BEN-{String(sol.id).padStart(4, '0')}
+                    </span>
+                    <span className="text-[11px] text-slate-400">{sol.created_at}</span>
+                  </div>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
+                      sol.estado === 'LIQUIDADO'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : sol.estado === 'APROBADO'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : sol.estado === 'PENDIENTE'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        sol.estado === 'LIQUIDADO'
+                          ? 'bg-emerald-500'
+                          : sol.estado === 'APROBADO'
+                          ? 'bg-blue-500'
+                          : sol.estado === 'PENDIENTE'
+                          ? 'bg-amber-500'
+                          : 'bg-rose-500'
+                      }`}
+                    />
+                    {sol.estado === 'LIQUIDADO' ? 'Pagado' : sol.estado}
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">{sol.titulo_bono}</h4>
+                  <p className="text-xs text-slate-500">
+                    {sol.asignacion_directa ? 'Asignación Directa' : sol.motivo || 'Postulación socio'}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase">Base ({sol.porcentaje_base}%)</span>
+                    <span className="text-slate-600 font-medium">Ref: {formatCurrency(sol.sueldo_base_referencia)}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 block uppercase">Liquidado</span>
+                    <span className="text-sm font-extrabold text-emerald-700">
+                      {formatCurrency(sol.monto_calculado)}
+                    </span>
+                  </div>
+                </div>
+
+                {sol.numero_cheque && (
+                  <div className="text-xs text-slate-600 bg-sky-50/50 p-2 rounded-lg border border-sky-100">
+                    <span className="font-semibold">{sol.metodo_pago || 'Cheque'}:</span> {sol.numero_cheque} ({sol.banco_emisor})
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    onClick={() =>
+                      onVerDocumento({
+                        titulo: sol.titulo_bono,
+                        tipo: sol.documento_tipo,
+                        num: sol.decreto_numero || undefined,
+                        url: sol.documento_url || undefined,
+                        detalle: sol.observaciones_admin || sol.motivo || undefined,
+                      })
+                    }
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0077b6] hover:underline"
+                  >
+                    <FileCheckIcon className="w-3.5 h-3.5" />
+                    <span>{sol.decreto_numero || sol.documento_nombre || 'Ver Respaldo'}</span>
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      onVerDocumento({
+                        titulo: `${sol.titulo_bono} - Socio: ${sol.socio_nombre}`,
+                        tipo: sol.documento_tipo,
+                        num: sol.decreto_numero || undefined,
+                        url: sol.documento_url || undefined,
+                        detalle: `Monto: ${formatCurrency(sol.monto_calculado)} | Estado: ${sol.estado} | Cheque: ${sol.numero_cheque || 'Pendiente'} | Observaciones: ${sol.observaciones_admin || 'Conforme a bases.'}`,
+                      })
+                    }
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                  >
+                    Detalle
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Vista Tablet / Desktop: Tabla Tradicional */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
@@ -148,7 +248,7 @@ export const HojaBeneficiosTable: React.FC<HojaBeneficiosTableProps> = ({
                             detalle: sol.observaciones_admin || sol.motivo || undefined,
                           })
                         }
-                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-semibold text-xs"
+                        className="inline-flex items-center gap-1 text-[#0077b6] hover:text-[#0369a1] font-semibold text-xs"
                       >
                         <FileCheckIcon className="w-3.5 h-3.5" />
                         {sol.decreto_numero || sol.documento_nombre || 'Ver Documento'}

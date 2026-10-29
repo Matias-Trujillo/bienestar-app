@@ -30,25 +30,25 @@ export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
   onOpenAsignacionDirecta,
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 max-w-full scrollbar-none">
         <button
           onClick={() => setActiveTab('catalogo')}
-          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+          className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
             activeTab === 'catalogo'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+              ? 'bg-[#0077b6] text-white shadow-md shadow-sky-800/20'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
           <GiftIcon className="w-4 h-4" />
-          Catálogo & Reglas de Bonos
+          Catálogo & Reglas
         </button>
 
         <button
           onClick={() => setActiveTab('hoja_socio')}
-          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+          className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
             activeTab === 'hoja_socio'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+              ? 'bg-[#0077b6] text-white shadow-md shadow-sky-800/20'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
@@ -57,7 +57,7 @@ export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
           {totalSolicitudes > 0 && (
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] ${
-                activeTab === 'hoja_socio' ? 'bg-white text-blue-700' : 'bg-blue-100 text-blue-700'
+                activeTab === 'hoja_socio' ? 'bg-white text-[#0077b6]' : 'bg-sky-100 text-[#0077b6]'
               }`}
             >
               {totalSolicitudes}
@@ -69,26 +69,26 @@ export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
           <>
             <button
               onClick={() => setActiveTab('gestion_directiva')}
-              className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+              className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'gestion_directiva'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                   : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
               }`}
             >
               <ShieldCheckIcon className="w-4 h-4" />
-              Gestión & Aprobaciones (Directiva)
+              Gestión (Directiva)
             </button>
 
             <button
               onClick={() => setActiveTab('liquidacion_masiva')}
-              className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+              className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'liquidacion_masiva'
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  ? 'bg-[#558b2f] text-white shadow-md shadow-emerald-700/20'
                   : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
               }`}
             >
               <SlidersIcon className="w-4 h-4" />
-              Liquidación Masiva (HU-06)
+              Liquidación Masiva
             </button>
           </>
         )}
