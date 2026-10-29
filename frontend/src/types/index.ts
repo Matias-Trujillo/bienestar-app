@@ -240,6 +240,7 @@ export interface SolicitudReembolso {
   estado_label: string;
   motivo_rechazo: string;
   created_at: string;
+  anio_imputacion?: number;
 }
 
 export interface ResumenSaludSocio {
@@ -259,15 +260,21 @@ export interface ResumenSaludSocio {
   total_reembolsado_periodo: number;
   solicitudes_en_revision: number;
   solicitudes_aprobadas: number;
+  anio_calendario?: number;
+  fecha_inicio_periodo?: string;
+  fecha_fin_periodo?: string;
+  fecha_renovacion_anual?: string;
 }
 
 export interface ValidacionFechaResponse {
   fecha_atencion: string;
   fecha_limite: string;
-  dias_transcurridos: number;
+  dias_transcurridos: int_or_num;
   dentro_de_plazo: boolean;
   mensaje: string;
 }
+
+type int_or_num = number;
 
 export interface ReembolsoHistorialResponse {
   resumen: ResumenSaludSocio;

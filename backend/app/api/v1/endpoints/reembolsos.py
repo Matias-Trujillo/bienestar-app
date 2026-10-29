@@ -62,10 +62,11 @@ router = APIRouter()
     summary="Obtener historial de reembolsos médicos del socio autenticado",
 )
 async def get_reembolsos(
+    anio: Optional[int] = Query(None, description="Año calendario para cálculo de resumen (por defecto año actual)"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    resumen = await obtener_resumen_socio(user, db)
+    resumen = await obtener_resumen_socio(user, db, anio=anio)
     solicitudes = await listar_solicitudes_socio(user, db)
     return ReembolsoHistorialResponse(
         resumen=resumen,
@@ -82,10 +83,11 @@ async def get_reembolsos(
     summary="Obtener resumen de saldo anual de salud y estado previsional",
 )
 async def get_resumen_socio(
+    anio: Optional[int] = Query(None, description="Año calendario a consultar (por defecto año actual)"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await obtener_resumen_socio(user, db)
+    return await obtener_resumen_socio(user, db, anio=anio)
 
 
 # ---------- POST /reembolsos/validar-fecha ----------
@@ -151,14 +153,15 @@ async def post_crear_solicitud(
             detail="El copago a reembolsar no puede ser superior al monto total de la boleta.",
         )
 
-    # 4. Verificar saldo disponible contra el saldo real
+    # 4. Verificar saldo disponible contra el saldo real del año calendario vigente ($150.000 anual Ene-Dic)
     resumen_socio = await obtener_resumen_socio(user, db)
     if body.monto_copago > resumen_socio.saldo_salud_disponible:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"El monto de copago solicitado (${body.monto_copago:,.0f}) "
-                f"supera su saldo disponible (${resumen_socio.saldo_salud_disponible:,.0f})."
+                f"supera su saldo disponible del año calendario {resumen_socio.anio_calendario} "
+                f"(${resumen_socio.saldo_salud_disponible:,.0f} de $150.000 anuales)."
             ),
         )
 

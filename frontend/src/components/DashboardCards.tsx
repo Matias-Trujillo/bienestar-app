@@ -12,12 +12,15 @@ interface DashboardCardsProps {
 
 export const DashboardCards: React.FC<DashboardCardsProps> = ({
   saldoDisponible = 150000,
-  saldoTotal = 250000,
+  saldoTotal = 150000,
   estadoPrevisional = 'Al día',
   cargasFamiliares = 2,
 }) => {
-  const saldoUtilizado = saldoTotal - saldoDisponible;
-  const porcentajeDisponible = Math.round((saldoDisponible / saldoTotal) * 100);
+  const anioActual = new Date().getFullYear();
+  const topeReal = saldoTotal > 0 ? Math.min(saldoTotal, 150000) : 150000;
+  const dispReal = Math.min(saldoDisponible, topeReal);
+  const saldoUtilizado = Math.max(0, topeReal - dispReal);
+  const porcentajeDisponible = Math.round((dispReal / topeReal) * 100);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -27,9 +30,14 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
         <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#558b2f]/10 blur-xl pointer-events-none" />
 
         <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Fondo Médico y Dental
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Fondo Médico y Dental
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+              Año {anioActual}
+            </span>
+          </div>
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-lime-50 text-[#558b2f] border border-lime-100">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -43,10 +51,10 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
 
         <div className="flex items-baseline gap-2 mb-3">
           <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {formatCurrency(saldoDisponible)}
+            {formatCurrency(dispReal)}
           </span>
           <span className="text-xs text-slate-400 font-medium">
-            / {formatCurrency(saldoTotal)} tope
+            / {formatCurrency(topeReal)} tope año calendario
           </span>
         </div>
 
@@ -59,7 +67,7 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
         </div>
 
         <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>{porcentajeDisponible}% disponible</span>
+          <span>{porcentajeDisponible}% disponible • Renueva 1 Ene {anioActual + 1}</span>
           <span>Utilizado: {formatCurrency(saldoUtilizado)}</span>
         </div>
       </div>

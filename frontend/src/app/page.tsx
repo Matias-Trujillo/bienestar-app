@@ -104,12 +104,12 @@ export default function DashboardPage() {
             Estado de Fondos y Coberturas
           </h2>
           <span className="text-xs text-emerald-600 font-semibold">
-            Vigencia: Período Anual 2026
+            Vigencia: Año Calendario {new Date().getFullYear()} (1 Ene – 31 Dic)
           </span>
         </div>
         <DashboardCards
           saldoDisponible={user?.saldoSaludDisponible ?? 150000}
-          saldoTotal={user?.saldoSaludTotalAnual ?? 250000}
+          saldoTotal={user?.saldoSaludTotalAnual ?? 150000}
           estadoPrevisional={user?.estadoPrevisional ?? 'Al día'}
           cargasFamiliares={user?.cargasRegistradas ?? 2}
         />

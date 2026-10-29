@@ -42,11 +42,11 @@ class User(Base, TimestampMixin):
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    # Datos de perfil usados por el dashboard
+    # Datos de perfil usados por el dashboard (Tope anual salud: $150.000 por año calendario)
     departamento: Mapped[str] = mapped_column(String(120), default="")
     antiguedad: Mapped[str] = mapped_column(String(60), default="")
     estado_previsional: Mapped[str] = mapped_column(String(20), default="Al día")
-    saldo_salud_disponible: Mapped[int] = mapped_column(Integer, default=250000)
-    saldo_salud_total_anual: Mapped[int] = mapped_column(Integer, default=250000)
+    saldo_salud_disponible: Mapped[int] = mapped_column(Integer, default=150000)
+    saldo_salud_total_anual: Mapped[int] = mapped_column(Integer, default=150000)
     cargas_registradas: Mapped[int] = mapped_column(Integer, default=0)
     meses_antiguedad: Mapped[int] = mapped_column(Integer, default=12)

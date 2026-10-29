@@ -146,12 +146,12 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
         {/* 2. Cuerpo con Flujo Vertical Hacia Abajo y Scroll Interno Fluido */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3.5 space-y-3 text-xs">
           
-          {/* Tarjeta Reactiva de Saldo */}
+          {/* Tarjeta Reactiva de Saldo por Año Calendario */}
           <div className="rounded-xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-slate-50 p-3 shadow-2xs">
             <div className="flex items-center justify-between">
               <div>
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Saldo Actual Disponible
+                  Saldo Disponible • Año Calendario {resumen.anio_calendario || new Date().getFullYear()}
                 </span>
                 <span className="text-lg font-extrabold text-emerald-700">
                   {formatCurrency(saldoDisponible)}
@@ -159,7 +159,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               </div>
               <div className="text-right">
                 <span className="block text-[10px] font-medium text-slate-400 uppercase">
-                  Tope Anual
+                  Tope Año Calendario (Ene–Dic)
                 </span>
                 <span className="text-xs sm:text-sm font-bold text-slate-700">
                   {formatCurrency(saldoTotal)}

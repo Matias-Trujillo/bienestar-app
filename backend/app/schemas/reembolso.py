@@ -98,6 +98,7 @@ class ReembolsoOut(BaseModel):
     estado_label: str
     motivo_rechazo: str
     created_at: str
+    anio_imputacion: int = 2026
 
     model_config = {"from_attributes": True}
 
@@ -121,6 +122,10 @@ class ResumenSaludSocio(BaseModel):
     total_reembolsado_periodo: float
     solicitudes_en_revision: int
     solicitudes_aprobadas: int
+    anio_calendario: int = 2026
+    fecha_inicio_periodo: str = "2026-01-01"
+    fecha_fin_periodo: str = "2026-12-31"
+    fecha_renovacion_anual: str = "2027-01-01"
 
 
 # [ESTUDIANTE INFORMÁTICA] Esto modela la respuesta del cálculo dinámico de la regla de los 30 días corridos; permite mostrar un mensaje en tiempo real al socio mientras elige la fecha.

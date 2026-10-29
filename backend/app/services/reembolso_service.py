@@ -142,6 +142,39 @@ async def generar_codigo(db: AsyncSession) -> str:
     return codigo
 
 
+def _obtener_anio_imputacion(sol: SolicitudReembolso) -> int:
+    """Determina el año calendario (1 ene - 31 dic) al que se imputa el reembolso.
+
+    Por regla de negocio del Comité de Bienestar, el tope anual de $150.000 se
+    renueva cada 1 de enero (año calendario). Si una solicitud fue ingresada en
+    diciembre del año anterior, consume el cupo de ese año y en enero el socio
+    vuelve a contar con su tope anual íntegro de $150.000.
+    """
+    fecha_at: Optional[date] = None
+    if sol.fecha_atencion:
+        if isinstance(sol.fecha_atencion, date):
+            fecha_at = sol.fecha_atencion
+        else:
+            try:
+                fecha_at = date.fromisoformat(str(sol.fecha_atencion)[:10])
+            except ValueError:
+                fecha_at = None
+
+    if sol.created_at:
+        anio_creacion = sol.created_at.year
+        if fecha_at and fecha_at.year < anio_creacion:
+            dias_diferencia = (sol.created_at.date() - fecha_at).days
+            # Si es un registro histórico cuya atención fue el año anterior fuera de la ventana de cambio de año
+            if dias_diferencia > DIAS_PLAZO_MAX:
+                return fecha_at.year
+        return anio_creacion
+
+    if fecha_at:
+        return fecha_at.year
+
+    return date.today().year
+
+
 # [ESTUDIANTE INFORMÁTICA] Esto mapea una entidad ORM al DTO de salida ReembolsoOut; esto permite preparar los datos con formato legible para enviárselos al frontend.
 def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
     """Convierte una instancia ORM a su schema de salida."""
@@ -175,62 +208,98 @@ def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
         estado_label=ESTADO_REEMBOLSO_LABELS.get(sol.estado, sol.estado.value),
         motivo_rechazo=sol.motivo_rechazo or "",
         created_at=sol.created_at.isoformat() if sol.created_at else "",
+        anio_imputacion=_obtener_anio_imputacion(sol),
     )
 
 
-# [ESTUDIANTE INFORMÁTICA] Esta función calcula las finanzas de salud del socio; suma lo que está en revisión y lo ya aprobado para restar del tope anual de $150.000 y permite saber exactamente cuánto saldo disponible le queda para nuevos gastos.
-async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSocio:
-    """Calcula el resumen de salud y fondos del socio."""
+async def _asegurar_semilla_diciembre_anterior(user: User, db: AsyncSession) -> None:
+    """Garantiza de forma idempotente un reembolso histórico de diciembre del año anterior por $150.000
+    para demostrar que el cupo es por año calendario y se renueva al 100% en enero del nuevo año."""
+    if user.email != "cvalenzuela@mperalillo.cl":
+        return
+
+    anio_anterior = date.today().year - 1
+    codigo_dic = f"RMB-{anio_anterior}-DIC"
+    existe = await db.scalar(
+        select(SolicitudReembolso.id).where(SolicitudReembolso.codigo == codigo_dic)
+    )
+    if existe:
+        return
+
+    fecha_dic = date(anio_anterior, 12, 18)
+    creado_dic = datetime(anio_anterior, 12, 18, 15, 30, tzinfo=timezone.utc)
+
+    semilla_dic = SolicitudReembolso(
+        codigo=codigo_dic,
+        socio_id=user.id,
+        tipo_prestacion=TipoPrestacion.EXAMENES,
+        descripcion=f"Exámenes y procedimientos diciembre {anio_anterior} (Tope anual {anio_anterior} utilizado al 100%)",
+        beneficiario_nombre=user.nombre_completo,
+        beneficiario_parentesco="Titular",
+        monto_boleta=168000,
+        monto_copago=150000,
+        monto_reembolso=150000,
+        fecha_atencion=fecha_dic,
+        fecha_boleta=fecha_dic,
+        tipo_documento="bono_copago",
+        declaracion_aceptada=True,
+        estado=EstadoReembolso.PAGADO,
+        created_at=creado_dic,
+        updated_at=creado_dic,
+    )
+    db.add(semilla_dic)
+    await db.commit()
+
+
+# [ESTUDIANTE INFORMÁTICA] Esta función calcula las finanzas de salud del socio por AÑO CALENDARIO (1 ene al 31 dic); suma únicamente lo que está en revisión y lo aprobado dentro del año calendario vigente para restar del tope anual de $150.000, renovando automáticamente el cupo cada 1 de enero.
+async def obtener_resumen_socio(
+    user: User, db: AsyncSession, anio: Optional[int] = None
+) -> ResumenSaludSocio:
+    """Calcula el resumen de salud y fondos del socio para el año calendario vigente."""
+    await _asegurar_semilla_diciembre_anterior(user, db)
+
+    anio_calendario = anio or date.today().year
     puede, fecha_hab, msg_carencia = validar_carencia(user)
     meses = _parse_antiguedad_a_meses(user.antiguedad)
 
-    # Calcular monto total en revisión (comprometido preventivamente)
-    monto_en_revision = await db.scalar(
-        select(func.coalesce(func.sum(SolicitudReembolso.monto_reembolso), 0)).where(
-            SolicitudReembolso.socio_id == user.id,
-            SolicitudReembolso.estado == EstadoReembolso.EN_REVISION,
-        )
-    ) or 0
+    # Obtener todas las solicitudes del socio y filtrar exclusivamente por el año calendario consultado
+    result = await db.scalars(
+        select(SolicitudReembolso).where(SolicitudReembolso.socio_id == user.id)
+    )
+    solicitudes_anio = [
+        s for s in result if _obtener_anio_imputacion(s) == anio_calendario
+    ]
 
-    # Calcular total reembolsado en el período (aprobado + pagado)
-    total_reembolsado = await db.scalar(
-        select(func.coalesce(func.sum(SolicitudReembolso.monto_reembolso), 0)).where(
-            SolicitudReembolso.socio_id == user.id,
-            SolicitudReembolso.estado.in_([
-                EstadoReembolso.APROBADO,
-                EstadoReembolso.PAGADO,
-            ]),
-        )
-    ) or 0
+    en_revision_list = [
+        s for s in solicitudes_anio if s.estado == EstadoReembolso.EN_REVISION
+    ]
+    aprobadas_list = [
+        s
+        for s in solicitudes_anio
+        if s.estado in (EstadoReembolso.APROBADO, EstadoReembolso.PAGADO)
+    ]
 
-    en_revision_count = await db.scalar(
-        select(func.count(SolicitudReembolso.id)).where(
-            SolicitudReembolso.socio_id == user.id,
-            SolicitudReembolso.estado == EstadoReembolso.EN_REVISION,
-        )
-    ) or 0
+    monto_en_revision = sum(float(s.monto_reembolso or 0) for s in en_revision_list)
+    total_reembolsado = sum(float(s.monto_reembolso or 0) for s in aprobadas_list)
+    en_revision_count = len(en_revision_list)
+    aprobadas_count = len(aprobadas_list)
 
-    aprobadas_count = await db.scalar(
-        select(func.count(SolicitudReembolso.id)).where(
-            SolicitudReembolso.socio_id == user.id,
-            SolicitudReembolso.estado.in_([
-                EstadoReembolso.APROBADO,
-                EstadoReembolso.PAGADO,
-            ]),
-        )
-    ) or 0
-
-    total_anual = float(min(user.saldo_salud_total_anual, TOPE_ANUAL_SALUD))
+    total_anual = float(TOPE_ANUAL_SALUD)
     total_comprometido = float(monto_en_revision + total_reembolsado)
     disponible = float(max(0.0, total_anual - total_comprometido))
     pct = ((total_anual - disponible) / total_anual * 100) if total_anual > 0 else 0
 
-    # Sincronizar en la BD el saldo_salud_disponible del usuario para que quede consistente
-    user_db = await db.get(User, user.id)
-    if user_db and user_db.saldo_salud_disponible != int(disponible):
-        user_db.saldo_salud_disponible = int(disponible)
-        db.add(user_db)
-        await db.commit()
+    # Sincronizar en la BD el saldo_salud_disponible y el tope anual ($150.000) del año calendario actual
+    if anio_calendario == date.today().year:
+        user_db = await db.get(User, user.id)
+        if user_db and (
+            user_db.saldo_salud_disponible != int(disponible)
+            or user_db.saldo_salud_total_anual != int(TOPE_ANUAL_SALUD)
+        ):
+            user_db.saldo_salud_disponible = int(disponible)
+            user_db.saldo_salud_total_anual = int(TOPE_ANUAL_SALUD)
+            db.add(user_db)
+            await db.commit()
 
     return ResumenSaludSocio(
         socio_id=user.id,
@@ -249,10 +318,14 @@ async def obtener_resumen_socio(user: User, db: AsyncSession) -> ResumenSaludSoc
         total_reembolsado_periodo=float(total_reembolsado),
         solicitudes_en_revision=en_revision_count,
         solicitudes_aprobadas=aprobadas_count,
+        anio_calendario=anio_calendario,
+        fecha_inicio_periodo=f"{anio_calendario}-01-01",
+        fecha_fin_periodo=f"{anio_calendario}-12-31",
+        fecha_renovacion_anual=f"{anio_calendario + 1}-01-01",
     )
 
 
-# [ESTUDIANTE INFORMÁTICA] Esta función persiste la solicitud (HU-03) y descuenta de inmediato el copago del saldo del socio; esto permite apartar el dinero preventivamente para que no ingrese otra solicitud duplicada sin fondos.
+# [ESTUDIANTE INFORMÁTICA] Esta función persiste la solicitud (HU-03) y recalcula de inmediato el saldo del año calendario vigente del socio; esto permite apartar el dinero preventivamente para que no ingrese otra solicitud duplicada sin fondos.
 async def crear_solicitud(
     user: User,
     payload: ReembolsoCreateRequest,
@@ -283,15 +356,11 @@ async def crear_solicitud(
     )
 
     db.add(solicitud)
-    await db.flush()
-
-    # Actualizar preventivamente el saldo en BD
-    user_db = await db.get(User, user.id)
-    if user_db:
-        user_db.saldo_salud_disponible = max(0, int(user_db.saldo_salud_disponible - payload.monto_copago))
-        db.add(user_db)
-
     await db.commit()
+    await db.refresh(solicitud)
+
+    # Recalcular y sincronizar el saldo disponible del año calendario vigente
+    await obtener_resumen_socio(user, db)
     await db.refresh(solicitud)
     return solicitud
 
@@ -461,15 +530,9 @@ async def resolver_solicitud_reembolso(
         solicitud.estado = EstadoReembolso.APROBADO
         solicitud.motivo_rechazo = ""
     else:
-        # Al rechazar, restauramos el saldo preventivo en el usuario
+        # Al rechazar, liberamos el monto comprometido en su año calendario correspondiente
         solicitud.estado = EstadoReembolso.RECHAZADO
         solicitud.motivo_rechazo = motivo_rechazo or "Rechazado por administración"
-        if socio:
-            socio.saldo_salud_disponible = min(
-                socio.saldo_salud_total_anual,
-                int(socio.saldo_salud_disponible + solicitud.monto_reembolso)
-            )
-            db.add(socio)
 
     # Registrar evento inmutable en AuditLog
     audit = AuditLog(
@@ -490,5 +553,9 @@ async def resolver_solicitud_reembolso(
     db.add(audit)
     db.add(solicitud)
     await db.commit()
+
+    if socio:
+        await obtener_resumen_socio(socio, db)
+
     await db.refresh(solicitud)
     return solicitud

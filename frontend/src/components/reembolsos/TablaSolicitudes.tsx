@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SolicitudReembolso, EstadoReembolso, TipoPrestacion, TIPO_PRESTACION_LABELS } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { obtenerAnioSolicitud } from './ResumenSaludCards';
 
 export function getEstadoBadge(estado: EstadoReembolso) {
   const map: Record<EstadoReembolso, { bg: string; dot: string }> = {
@@ -42,43 +43,88 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
   onVerComprobante,
   onVerDetalle,
 }) => {
+  const anioActual = new Date().getFullYear();
+  const [filtroAnio, setFiltroAnio] = useState<'todos' | number>('todos');
+
+  const aniosDisponibles = Array.from(
+    new Set([anioActual, ...solicitudes.map((s) => obtenerAnioSolicitud(s))])
+  ).sort((a, b) => b - a);
+
   const solicitudesFiltradas = solicitudes.filter((s) => {
-    if (filtroEstado === 'todos') return true;
-    return s.estado === filtroEstado;
+    const cumpleEstado = filtroEstado === 'todos' || s.estado === filtroEstado;
+    const cumpleAnio = filtroAnio === 'todos' || obtenerAnioSolicitud(s) === filtroAnio;
+    return cumpleEstado && cumpleAnio;
   });
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
       {/* Header de la tabla */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800">Historial de Solicitudes</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-800">Historial de Solicitudes</h2>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
+              Tope $150.000 por Año Calendario (1 Ene – 31 Dic)
+            </span>
+          </div>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            {solicitudes.length} solicitud(es) en el período vigente
+            Los reembolsos de años anteriores (ej. diciembre {anioActual - 1}) no descuentan del cupo disponible en {anioActual}.
           </p>
         </div>
 
-        {/* Filtro por estado */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {[
-            { key: 'todos', label: 'Todos' },
-            { key: 'en_revision', label: 'En Revisión' },
-            { key: 'aprobado', label: 'Aprobados' },
-            { key: 'pagado', label: 'Pagados' },
-            { key: 'rechazado', label: 'Rechazados' },
-          ].map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFiltroEstado(f.key)}
-              className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
-                filtroEstado === f.key
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* Filtros por Año Calendario y Estado */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {aniosDisponibles.length > 1 && (
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => setFiltroAnio('todos')}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                  filtroAnio === 'todos'
+                    ? 'bg-white text-slate-800 shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Todos los años
+              </button>
+              {aniosDisponibles.map((anio) => (
+                <button
+                  key={anio}
+                  type="button"
+                  onClick={() => setFiltroAnio(anio)}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                    filtroAnio === anio
+                      ? 'bg-white text-emerald-700 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Año {anio} {anio === anioActual ? '(Vigente)' : '(Cerrado)'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[
+              { key: 'todos', label: 'Todos' },
+              { key: 'en_revision', label: 'En Revisión' },
+              { key: 'aprobado', label: 'Aprobados' },
+              { key: 'pagado', label: 'Pagados' },
+              { key: 'rechazado', label: 'Rechazados' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFiltroEstado(f.key)}
+                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+                  filtroEstado === f.key
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -93,13 +139,26 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
           <div className="block md:hidden divide-y divide-slate-100">
             {solicitudesFiltradas.map((sol) => {
               const badge = getEstadoBadge(sol.estado);
+              const anioSol = obtenerAnioSolicitud(sol);
+              const esAnioAnterior = anioSol < anioActual;
               return (
                 <div key={sol.id} className="p-4 hover:bg-slate-50/60 transition space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{getTipoPrestacionIcon(sol.tipo_prestacion)}</span>
                       <div>
-                        <span className="text-xs font-mono font-bold text-slate-800">{sol.codigo}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-mono font-bold text-slate-800">{sol.codigo}</span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                              esAnioAnterior
+                                ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                            }`}
+                          >
+                            Cupo {anioSol}
+                          </span>
+                        </div>
                         <p className="text-[11px] font-semibold text-slate-700">
                           {TIPO_PRESTACION_LABELS[sol.tipo_prestacion]}
                         </p>
@@ -168,7 +227,7 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
                   <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Código</th>
                   <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Tipo</th>
                   <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Beneficiario</th>
-                  <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Fecha Atención</th>
+                  <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Fecha / Año Calendario</th>
                   <th className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Monto Boleta</th>
                   <th className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Reembolso</th>
                   <th className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Estado</th>
@@ -179,6 +238,8 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
               <tbody className="divide-y divide-slate-100">
                 {solicitudesFiltradas.map((sol) => {
                   const badge = getEstadoBadge(sol.estado);
+                  const anioSol = obtenerAnioSolicitud(sol);
+                  const esAnioAnterior = anioSol < anioActual;
                   return (
                     <tr key={sol.id} className="hover:bg-slate-50/60 transition-colors">
                       {/* Código */}
@@ -194,7 +255,7 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
                             <p className="text-xs font-semibold text-slate-700">
                               {TIPO_PRESTACION_LABELS[sol.tipo_prestacion]}
                             </p>
-                            <p className="text-[11px] text-slate-400 truncate max-w-[140px]">
+                            <p className="text-[11px] text-slate-400 truncate max-w-[180px]" title={sol.descripcion}>
                               {sol.descripcion || 'Sin descripción'}
                             </p>
                           </div>
@@ -207,9 +268,23 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
                         <p className="text-[10px] text-slate-400">{sol.beneficiario_parentesco}</p>
                       </td>
 
-                      {/* Fecha atención */}
-                      <td className="px-5 py-3.5 text-xs text-slate-600">
-                        {formatDate(sol.fecha_atencion)}
+                      {/* Fecha atención y año calendario de imputación */}
+                      <td className="px-5 py-3.5">
+                        <p className="text-xs text-slate-700 font-medium">{formatDate(sol.fecha_atencion)}</p>
+                        <span
+                          className={`inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                            esAnioAnterior
+                              ? 'bg-slate-100 text-slate-600'
+                              : 'bg-emerald-50 text-emerald-700'
+                          }`}
+                          title={
+                            esAnioAnterior
+                              ? `Imputado al año calendario ${anioSol}. El cupo de $150.000 se renovó el 1 de enero de ${anioActual}.`
+                              : `Imputado al cupo vigente del año calendario ${anioSol}.`
+                          }
+                        >
+                          Cupo {anioSol} {esAnioAnterior ? '• Cerrado' : '• Vigente'}
+                        </span>
                       </td>
 
                       {/* Monto boleta */}
@@ -223,7 +298,9 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
                           {formatCurrency(sol.monto_reembolso)}
                         </span>
                         <span className="block text-[10px] text-slate-400">
-                          {sol.monto_copago > 0
+                          {esAnioAnterior
+                            ? `No descuenta en ${anioActual}`
+                            : sol.monto_copago > 0
                             ? `${Math.round((sol.monto_reembolso / sol.monto_copago) * 100)}% copago`
                             : 'Reembolso directo'}
                         </span>
