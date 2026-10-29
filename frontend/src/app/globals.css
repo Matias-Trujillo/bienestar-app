@@ -68,3 +68,66 @@ body {
 .progress-bar-glow {
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
 }
+
+@keyframes pulseAura {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+}
+
+@keyframes splashLogoIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes revealCardSpring {
+  0% {
+    opacity: 0;
+    transform: translateY(32px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes progressLine {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-pulse-aura {
+  animation: pulseAura 3s ease-in-out infinite;
+}
+
+.animate-splash-logo {
+  animation: splashLogoIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-reveal-card {
+  animation: revealCardSpring 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-progress-fill {
+  animation: progressLine 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+

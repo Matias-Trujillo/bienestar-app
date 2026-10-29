@@ -31,6 +31,36 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Estados para la animación moderna de bienvenida / splash
+  const [showSplash, setShowSplash] = useState(true);
+  const [isExitingSplash, setIsExitingSplash] = useState(false);
+
+  const startLoginTransition = () => {
+    setIsExitingSplash(true);
+    setTimeout(() => {
+      setShowSplash(false);
+    }, 450); // Tiempo para la salida suave
+  };
+
+  React.useEffect(() => {
+    // Transición automática tras 1.9 segundos de presentación del logo
+    const timer = setTimeout(() => {
+      startLoginTransition();
+    }, 1900);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        startLoginTransition();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -50,22 +80,96 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a233a] via-[#0e314f] to-[#1a3818] flex items-center justify-center p-4 sm:p-6">
-      {/* Fondo decorativo con luces institucionales Peralillo */}
+    <div className="min-h-screen bg-gradient-to-br from-[#061523] via-[#0b2842] to-[#122e17] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden select-none">
+      {/* Luces y auras ambientales institucionales Peralillo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#0077b6]/15 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#558b2f]/15 rounded-full blur-3xl"></div>
-        <div className="absolute top-2/3 right-1/3 w-80 h-80 bg-[#d97706]/10 rounded-full blur-3xl"></div>
+        <div className="absolute -top-20 -left-20 w-[500px] h-[500px] bg-[#0077b6]/20 rounded-full blur-[100px] animate-pulse-aura" />
+        <div className="absolute -bottom-20 -right-20 w-[500px] h-[500px] bg-[#558b2f]/20 rounded-full blur-[100px] animate-pulse-aura" style={{ animationDelay: '1.5s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#ca8a04]/10 rounded-full blur-[90px]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-lg space-y-6">
+      {/* =========================================================================
+          FASE 1: SPLASH INTRO CINEMÁTICO MODERNO (LOGO PROTAGONISTA)
+          ========================================================================= */}
+      {showSplash && (
+        <div
+          onClick={startLoginTransition}
+          className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 cursor-pointer transition-all duration-500 backdrop-blur-md ${
+            isExitingSplash
+              ? 'opacity-0 scale-105 pointer-events-none'
+              : 'opacity-100 scale-100'
+          }`}
+          title="Haz clic o presiona Enter para omitir"
+        >
+          {/* Contenedor central del logo con aura pulsante */}
+          <div className="relative animate-splash-logo flex flex-col items-center text-center max-w-md w-full space-y-6">
+            
+            {/* Halo de luz tricolor Peralillo detrás del logo */}
+            <div className="relative group">
+              <div className="absolute -inset-4 bg-gradient-to-tr from-[#0077b6] via-[#ca8a04] to-[#558b2f] rounded-[36px] blur-2xl opacity-75 animate-pulse-aura" />
+              
+              <div className="relative p-5 sm:p-7 bg-white/95 rounded-[32px] shadow-2xl border-2 border-white/50 backdrop-blur-xl transition transform hover:scale-105">
+                <img
+                  src="/logo-peralillo.png"
+                  alt="Ilustre Municipalidad de Peralillo"
+                  className="h-20 sm:h-28 w-auto object-contain mx-auto drop-shadow-md"
+                />
+              </div>
+            </div>
+
+            {/* Tipografía institucional de bienvenida */}
+            <div className="space-y-2">
+              <span className="text-[11px] sm:text-xs font-extrabold uppercase tracking-[0.25em] text-sky-300 drop-shadow">
+                Ilustre Municipalidad de Peralillo
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight drop-shadow-lg">
+                Comité de Bienestar
+              </h1>
+              <p className="text-sm sm:text-base text-slate-200 font-medium">
+                Portal Oficial de Gestión Operativa y Financiera
+              </p>
+              <p className="text-xs sm:text-sm text-[#ea580c] font-semibold italic drop-shadow">
+                «La comuna que soñamos»
+              </p>
+            </div>
+
+            {/* Barra de progreso de carga estilizada */}
+            <div className="w-48 sm:w-56 space-y-2 pt-2">
+              <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/10">
+                <div className="h-full bg-gradient-to-r from-[#0077b6] via-[#ca8a04] to-[#558b2f] rounded-full animate-progress-fill" />
+              </div>
+              <p className="text-[11px] text-sky-200/80 font-mono tracking-wider">
+                Iniciando portal seguro…
+              </p>
+            </div>
+
+            {/* Botón sutil para saltar */}
+            <div className="pt-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold text-white/70 bg-white/10 border border-white/15 hover:bg-white/20 transition">
+                Toca la pantalla para continuar ➔
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          FASE 2: FORMULARIO DE LOGIN REVELADO CON TRANSICIÓN SUAVE
+          ========================================================================= */}
+      <div
+        className={`relative z-10 w-full max-w-lg space-y-6 transition-all duration-700 ${
+          showSplash && !isExitingSplash
+            ? 'opacity-0 scale-95 translate-y-6 pointer-events-none'
+            : 'animate-reveal-card opacity-100 scale-100 translate-y-0'
+        }`}
+      >
         {/* Cabecera / Marca con Logo Oficial de Peralillo */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center p-3 sm:p-4 bg-white rounded-3xl shadow-2xl border border-white/20 backdrop-blur-md">
+          <div className="inline-flex items-center justify-center p-3 sm:p-4 bg-white rounded-3xl shadow-2xl border border-white/20 backdrop-blur-md transition hover:scale-105">
             <img
               src="/logo-peralillo.png"
               alt="Ilustre Municipalidad de Peralillo"
-              className="h-16 sm:h-20 w-auto object-contain mx-auto"
+              className="h-14 sm:h-16 w-auto object-contain mx-auto"
             />
           </div>
           <div>
@@ -76,7 +180,7 @@ export default function LoginPage() {
               Portal Oficial de Gestión Operativa y Financiera
             </p>
             <p className="text-xs text-[#ea580c] font-medium italic mt-0.5">
-              "La comuna que soñamos"
+              «La comuna que soñamos»
             </p>
           </div>
         </div>
@@ -178,9 +282,19 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="text-center text-xs text-slate-400">
-          Comité de Bienestar &copy; 2026 • Autenticación JWT
-        </p>
+        <div className="flex flex-col items-center justify-center gap-2 text-center text-xs text-slate-400">
+          <p>Comité de Bienestar &copy; 2026 • Autenticación JWT</p>
+          <button
+            type="button"
+            onClick={() => {
+              setIsExitingSplash(false);
+              setShowSplash(true);
+            }}
+            className="text-[11px] text-sky-300/80 hover:text-white underline underline-offset-2 transition flex items-center gap-1"
+          >
+            <span>↺</span> Ver animación de bienvenida nuevamente
+          </button>
+        </div>
       </div>
     </div>
   );
