@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Comité de Bienestar API"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
-    
+
     # Seguridad y JWT
     SECRET_KEY: str = "super_secret_jwt_key_bienestar_2026_change_in_production"
     ALGORITHM: str = "HS256"
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     # Base de Datos
     DATABASE_URL: str = "postgresql+asyncpg://bienestar_user:bienestar_secret_pass@postgres:5432/bienestar_db"
-    
+
     # Orígenes CORS permitidos
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     AFILIACION_MES_FIN: int = 6               # Junio
     AFILIACION_PORCENTAJE_DESCUENTO: int = 4  # % del sueldo base, descuento por planilla
     AFILIACION_MESES_CARENCIA: int = 6        # Meses continuos como socio antes de impetrar beneficios
+
+    # Configuración opcional de servidor de correo SMTP institucional
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: str = "notificaciones.bienestar@mperalillo.cl"
+    SMTP_FROM_NAME: str = "Comité de Bienestar • I. Municipalidad de Peralillo"
+    PORTAL_URL: str = "http://localhost:3000"
 
     class Config:
         case_sensitive = True

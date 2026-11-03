@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { fetchFromApi } from '@/lib/api';
 import { formatRun, isValidRun } from '@/lib/utils';
+import { BuzonCorreosModal } from '@/components/ui/BuzonCorreosModal';
 
 /** HU-01: Solicitud de incorporación al Comité y registro de cargas familiares. */
 
@@ -26,6 +27,30 @@ interface CargaForm {
   parentesco: string;
 }
 
+export interface NotificacionEmail {
+  tipo: 'recepcion_solicitud' | 'resolucion_solicitud';
+  folio: string;
+  estadoResolucion?: string;
+  destinatario: string;
+  remitente?: string;
+  asunto: string;
+  resumenEstado: string;
+  motivo?: string;
+  credencialesAcceso?: {
+    portalUrl: string;
+    usuarioRut: string;
+    usuarioEmail: string;
+    claveTemporal: string;
+    requiereCambioObligatorio: boolean;
+  } | null;
+  pasosSeguir: string[];
+  cuerpoTexto: string;
+  enviadoSmtp: boolean;
+  errorSmtp?: string | null;
+  modoEnvio: string;
+  fechaEmision: string;
+}
+
 interface Comprobante {
   folio: string;
   estado: string;
@@ -40,6 +65,7 @@ interface Comprobante {
   mesesCarencia: number;
   textoCarencia: string;
   mensaje: string;
+  notificacionEmail?: NotificacionEmail | null;
 }
 
 const PARENTESCOS = ['Cónyuge', 'Conviviente civil', 'Hijo(a)', 'Padre / Madre', 'Otro'];
@@ -78,6 +104,7 @@ export default function SolicitudAfiliacionPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [comprobante, setComprobante] = useState<Comprobante | null>(null);
+  const [buzonOpen, setBuzonOpen] = useState(false);
 
   useEffect(() => {
     fetchFromApi<PeriodoInfo>('/afiliacion/periodo')
@@ -99,6 +126,9 @@ export default function SolicitudAfiliacionPage() {
     if (!isValidRun(run)) e.run = 'RUN inválido.';
     if (!grado.trim()) e.grado = 'Ingrese su grado.';
     if (!calidad) e.calidad = 'Seleccione su calidad contractual.';
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      e.email = 'Ingrese un correo electrónico válido.';
+    }
     cargas.forEach((c, i) => {
       if (c.nombreCompleto.trim().length < 3) e[`carga-${i}-nombre`] = 'Nombre requerido.';
       if (!isValidRun(c.run)) e[`carga-${i}-run`] = 'RUN inválido.';
@@ -160,10 +190,25 @@ export default function SolicitudAfiliacionPage() {
               Ilustre Municipalidad de Peralillo • Funcionarios de Planta o Contrata
             </p>
             <p className="text-xs text-[#ea580c] font-medium italic mt-0.5">
-              "La comuna que soñamos"
+              &quot;La comuna que soñamos&quot;
             </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setBuzonOpen(true)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-white/15 hover:bg-white/25 border border-white/25 transition shadow-sm cursor-pointer"
+              >
+                📬 Abrir Buzón de Correos de Solicitudes (Confirmación, Aprobación con Clave y Rechazo)
+              </button>
+            </div>
           </div>
         </header>
+
+        <BuzonCorreosModal
+          isOpen={buzonOpen}
+          onClose={() => setBuzonOpen(false)}
+          filtroInicial={comprobante?.email || email || run}
+        />
 
         {comprobante ? (
           <ComprobanteView c={comprobante} />
@@ -234,8 +279,21 @@ export default function SolicitudAfiliacionPage() {
                   <FieldError msg={errors.calidad} />
                 </div>
                 <div>
-                  <label htmlFor="af-email" className={labelCls}>Correo electrónico (opcional)</label>
-                  <input id="af-email" type="email" className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="usuario@mperalillo.cl" />
+                  <label htmlFor="af-email" className={labelCls}>
+                    Correo electrónico para notificaciones y credenciales
+                  </label>
+                  <input
+                    id="af-email"
+                    type="email"
+                    className={inputCls}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="usuario@mperalillo.cl"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Recibirá aquí el comprobante de ingreso y, al aprobarse, su <strong>contraseña temporal</strong> e instrucciones de acceso.
+                  </p>
+                  <FieldError msg={errors.email} />
                 </div>
               </div>
             </section>
@@ -343,13 +401,16 @@ function FieldError({ msg }: { msg?: string }) {
 }
 
 function ComprobanteView({ c }: { c: Comprobante }) {
+  const [verTextoCompleto, setVerTextoCompleto] = useState(false);
   const fecha = new Date(c.fechaIngreso).toLocaleString('es-CL', { dateStyle: 'long', timeStyle: 'short' });
+  const mail = c.notificacionEmail;
+
   return (
     <div id="comprobante-afiliacion" className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 print:shadow-none">
       <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Comprobante digital de ingreso</p>
-          <h2 className="text-xl font-extrabold text-slate-800">Folio {c.folio}</h2>
+          <h2 className="text-xl font-extrabold text-slate-800">Solicitud N° {c.folio}</h2>
           <p className="text-xs text-slate-500">{fecha}</p>
         </div>
         <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
@@ -357,16 +418,75 @@ function ComprobanteView({ c }: { c: Comprobante }) {
         </span>
       </div>
 
-      <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
+      <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800 font-medium">
         ✔ {c.mensaje}
       </div>
+
+      {/* Tarjeta de Correo #1 Enviado al Funcionario */}
+      {mail && (
+        <div className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50/90 via-white to-emerald-50/40 p-5 space-y-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-sky-100 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center text-lg shadow-sm">
+                ✉️
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-sky-700">
+                    Correo de Confirmación de Gestión Emitido
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Enviado
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-slate-800 mt-0.5">{mail.asunto}</p>
+              </div>
+            </div>
+            <div className="text-right text-[11px] text-slate-500">
+              <div>Para: <strong className="text-slate-800">{mail.destinatario}</strong></div>
+              <div>Folio: <strong className="font-mono text-slate-700">{mail.folio}</strong></div>
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-700 space-y-2 leading-relaxed">
+            <p className="font-semibold text-slate-800">
+              Hemos enviado un correo electrónico confirmando que su Solicitud N° {c.folio} fue recepcionada y se encuentra en gestión:
+            </p>
+            <div className="bg-white/90 rounded-xl p-3.5 border border-slate-200/80 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                ¿Cómo continuará su proceso y cómo obtendrá su clave de acceso?
+              </p>
+              <ol className="list-decimal pl-4 space-y-1.5 text-xs text-slate-700">
+                {mail.pasosSeguir.map((paso, idx) => (
+                  <li key={idx}>{paso}</li>
+                ))}
+              </ol>
+            </div>
+          </div>
+
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setVerTextoCompleto((v) => !v)}
+              className="text-xs font-semibold text-sky-700 hover:text-sky-900 underline cursor-pointer"
+            >
+              {verTextoCompleto ? '▲ Ocultar vista íntegra del correo enviado' : '▼ Ver contenido íntegro del correo enviado'}
+            </button>
+            {verTextoCompleto && (
+              <pre className="mt-2.5 p-3.5 rounded-xl bg-slate-900 text-slate-100 text-[11px] font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto">
+                {mail.cuerpoTexto}
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
 
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
         <Item k="Nombre" v={c.nombreCompleto} />
         <Item k="RUN" v={c.run} />
         <Item k="Grado" v={c.grado} />
         <Item k="Calidad contractual" v={c.calidadContractual} />
-        {c.email && <Item k="Correo" v={c.email} />}
+        <Item k="Correo de notificación" v={c.email || mail?.destinatario || '—'} />
         <Item k="Descuento por planilla autorizado" v={`${c.porcentajeDescuento}% del sueldo base`} />
       </dl>
 
@@ -400,7 +520,7 @@ function ComprobanteView({ c }: { c: Comprobante }) {
 
       <div className="flex flex-col sm:flex-row gap-3 sm:justify-end print:hidden">
         <Link href="/login" className="py-2.5 px-5 text-center text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
-          Ir al inicio
+          Ir al inicio de sesión
         </Link>
         <button id="comprobante-imprimir" type="button" onClick={() => window.print()} className="py-2.5 px-5 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-700 transition">
           Imprimir / Guardar PDF

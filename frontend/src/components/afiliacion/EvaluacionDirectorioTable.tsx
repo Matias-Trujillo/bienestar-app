@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { NotificacionEmail } from '@/app/afiliacion/solicitud/page';
 
 export interface CargaInfo {
   nombreCompleto: string;
@@ -24,6 +25,7 @@ export interface SolicitudResumen {
   observacionesResolucion?: string | null;
   resueltoPor?: string | null;
   resueltoAt?: string | null;
+  notificacionEmail?: NotificacionEmail | null;
 }
 
 interface EvaluacionDirectorioTableProps {
@@ -31,6 +33,8 @@ interface EvaluacionDirectorioTableProps {
   cargando: boolean;
   puedeResolver: boolean;
   onAbrirModal: (sol: SolicitudResumen, modo: 'aprobar' | 'rechazar') => void;
+  onVerCorreo?: (sol: SolicitudResumen) => void;
+  onAbrirBuzonGeneral?: () => void;
 }
 
 export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps> = ({
@@ -38,10 +42,12 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
   cargando,
   puedeResolver,
   onAbrirModal,
+  onVerCorreo,
+  onAbrirBuzonGeneral,
 }) => {
   return (
     <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-slate-800">
             Sesión de Directorio: Evaluación de Incorporaciones (HU-02)
@@ -50,9 +56,20 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
             Rol autorizado: Presidente/a o Secretario/a según acta ordinaria de sesión.
           </p>
         </div>
-        <Link href="/afiliacion/solicitud" className="text-xs font-semibold text-emerald-700 hover:underline">
-          + Abrir formulario público (HU-01) →
-        </Link>
+        <div className="flex items-center gap-2">
+          {onAbrirBuzonGeneral && (
+            <button
+              type="button"
+              onClick={onAbrirBuzonGeneral}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-[#091e2e] hover:bg-slate-800 transition shadow-sm cursor-pointer"
+            >
+              📬 Abrir Bandeja de Correos Emitidos
+            </button>
+          )}
+          <Link href="/afiliacion/solicitud" className="text-xs font-semibold text-emerald-700 hover:underline">
+            + Abrir formulario público (HU-01) →
+          </Link>
+        </div>
       </div>
 
       {cargando && !solicitudes ? (
@@ -115,9 +132,9 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
                   )}
                 </div>
 
-                {s.estado === 'Pendiente de aprobación' && (
-                  <div className="pt-1">
-                    {puedeResolver ? (
+                <div className="pt-1 space-y-2">
+                  {s.estado === 'Pendiente de aprobación' ? (
+                    puedeResolver ? (
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => onAbrirModal(s, 'aprobar')}
@@ -136,9 +153,18 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
                       <p className="text-[11px] text-slate-400 italic text-center">
                         Requiere resolución de Presidente o Secretario
                       </p>
-                    )}
-                  </div>
-                )}
+                    )
+                  ) : null}
+                  {onVerCorreo && s.notificacionEmail && (
+                    <button
+                      type="button"
+                      onClick={() => onVerCorreo(s)}
+                      className="w-full py-1.5 rounded-xl text-[11px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 transition text-center"
+                    >
+                      ✉️ Ver Correo Emitido ({s.estado === 'Pendiente de aprobación' ? 'Recepción' : s.estado === 'Aprobada' ? 'Aprobación + Clave' : 'Rechazo'})
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -156,7 +182,7 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
                   <th className="py-3 px-4">Cargas Legales</th>
                   <th className="py-3 px-4">Estado</th>
                   <th className="py-3 px-4">Detalle / Carencia</th>
-                  <th className="py-3 px-4 text-center">Acciones Sesión</th>
+                  <th className="py-3 px-4 text-center">Acciones & Correo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -198,38 +224,61 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
                           <div className="text-slate-400 text-[10px]">Acta: {s.numeroActa || 'S/N'} ({s.fechaSesion})</div>
                         </div>
                       ) : s.estado === 'Rechazada' ? (
-                        <div className="text-rose-600 truncate max-w-[150px]" title={s.observacionesResolucion || ''}>
-                          Obs: {s.observacionesResolucion}
+                        <div className="text-rose-600 truncate max-w-[160px]" title={s.observacionesResolucion || ''}>
+                          Motivo: {s.observacionesResolucion}
                         </div>
                       ) : (
                         <span className="text-slate-400 italic">Pendiente de sesión</span>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      {s.estado === 'Pendiente de aprobación' ? (
-                        puedeResolver ? (
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => onAbrirModal(s, 'aprobar')}
-                              className="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-sm"
-                              title="Aprobar en sesión de directorio"
-                            >
-                              Aprobar
-                            </button>
-                            <button
-                              onClick={() => onAbrirModal(s, 'rechazar')}
-                              className="px-2.5 py-1 rounded-lg text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition"
-                              title="Rechazar con observaciones"
-                            >
-                              Rechazar
-                            </button>
-                          </div>
+                      <div className="flex flex-wrap items-center justify-center gap-1.5">
+                        {s.estado === 'Pendiente de aprobación' ? (
+                          puedeResolver ? (
+                            <>
+                              <button
+                                onClick={() => onAbrirModal(s, 'aprobar')}
+                                className="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-sm cursor-pointer"
+                                title="Aprobar y enviar clave temporal por correo"
+                              >
+                                Aprobar
+                              </button>
+                              <button
+                                onClick={() => onAbrirModal(s, 'rechazar')}
+                                className="px-2.5 py-1 rounded-lg text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                                title="Rechazar con motivo por correo"
+                              >
+                                Rechazar
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic">Solo Presidente/Secretario</span>
+                          )
+                        ) : s.estado === 'Rechazada' && puedeResolver ? (
+                          <button
+                            onClick={() => onAbrirModal(s, 'aprobar')}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer"
+                            title="Reconsiderar y aprobar solicitud"
+                          >
+                            ✓ Aprobar ahora
+                          </button>
                         ) : (
-                          <span className="text-[10px] text-slate-400 italic">Solo Presidente/Secretario</span>
-                        )
-                      ) : (
-                        <span className="text-[10px] text-slate-400">Resuelto por {s.resueltoPor?.split(' ')[0] || 'Directorio'}</span>
-                      )}
+                          <span className="text-[10px] text-slate-400">
+                            Resuelto por {s.resueltoPor?.split(' ')[0] || 'Directorio'}
+                          </span>
+                        )}
+
+                        {onVerCorreo && s.notificacionEmail && (
+                          <button
+                            type="button"
+                            onClick={() => onVerCorreo(s)}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 transition"
+                            title="Ver correo electrónico emitido al funcionario"
+                          >
+                            ✉️ {s.estado === 'Aprobada' ? 'Correo + Clave' : 'Ver Correo'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

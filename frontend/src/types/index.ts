@@ -19,6 +19,7 @@ export interface User {
   rol: UserRole;
   rolLabel: string;
   isSuperuser?: boolean;
+  isActive?: boolean;
   departamento: string;
   antiguedad: string;
   estadoPrevisional: EstadoPrevisional;
@@ -26,6 +27,13 @@ export interface User {
   saldoSaludTotalAnual: number;
   cargasRegistradas: number;
   mesesAntiguedad?: number;
+  intentosFallidos?: number;
+  passwordBloqueada?: boolean;
+  debeCambiarPassword?: boolean;
+  estadoPassword?: 'vigente' | 'cambio_pendiente' | 'bloqueada';
+  ultimoCambioPassword?: string | null;
+  puedeEliminar?: boolean;
+  motivoNoEliminable?: string | null;
 }
 
 export interface BonoCatalogoItem {

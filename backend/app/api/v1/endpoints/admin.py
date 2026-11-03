@@ -1,7 +1,8 @@
 """Endpoints para el módulo de Administración, Auditoría Inmutable y Gestión de Usuarios."""
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import func, select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +19,16 @@ from app.models import (
     ParametroSistema,
     EstadoSolicitud,
 )
-from app.api.v1.endpoints.auth import UserOut, to_out
+from app.api.v1.endpoints.auth import (
+    evaluar_historial_usuario,
+    guardar_seguridad_usuario,
+    obtener_seguridad_usuario,
+)
+from app.models.beneficios import BonoCatalogo
+from app.services.email_service import (
+    actualizar_config_smtp_runtime,
+    enviar_correo_prueba_smtp,
+)
 
 router = APIRouter()
 
@@ -55,8 +65,8 @@ class CrearUsuarioIn(BaseModel):
     antiguedad: str = "12 Meses"
     meses_antiguedad: int = 12
     estado_previsional: str = "Al día"
-    saldo_salud_disponible: float = 250000.0
-    saldo_salud_total_anual: float = 250000.0
+    saldo_salud_disponible: float = 150000.0
+    saldo_salud_total_anual: float = 150000.0
     cargas_registradas: int = 0
 
 
@@ -65,6 +75,8 @@ class EditarUsuarioIn(BaseModel):
     is_active: Optional[bool] = None
     departamento: Optional[str] = None
     nueva_password: Optional[str] = None
+    password_bloqueada: Optional[bool] = None
+    debe_cambiar_password: Optional[bool] = None
     saldo_salud_disponible: Optional[float] = None
     meses_antiguedad: Optional[int] = None
     estado_previsional: Optional[str] = None
@@ -74,6 +86,14 @@ class ParametroUpdateIn(BaseModel):
     clave: str
     valor: str
     descripcion: Optional[str] = None
+
+
+class SmtpConfigIn(BaseModel):
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str
+    smtp_password: str
+    destinatario_prueba: Optional[str] = None
 
 
 # Helper para registrar auditoría inmutable
@@ -157,10 +177,6 @@ async def get_audit_logs(
     _: User = Depends(require_roles(*ROLES_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Retorna los registros cronológicos de auditoría.
-    Inmutable: Este endpoint es estrictamente de sólo lectura. No existe endpoint DELETE ni PUT para audit-logs.
-    """
     stmt = select(AuditLog).order_by(desc(AuditLog.id)).limit(limit)
     if modulo:
         stmt = stmt.where(AuditLog.modulo == modulo.upper())
@@ -174,7 +190,6 @@ async def crear_usuario(
     current_user: User = Depends(require_roles(*ROLES_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Crea una nueva cuenta de usuario y registra el evento en la auditoría inmutable."""
     existente = await db.scalar(select(User).where((User.email == body.email) | (User.rut == body.rut)))
     if existente:
         raise HTTPException(
@@ -194,14 +209,15 @@ async def crear_usuario(
         antiguedad=body.antiguedad,
         meses_antiguedad=body.meses_antiguedad,
         estado_previsional=body.estado_previsional,
-        saldo_salud_disponible=body.saldo_salud_disponible,
-        saldo_salud_total_anual=body.saldo_salud_total_anual,
+        saldo_salud_disponible=int(body.saldo_salud_disponible),
+        saldo_salud_total_anual=int(body.saldo_salud_total_anual),
         cargas_registradas=body.cargas_registradas,
     )
     db.add(nuevo)
     await db.flush()
 
-    # Registro de auditoría
+    await guardar_seguridad_usuario(db, nuevo.id, intentos=0, bloqueada=False, debe_cambiar=True)
+
     await registrar_auditoria(
         db=db,
         usuario=current_user,
@@ -216,17 +232,24 @@ async def crear_usuario(
     return {"mensaje": f"Usuario {nuevo.nombre_completo} creado correctamente.", "id": nuevo.id}
 
 
-@router.patch("/usuarios/{usuario_id}", response_model=Dict[str, Any], summary="Modificar rol o estado de un usuario")
+@router.patch("/usuarios/{usuario_id}", response_model=Dict[str, Any], summary="Modificar rol, estado de socio o estado de contraseña de un usuario")
 async def editar_usuario(
     usuario_id: int,
     body: EditarUsuarioIn,
     current_user: User = Depends(require_roles(*ROLES_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Modifica un usuario y genera trazabilidad obligatoria en los logs de auditoría."""
+    """Modifica el estado de cuenta, rol o seguridad de contraseña de un socio y genera trazabilidad en auditoría."""
     u = await db.scalar(select(User).where(User.id == usuario_id))
     if not u:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    sec = await obtener_seguridad_usuario(db, u.id)
+    intentos = int(sec["i"])
+    bloqueada = bool(sec["b"])
+    debe_cambiar = bool(sec["c"])
+    ultimo_cambio = sec["u"]
+    sec_modificado = False
 
     cambios = []
     if body.rol is not None and body.rol != u.rol:
@@ -235,11 +258,11 @@ async def editar_usuario(
         u.is_superuser = (body.rol == UserRole.SUPERUSUARIO)
 
     if body.is_active is not None and body.is_active != u.is_active:
-        estado_txt = "activado" if body.is_active else "desactivado"
-        cambios.append(f"Cuenta {estado_txt}")
+        estado_txt = "ACTIVO" if body.is_active else "INACTIVO"
+        cambios.append(f"Estado del socio cambiado a {estado_txt}")
         u.is_active = body.is_active
 
-    if body.departamento is not None:
+    if body.departamento is not None and body.departamento != u.departamento:
         cambios.append(f"Departamento: {body.departamento}")
         u.departamento = body.departamento
 
@@ -248,34 +271,170 @@ async def editar_usuario(
         u.meses_antiguedad = body.meses_antiguedad
         u.antiguedad = f"{body.meses_antiguedad} Meses"
 
-    if body.saldo_salud_disponible is not None:
+    if body.saldo_salud_disponible is not None and int(body.saldo_salud_disponible) != int(u.saldo_salud_disponible):
         cambios.append(f"Saldo salud: ${body.saldo_salud_disponible:,.0f}")
-        u.saldo_salud_disponible = body.saldo_salud_disponible
+        u.saldo_salud_disponible = int(body.saldo_salud_disponible)
+
+    if body.password_bloqueada is not None and body.password_bloqueada != bloqueada:
+        bloqueada = body.password_bloqueada
+        sec_modificado = True
+        if not bloqueada:
+            intentos = 0
+            cambios.append("Contraseña DESBLOQUEADA y contador de intentos reiniciado")
+        else:
+            cambios.append("Contraseña BLOQUEADA preventivamente por administración")
+
+    if body.debe_cambiar_password is not None and body.debe_cambiar_password != debe_cambiar:
+        debe_cambiar = body.debe_cambiar_password
+        sec_modificado = True
+        cambios.append(
+            "Exigir cambio de clave al próximo ingreso: SÍ"
+            if debe_cambiar
+            else "Exigir cambio de clave al próximo ingreso: NO"
+        )
 
     if body.nueva_password and body.nueva_password.strip():
         u.hashed_password = get_password_hash(body.nueva_password.strip())
-        cambios.append("Contraseña restablecida")
+        bloqueada = False
+        intentos = 0
+        debe_cambiar = True if body.debe_cambiar_password is None else body.debe_cambiar_password
+        ultimo_cambio = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        sec_modificado = True
+        cambios.append("Contraseña restablecida (desbloqueada y marcada como temporal para cambio del usuario)")
+
+    if sec_modificado:
+        await guardar_seguridad_usuario(
+            db,
+            u.id,
+            intentos=intentos,
+            bloqueada=bloqueada,
+            debe_cambiar=debe_cambiar,
+            ultimo_cambio=ultimo_cambio,
+        )
 
     if cambios:
         await registrar_auditoria(
             db=db,
             usuario=current_user,
-            modulo="USUARIOS",
-            accion="EDITAR_USUARIO",
+            modulo="SEGURIDAD",
+            accion="GESTION_SEGURIDAD_USUARIO",
             recurso_tipo="User",
             recurso_id=str(u.id),
-            detalles=f"Modificado usuario {u.nombre_completo}: " + "; ".join(cambios),
+            detalles=f"Usuario {u.nombre_completo} ({u.rut}): " + "; ".join(cambios),
         )
+        db.add(u)
         await db.commit()
 
     return {"mensaje": f"Usuario {u.nombre_completo} actualizado.", "cambios": cambios}
+
+
+@router.delete("/usuarios/{usuario_id}", response_model=Dict[str, Any], summary="Eliminar usuario únicamente si no cuenta con historial ni descuentos")
+async def eliminar_usuario(
+    usuario_id: int,
+    current_user: User = Depends(require_roles(*ROLES_ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Elimina físicamente una cuenta de usuario SOLO mientras no registre historial
+    (0 meses de descuentos por planilla, 0 reembolsos médicos, 0 beneficios sociales y 0 nóminas).
+    Si ya tiene historial contable o de gestión, bloquea la eliminación y exige usar Activo/Inactivo.
+    """
+    u = await db.scalar(select(User).where(User.id == usuario_id))
+    if not u:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    if u.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Por seguridad no puede eliminar su propia cuenta con sesión activa.",
+        )
+
+    puede_eliminar, motivo = await evaluar_historial_usuario(db, u)
+    if not puede_eliminar:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No se puede eliminar al usuario {u.nombre_completo} ({u.rut}): {motivo}",
+        )
+
+    nombre_eliminado = u.nombre_completo
+    rut_eliminado = u.rut
+    rol_eliminado = u.rol.value
+
+    # Limpiar estado de seguridad en ParametroSistema si existe
+    param_sec = await db.scalar(
+        select(ParametroSistema).where(ParametroSistema.clave == f"SEC_USR_{u.id}")
+    )
+    if param_sec:
+        await db.delete(param_sec)
+
+    # Si proviene de una solicitud de incorporación reciente sin historial, limpiarla para liberar el RUN
+    rut_sin_puntos = u.rut.replace(".", "").strip().upper()
+    solicitudes_afiliacion = await db.scalars(
+        select(SolicitudAfiliacion).where(SolicitudAfiliacion.run == rut_sin_puntos)
+    )
+    for sol in solicitudes_afiliacion:
+        await db.delete(sol)
+
+    await db.delete(u)
+
+    await registrar_auditoria(
+        db=db,
+        usuario=current_user,
+        modulo="USUARIOS",
+        accion="ELIMINAR_USUARIO_SIN_HISTORIAL",
+        recurso_tipo="User",
+        recurso_id=str(usuario_id),
+        detalles=(
+            f"Eliminado usuario {nombre_eliminado} (RUT: {rut_eliminado}, Rol: {rol_eliminado}) "
+            "tras verificar que no registraba descuentos por planilla ni gestiones en el sistema."
+        ),
+    )
+    await db.commit()
+
+    return {
+        "mensaje": (
+            f"Usuario {nombre_eliminado} ({rut_eliminado}) eliminado permanentemente del sistema "
+            "(verificado sin descuentos ni historial de gestiones)."
+        )
+    }
 
 
 @router.get("/parametros", summary="Listar parámetros de configuración global")
 async def listar_parametros(
     _: User = Depends(require_roles(*ROLES_ADMIN)), db: AsyncSession = Depends(get_db)
 ):
-    params = await db.scalars(select(ParametroSistema).order_by(ParametroSistema.clave))
+    # Asegurar que existan los parámetros SMTP para configuración rápida desde la interfaz
+    defaults_smtp = [
+        ("SMTP_HOST", "smtp.gmail.com", "Servidor de correo saliente (ej: smtp.gmail.com o smtp.office365.com)"),
+        ("SMTP_PORT", "587", "Puerto SMTP (587 para STARTTLS, 465 para SSL)"),
+        ("SMTP_USER", "", "Correo electrónico remitente para envío real de correos (ej: tucorreo@gmail.com)"),
+        ("SMTP_PASSWORD", "", "Contraseña de Aplicación de 16 letras (Google App Password) o clave SMTP"),
+    ]
+    hubo_nuevos = False
+    for clave_def, val_def, desc_def in defaults_smtp:
+        existe = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave_def))
+        if not existe:
+            db.add(ParametroSistema(clave=clave_def, valor=val_def, descripcion=desc_def))
+            hubo_nuevos = True
+    if hubo_nuevos:
+        await db.commit()
+
+    params = (
+        await db.scalars(
+            select(ParametroSistema)
+            .where(~ParametroSistema.clave.like("SEC_USR_%"))
+            .order_by(ParametroSistema.clave)
+        )
+    ).all()
+
+    mapa = {p.clave: p.valor for p in params}
+    actualizar_config_smtp_runtime(
+        host=mapa.get("SMTP_HOST"),
+        port=int(mapa["SMTP_PORT"]) if mapa.get("SMTP_PORT", "").isdigit() else None,
+        user=mapa.get("SMTP_USER"),
+        password=mapa.get("SMTP_PASSWORD"),
+    )
+
     return [{"clave": p.clave, "valor": p.valor, "descripcion": p.descripcion} for p in params]
 
 
@@ -294,7 +453,7 @@ async def actualizar_parametro(
         p.valor = body.valor
         if body.descripcion:
             p.descripcion = body.descripcion
-        
+
         await registrar_auditoria(
             db=db,
             usuario=current_user,
@@ -302,17 +461,85 @@ async def actualizar_parametro(
             accion="ACTUALIZAR_PARAMETRO",
             recurso_tipo="ParametroSistema",
             recurso_id=body.clave,
-            detalles=f"Parámetro {body.clave} modificado de '{valor_anterior}' a '{body.valor}'.",
+            detalles=(
+                f"Parámetro {body.clave} actualizado."
+                if body.clave == "SMTP_PASSWORD"
+                else f"Parámetro {body.clave} modificado de '{valor_anterior}' a '{body.valor}'."
+            ),
         )
     await db.commit()
+
+    if body.clave.startswith("SMTP_"):
+        params_smtp = await db.scalars(
+            select(ParametroSistema).where(ParametroSistema.clave.like("SMTP_%"))
+        )
+        mapa = {x.clave: x.valor for x in params_smtp}
+        actualizar_config_smtp_runtime(
+            host=mapa.get("SMTP_HOST"),
+            port=int(mapa["SMTP_PORT"]) if mapa.get("SMTP_PORT", "").isdigit() else None,
+            user=mapa.get("SMTP_USER"),
+            password=mapa.get("SMTP_PASSWORD"),
+        )
+
     return {"mensaje": f"Parámetro {body.clave} actualizado correctamente.", "valor": body.valor}
+
+
+@router.post("/smtp-config", summary="Guardar configuración SMTP completa y enviar correo de prueba real")
+async def configurar_y_probar_smtp(
+    body: SmtpConfigIn,
+    current_user: User = Depends(require_roles(*ROLES_ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    user_clean = body.smtp_user.strip()
+    pwd_clean = body.smtp_password.strip().replace(" ", "")
+    host_clean = body.smtp_host.strip() or "smtp.gmail.com"
+    if any(user_clean.lower().endswith(d) for d in ("@hotmail.com", "@outlook.com", "@live.com", "@msn.com")) and host_clean == "smtp.gmail.com":
+        host_clean = "smtp-mail.outlook.com"
+
+    pares = [
+        ("SMTP_HOST", host_clean),
+        ("SMTP_PORT", str(body.smtp_port or 587)),
+        ("SMTP_USER", user_clean),
+        ("SMTP_PASSWORD", pwd_clean),
+    ]
+    for clave, valor in pares:
+        p = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave))
+        if not p:
+            db.add(ParametroSistema(clave=clave, valor=valor, descripcion=f"Configuración SMTP ({clave})"))
+        else:
+            p.valor = valor
+
+    await registrar_auditoria(
+        db=db,
+        usuario=current_user,
+        modulo="CONFIGURACION",
+        accion="CONFIGURAR_SMTP_CORREO",
+        recurso_tipo="ParametroSistema",
+        recurso_id="SMTP",
+        detalles=f"Configurado servidor de correo saliente {host_clean}:{body.smtp_port} con cuenta {user_clean}.",
+    )
+    await db.commit()
+
+    actualizar_config_smtp_runtime(
+        host=host_clean,
+        port=body.smtp_port or 587,
+        user=user_clean,
+        password=pwd_clean,
+    )
+
+    dest_prueba = (body.destinatario_prueba or user_clean).strip()
+    enviado, detalle = enviar_correo_prueba_smtp(dest_prueba)
+    return {
+        "enviado": enviado,
+        "mensaje": detalle,
+        "smtp_host": host_clean,
+        "smtp_user": user_clean,
+    }
 
 
 # ---------------------------------------------------------------------------
 # Gestión Dinámica de Bonos del Catálogo (Superusuario)
 # ---------------------------------------------------------------------------
-from app.models.beneficios import BonoCatalogo
-
 class CrearBonoIn(BaseModel):
     codigo: str
     nombre: str
@@ -469,15 +696,10 @@ async def eliminar_bono_admin(
     current_user: User = Depends(require_roles(*ROLES_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Elimina un beneficio del catálogo.
-    Si ya cuenta con solicitudes históricas asociadas, se protege la integridad referencial y se sugiere desactivarlo.
-    """
     bono = await db.scalar(select(BonoCatalogo).where(BonoCatalogo.id == bono_id))
     if not bono:
         raise HTTPException(status_code=404, detail="Bono no encontrado.")
 
-    # Validar si tiene solicitudes históricas de socios
     solicitudes_asociadas = await db.scalar(
         select(func.count(SolicitudBeneficio.id)).where(SolicitudBeneficio.tipo_bono == bono.codigo)
     ) or 0
@@ -497,7 +719,6 @@ async def eliminar_bono_admin(
 
     await db.delete(bono)
 
-    # Registro de auditoría
     await registrar_auditoria(
         db=db,
         usuario=current_user,
@@ -510,5 +731,3 @@ async def eliminar_bono_admin(
     await db.commit()
 
     return {"mensaje": f"Beneficio '{nombre_bono}' eliminado exitosamente del catálogo."}
-
-

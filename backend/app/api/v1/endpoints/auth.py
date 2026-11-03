@@ -1,5 +1,7 @@
-"""Endpoints de autenticación (login JWT, perfil y listado de usuarios)."""
-from typing import List
+"""Endpoints de autenticación (login JWT, perfil, cambio de clave y listado de usuarios)."""
+import json
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -7,18 +9,92 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_roles
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_db
-from app.models import User
+from app.models import (
+    AuditLog,
+    DetalleNominaMasiva,
+    NominaMasiva,
+    ParametroSistema,
+    SolicitudBeneficio,
+    SolicitudReembolso,
+    User,
+)
 from app.models.user import ROLE_LABELS, UserRole
 from app.services.reembolso_service import TOPE_ANUAL_SALUD, obtener_resumen_socio
 
 router = APIRouter()
 
+MAX_INTENTOS_LOGIN = 5
+
+
+def _clave_seguridad_usr(user_id: int) -> str:
+    return f"SEC_USR_{user_id}"
+
+
+def _parse_sec_json(raw: Optional[str]) -> Dict[str, Any]:
+    if not raw:
+        return {"i": 0, "b": False, "c": False, "u": None}
+    try:
+        data = json.loads(raw)
+        return {
+            "i": int(data.get("i", 0) or 0),
+            "b": bool(data.get("b", False)),
+            "c": bool(data.get("c", False)),
+            "u": data.get("u"),
+        }
+    except Exception:
+        return {"i": 0, "b": False, "c": False, "u": None}
+
+
+async def obtener_seguridad_usuario(db: AsyncSession, user_id: int) -> Dict[str, Any]:
+    clave = _clave_seguridad_usr(user_id)
+    param = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave))
+    return _parse_sec_json(param.valor if param else None)
+
+
+async def guardar_seguridad_usuario(
+    db: AsyncSession,
+    user_id: int,
+    intentos: int = 0,
+    bloqueada: bool = False,
+    debe_cambiar: bool = False,
+    ultimo_cambio: Optional[str] = None,
+) -> Dict[str, Any]:
+    clave = _clave_seguridad_usr(user_id)
+    param = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave))
+    actual = _parse_sec_json(param.valor if param else None)
+
+    nuevo_estado = {
+        "i": int(intentos),
+        "b": bool(bloqueada),
+        "c": bool(debe_cambiar),
+        "u": ultimo_cambio if ultimo_cambio is not None else actual.get("u"),
+    }
+    raw_val = json.dumps(nuevo_estado, separators=(",", ":"))
+
+    if not param:
+        param = ParametroSistema(
+            clave=clave,
+            valor=raw_val,
+            descripcion=f"Estado de seguridad de contraseña usuario #{user_id}",
+        )
+        db.add(param)
+    else:
+        param.valor = raw_val
+        db.add(param)
+
+    return nuevo_estado
+
 
 class LoginRequest(BaseModel):
     username: str  # RUT o correo
     password: str
+
+
+class CambiarPasswordPropiaIn(BaseModel):
+    password_actual: Optional[str] = None
+    nueva_password: str
 
 
 class UserOut(BaseModel):
@@ -29,13 +105,21 @@ class UserOut(BaseModel):
     rol: str
     rolLabel: str
     isSuperuser: bool
+    isActive: bool = True
     departamento: str
     antiguedad: str
     estadoPrevisional: str
     saldoSaludDisponible: int
     saldoSaludTotalAnual: int
     cargasRegistradas: int
-    mesesAntiguedad: int = 12
+    mesesAntiguedad: int = 0
+    intentosFallidos: int = 0
+    passwordBloqueada: bool = False
+    debeCambiarPassword: bool = False
+    estadoPassword: str = "vigente"
+    ultimoCambioPassword: Optional[str] = None
+    puedeEliminar: bool = False
+    motivoNoEliminable: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -44,7 +128,72 @@ class TokenResponse(BaseModel):
     user: UserOut
 
 
-def to_out(u: User) -> UserOut:
+async def evaluar_historial_usuario(db: AsyncSession, u: User) -> tuple[bool, Optional[str]]:
+    """
+    Verifica si un usuario puede ser eliminado físicamente.
+    Solo puede eliminarse si NO cuenta con historial de descuentos por planilla (meses_antiguedad == 0)
+    ni gestiones en reembolsos médicos, beneficios sociales o nóminas masivas.
+    """
+    if u.is_superuser or u.rol == UserRole.SUPERUSUARIO:
+        return False, "No se puede eliminar la cuenta principal de Superusuario."
+
+    razones: List[str] = []
+
+    meses = int(u.meses_antiguedad or 0)
+    if (u.antiguedad or "").strip().startswith("0 ") and meses == 12:
+        u.meses_antiguedad = 0
+        meses = 0
+    if meses > 0:
+        razones.append(f"{meses} mes(es) de descuentos por planilla registrados")
+
+    n_reembolsos = await db.scalar(
+        select(func.count(SolicitudReembolso.id)).where(SolicitudReembolso.socio_id == u.id)
+    ) or 0
+    if n_reembolsos > 0:
+        razones.append(f"{n_reembolsos} solicitud(es) de reembolso médico")
+
+    n_beneficios = await db.scalar(
+        select(func.count(SolicitudBeneficio.id)).where(
+            or_(
+                SolicitudBeneficio.socio_id == u.id,
+                SolicitudBeneficio.revisado_por_id == u.id,
+                SolicitudBeneficio.liquidado_por_id == u.id,
+            )
+        )
+    ) or 0
+    if n_beneficios > 0:
+        razones.append(f"{n_beneficios} gestión(es) de beneficios/bonos")
+
+    n_nominas = await db.scalar(
+        select(func.count(DetalleNominaMasiva.id)).where(DetalleNominaMasiva.socio_id == u.id)
+    ) or 0
+    n_nominas_creadas = await db.scalar(
+        select(func.count(NominaMasiva.id)).where(NominaMasiva.creado_por_id == u.id)
+    ) or 0
+    if (n_nominas + n_nominas_creadas) > 0:
+        razones.append(f"{n_nominas + n_nominas_creadas} registro(s) en nóminas de pago")
+
+    if razones:
+        return (
+            False,
+            "Cuenta con historial (" + ", ".join(razones) + "). Solo puede desactivarse (Inactivo).",
+        )
+
+    return True, None
+
+
+def to_out(
+    u: User,
+    sec: Optional[Dict[str, Any]] = None,
+    puede_eliminar: bool = False,
+    motivo_no_eliminable: Optional[str] = None,
+) -> UserOut:
+    sec_data = sec or {"i": 0, "b": False, "c": False, "u": None}
+    bloqueada = bool(sec_data.get("b", False))
+    debe_cambiar = bool(sec_data.get("c", False))
+    estado_pwd = "bloqueada" if bloqueada else ("cambio_pendiente" if debe_cambiar else "vigente")
+    meses_ant = int(u.meses_antiguedad) if u.meses_antiguedad is not None else 0
+
     return UserOut(
         id=str(u.id),
         rut=u.rut,
@@ -52,14 +201,22 @@ def to_out(u: User) -> UserOut:
         email=u.email,
         rol=u.rol.value,
         rolLabel=ROLE_LABELS[u.rol],
-        isSuperuser=u.is_superuser,
+        isSuperuser=bool(u.is_superuser),
+        isActive=bool(u.is_active),
         departamento=u.departamento,
         antiguedad=u.antiguedad,
         estadoPrevisional=u.estado_previsional,
         saldoSaludDisponible=min(int(u.saldo_salud_disponible), TOPE_ANUAL_SALUD),
         saldoSaludTotalAnual=TOPE_ANUAL_SALUD,
         cargasRegistradas=u.cargas_registradas,
-        mesesAntiguedad=getattr(u, "meses_antiguedad", 12) or 12,
+        mesesAntiguedad=meses_ant,
+        intentosFallidos=int(sec_data.get("i", 0) or 0),
+        passwordBloqueada=bloqueada,
+        debeCambiarPassword=debe_cambiar,
+        estadoPassword=estado_pwd,
+        ultimoCambioPassword=sec_data.get("u"),
+        puedeEliminar=puede_eliminar,
+        motivoNoEliminable=motivo_no_eliminable,
     )
 
 
@@ -79,31 +236,171 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
             )
         )
     )
-    if not user or not verify_password(body.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales incorrectas")
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales incorrectas.",
+        )
+
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario deshabilitado")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Su cuenta de socio se encuentra INACTIVA. Contacte a la administración del Comité de Bienestar.",
+        )
+
+    sec = await obtener_seguridad_usuario(db, user.id)
+    if sec["b"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Su contraseña se encuentra BLOQUEADA por seguridad. Solicite al Super Administrador desbloquear o restablecer su clave.",
+        )
+
+    if not verify_password(body.password, user.hashed_password):
+        intentos = int(sec["i"]) + 1
+        if intentos >= MAX_INTENTOS_LOGIN:
+            await guardar_seguridad_usuario(
+                db, user.id, intentos=intentos, bloqueada=True, debe_cambiar=sec["c"]
+            )
+            db.add(
+                AuditLog(
+                    usuario_id=user.id,
+                    usuario_nombre=user.nombre_completo,
+                    usuario_rut=user.rut,
+                    usuario_rol=user.rol.value,
+                    modulo="SEGURIDAD",
+                    accion="BLOQUEO_AUTOMATICO_CLAVE",
+                    recurso_tipo="User",
+                    recurso_id=str(user.id),
+                    detalles=f"Contraseña bloqueada automáticamente tras alcanzar {intentos} intentos fallidos consecutivos.",
+                    ip_origen="127.0.0.1",
+                )
+            )
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Su contraseña ha sido BLOQUEADA por seguridad tras 5 intentos fallidos. Solicite al Super Administrador desbloquear o restablecer su clave.",
+            )
+
+        restantes = MAX_INTENTOS_LOGIN - intentos
+        await guardar_seguridad_usuario(
+            db, user.id, intentos=intentos, bloqueada=False, debe_cambiar=sec["c"]
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Contraseña incorrecta. Le quedan {restantes} intento(s) antes del bloqueo preventivo de su clave.",
+        )
+
+    # Login exitoso: reiniciar contador de intentos fallidos si tenía alguno
+    if sec["i"] > 0:
+        sec = await guardar_seguridad_usuario(
+            db, user.id, intentos=0, bloqueada=False, debe_cambiar=sec["c"]
+        )
+        await db.commit()
 
     # Sincronizar el saldo disponible según el año calendario vigente (renovación automática 1 de enero)
     await obtener_resumen_socio(user, db)
     await db.refresh(user)
 
     token = create_access_token(user.id, extra_claims={"rol": user.rol.value})
-    return TokenResponse(access_token=token, user=to_out(user))
+    return TokenResponse(access_token=token, user=to_out(user, sec))
 
 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    # Sincronizar el saldo disponible del año calendario vigente
     await obtener_resumen_socio(user, db)
     await db.refresh(user)
-    return to_out(user)
+    sec = await obtener_seguridad_usuario(db, user.id)
+    return to_out(user, sec)
+
+
+@router.post("/cambiar-password", response_model=UserOut, summary="Cambiar contraseña personal del usuario autenticado")
+async def cambiar_password_propia(
+    body: CambiarPasswordPropiaIn,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    nueva = (body.nueva_password or "").strip()
+    if len(nueva) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nueva contraseña debe tener al menos 8 caracteres.",
+        )
+
+    sec = await obtener_seguridad_usuario(db, user.id)
+
+    if not sec["c"] and body.password_actual:
+        if not verify_password(body.password_actual, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La contraseña actual ingresada no es correcta.",
+            )
+
+    if verify_password(nueva, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nueva contraseña debe ser distinta a la clave temporal o anterior.",
+        )
+
+    user.hashed_password = get_password_hash(nueva)
+    ahora_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    nuevo_sec = await guardar_seguridad_usuario(
+        db,
+        user.id,
+        intentos=0,
+        bloqueada=False,
+        debe_cambiar=False,
+        ultimo_cambio=ahora_str,
+    )
+
+    db.add(
+        AuditLog(
+            usuario_id=user.id,
+            usuario_nombre=user.nombre_completo,
+            usuario_rut=user.rut,
+            usuario_rol=user.rol.value,
+            modulo="SEGURIDAD",
+            accion="CAMBIO_PASSWORD_USUARIO",
+            recurso_tipo="User",
+            recurso_id=str(user.id),
+            detalles=f"El funcionario {user.nombre_completo} actualizó su contraseña personal exitosamente.",
+            ip_origen="127.0.0.1",
+        )
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return to_out(user, nuevo_sec)
 
 
 @router.get("/usuarios", response_model=List[UserOut])
 async def listar_usuarios(
     _: User = Depends(require_roles(UserRole.ADMIN)), db: AsyncSession = Depends(get_db)
 ):
-    """Listado completo de usuarios. Solo administrador y superusuario."""
+    """Listado completo de usuarios con su estado de cuenta, rol, estado de contraseña y si puede eliminarse."""
     result = await db.scalars(select(User).order_by(User.id))
-    return [to_out(u) for u in result]
+    users = list(result)
+
+    params_sec = await db.scalars(
+        select(ParametroSistema).where(ParametroSistema.clave.like("SEC_USR_%"))
+    )
+    mapa_sec: Dict[int, Dict[str, Any]] = {}
+    for p in params_sec:
+        try:
+            uid = int(p.clave.replace("SEC_USR_", ""))
+            mapa_sec[uid] = _parse_sec_json(p.valor)
+        except ValueError:
+            pass
+
+    salida: List[UserOut] = []
+    for u in users:
+        puede_elim, motivo_no_elim = await evaluar_historial_usuario(db, u)
+        salida.append(
+            to_out(
+                u,
+                mapa_sec.get(u.id),
+                puede_eliminar=puede_elim,
+                motivo_no_eliminable=motivo_no_elim,
+            )
+        )
+    return salida

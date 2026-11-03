@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth, SPLASH_SEEN_KEY, LOGOUT_USER_KEY } from '@/context/AuthContext';
+import { BuzonCorreosModal } from '@/components/ui/BuzonCorreosModal';
 
 // Cuentas de prueba sembradas por el backend (app/db/init_db.py). Solo para entorno de desarrollo.
 const TEST_ACCOUNTS = [
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [buzonOpen, setBuzonOpen] = useState(false);
 
   // Estados para la presentación inicial vs. despedida al cerrar sesión
   const [showSplash, setShowSplash] = useState<boolean>(() => {
@@ -134,7 +136,7 @@ export default function LoginPage() {
       await login(username, password);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      setError(msg.includes('401') ? 'Credenciales incorrectas.' : 'No se pudo conectar con el servidor.');
+      setError(msg || 'No se pudo conectar con el servidor.');
     } finally {
       setSubmitting(false);
     }
@@ -402,6 +404,14 @@ export default function LoginPage() {
               ¿Aún no eres socio? Solicitar incorporación al Comité
             </a>
 
+            <button
+              type="button"
+              onClick={() => setBuzonOpen(true)}
+              className="mt-2.5 block w-full py-2.5 px-4 rounded-xl text-center font-semibold text-xs text-[#006799] bg-sky-50 border border-sky-200 hover:bg-sky-100 transition cursor-pointer"
+            >
+              📬 ¿Ya postulaste? Ver Buzón de Correos (Estado de Solicitud y Clave Temporal)
+            </button>
+
             {process.env.NODE_ENV !== 'production' && (
               <div className="mt-6 pt-5 border-t border-slate-100">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 text-center">
@@ -440,6 +450,16 @@ export default function LoginPage() {
             <span>↺</span> Ver presentación de bienvenida nuevamente
           </button>
         </div>
+        <BuzonCorreosModal
+          isOpen={buzonOpen}
+          onClose={() => setBuzonOpen(false)}
+          filtroInicial={username}
+          onUsarCredenciales={(usr, pwd) => {
+            setUsername(usr);
+            setPassword(pwd);
+            setError(null);
+          }}
+        />
       </div>
     </div>
   );

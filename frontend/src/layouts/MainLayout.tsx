@@ -7,6 +7,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { WelcomeLoginExperience } from '@/components/ui/WelcomeLoginExperience';
+import { ModalCambioPasswordObligatorio } from '@/components/ui/ModalCambioPasswordObligatorio';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -55,6 +56,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-slate-50 text-slate-800 flex">
       {/* Experiencia animada de bienvenida post-login */}
       <WelcomeLoginExperience />
+
+      {/* Modal obligatorio si el Super Admin restableció la contraseña del usuario */}
+      <ModalCambioPasswordObligatorio />
 
       {/* Barra Lateral / Sidebar (Desktop fija, Móvil deslizante) */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
