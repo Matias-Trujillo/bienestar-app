@@ -90,36 +90,56 @@ export const navigationItems: NavItem[] = [
   },
 ];
 
+const ROLES_DIRECTIVA = ['presidente', 'secretario', 'tesorero', 'admin', 'auditor', 'superusuario'];
+
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
   const { user, token } = useAuth();
   const [pendientesCount, setPendientesCount] = useState<number | null>(null);
+  const [afiliacionPendientesCount, setAfiliacionPendientesCount] = useState<number | null>(null);
 
   const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
+  const esDirectiva = Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
 
   const itemsVisibles = navigationItems.filter(
     (item) => !item.adminOnly || esAdminOSuper
   );
 
   const cargarConteoPendientes = useCallback(async () => {
-    if (!esAdminOSuper || !token) return;
-    try {
-      const data = await fetchFromApi<{ pendientes: number }>('/reembolsos/admin/conteo-pendientes', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (data && typeof data.pendientes === 'number') {
-        setPendientesCount(data.pendientes);
+    if (!token) return;
+
+    if (esAdminOSuper) {
+      try {
+        const data = await fetchFromApi<{ pendientes: number }>('/reembolsos/admin/conteo-pendientes', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (data && typeof data.pendientes === 'number') {
+          setPendientesCount(data.pendientes);
+        }
+      } catch {
+        // Ignorar silenciosamente si no está disponible
       }
-    } catch {
-      // Ignorar silenciosamente si no está disponible o falla momentáneamente
     }
-  }, [esAdminOSuper, token]);
+
+    if (esDirectiva) {
+      try {
+        const dataAf = await fetchFromApi<{ pendientes: number }>('/afiliacion/conteo-pendientes', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (dataAf && typeof dataAf.pendientes === 'number') {
+          setAfiliacionPendientesCount(dataAf.pendientes);
+        }
+      } catch {
+        // Ignorar silenciosamente si no está disponible
+      }
+    }
+  }, [esAdminOSuper, esDirectiva, token]);
 
   useEffect(() => {
     cargarConteoPendientes();
 
-    // Sondeo periódico cada 20 segundos
-    const interval = setInterval(cargarConteoPendientes, 20000);
+    // Sondeo periódico cada 15 segundos
+    const interval = setInterval(cargarConteoPendientes, 15000);
 
     // Escuchar evento personalizado emitido cuando se aprueba, rechaza o crea una solicitud
     const handleUpdate = () => {
@@ -191,6 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {itemsVisibles.map((item) => {
             const isActive = pathname === item.href;
             const isAprobaciones = item.href === '/aprobaciones';
+            const isAfiliacion = item.href === '/afiliacion';
 
             // Determinar contenido y apariencia del badge
             let badgeText = item.badge;
@@ -198,6 +219,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             let badgeClass = isActive
               ? 'bg-sky-200/70 text-sky-900 font-semibold text-[10px]'
               : 'bg-slate-100 text-slate-600 font-semibold text-[10px]';
+
+            if (isAfiliacion && esDirectiva) {
+              if (afiliacionPendientesCount !== null) {
+                badgeText = afiliacionPendientesCount > 99 ? '+99' : `${afiliacionPendientesCount}`;
+                badgeTooltip = `${afiliacionPendientesCount} solicitudes de incorporación pendientes de revisión`;
+                if (afiliacionPendientesCount > 0) {
+                  badgeClass = isActive
+                    ? 'bg-amber-500 text-white font-bold text-xs shadow-sm ring-2 ring-amber-300'
+                    : 'bg-amber-100 text-amber-800 border border-amber-300 font-bold text-xs shadow-xs';
+                } else {
+                  badgeClass = 'bg-slate-100 text-slate-500 font-medium text-xs';
+                }
+              } else {
+                badgeText = undefined;
+              }
+            }
 
             if (isAprobaciones && esAdminOSuper) {
               if (pendientesCount !== null) {

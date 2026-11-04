@@ -37,7 +37,7 @@ export default function AdminPage() {
   const [modalBonoOpen, setModalBonoOpen] = useState(false);
 
   // Estado formulario rápido SMTP
-  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpUser, setSmtpUser] = useState('bperalillo@gmail.com');
   const [smtpPassword, setSmtpPassword] = useState('');
   const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
   const [smtpPort, setSmtpPort] = useState('587');
@@ -106,9 +106,14 @@ export default function AdminPage() {
       const pwd = data.find((p) => p.clave === 'SMTP_PASSWORD')?.valor || '';
       const h = data.find((p) => p.clave === 'SMTP_HOST')?.valor || 'smtp.gmail.com';
       const prt = data.find((p) => p.clave === 'SMTP_PORT')?.valor || '587';
-      if (u) setSmtpUser(u);
+      if (u && !u.toLowerCase().includes('@hotmail.')) {
+        setSmtpUser(u);
+        if (h) setSmtpHost(h);
+      } else {
+        setSmtpUser('bperalillo@gmail.com');
+        setSmtpHost('smtp.gmail.com');
+      }
       if (pwd) setSmtpPassword(pwd);
-      if (h) setSmtpHost(h);
       if (prt) setSmtpPort(prt);
     } catch {}
   }, [token]);
@@ -466,10 +471,10 @@ export default function AdminPage() {
               </a>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div>
                 <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  1. Correo Emisor (Preferible Gmail) *
+                  1. Correo Emisor del Sistema (Gmail o Corporativo) *
                 </label>
                 <input
                   type="email"
@@ -483,14 +488,14 @@ export default function AdminPage() {
                       setSmtpHost('smtp-mail.outlook.com');
                     }
                   }}
-                  placeholder="tucorreo@gmail.com"
+                  placeholder="tucorreo@gmail.com o notificaciones@tudominio.cl"
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  2. Contraseña de Aplicación (16 letras) *
+                  2. Contraseña SMTP / Contraseña de Aplicación Google (16 letras) *
                 </label>
                 <input
                   type="password"
@@ -504,27 +509,29 @@ export default function AdminPage() {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  3. Servidor / Puerto SMTP
+                  3. Servidor y Puerto SMTP
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={smtpHost}
                     onChange={(e) => setSmtpHost(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-mono text-xs"
+                    placeholder="smtp.gmail.com"
+                    className="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-mono text-xs"
                   />
                   <input
                     type="text"
                     value={smtpPort}
                     onChange={(e) => setSmtpPort(e.target.value)}
-                    className="w-16 px-2 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-mono text-center text-xs"
+                    placeholder="587"
+                    className="w-20 flex-shrink-0 px-2 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-mono text-center text-xs"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-emerald-300 mb-1">
-                  4. Enviar correo de prueba a:
+                  4. Enviar correo de prueba a (tu bandeja de entrada):
                 </label>
                 <input
                   type="email"

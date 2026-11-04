@@ -2,7 +2,19 @@
 
 import React, { useState } from 'react';
 import { useAuth, SPLASH_SEEN_KEY, LOGOUT_USER_KEY } from '@/context/AuthContext';
-import { BuzonCorreosModal } from '@/components/ui/BuzonCorreosModal';
+import { fetchFromApi } from '@/lib/api';
+import { formatRun } from '@/lib/utils';
+
+interface RecuperacionResult {
+  ok: boolean;
+  folio: string;
+  nombreCompleto: string;
+  rut: string;
+  emailEnmascarado: string;
+  emailDestino: string;
+  enviadoSmtp: boolean;
+  mensaje: string;
+}
 
 // Cuentas de prueba sembradas por el backend (app/db/init_db.py). Solo para entorno de desarrollo.
 const TEST_ACCOUNTS = [
@@ -31,17 +43,59 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [buzonOpen, setBuzonOpen] = useState(false);
 
-  // Estados para la presentación inicial vs. despedida al cerrar sesión
-  const [showSplash, setShowSplash] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const hasLogout = sessionStorage.getItem(LOGOUT_USER_KEY);
-      const seenSplash = sessionStorage.getItem(SPLASH_SEEN_KEY);
-      if (hasLogout || seenSplash === '1') return false;
+  // Estados para Recuperación de Contraseña por Correo
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryInput, setRecoveryInput] = useState('');
+  const [recoverySubmitting, setRecoverySubmitting] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [recoverySuccess, setRecoverySuccess] = useState<RecuperacionResult | null>(null);
+
+  const abrirModalRecuperacion = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setRecoveryInput(username.trim());
+    setRecoveryError(null);
+    setRecoverySuccess(null);
+    setRecoveryOpen(true);
+  };
+
+  const handleRecoveryChange = (val: string) => {
+    setRecoveryError(null);
+    // Si escribe solo números, puntos, guion o K (sin @ ni letras de correo), auto-formatear como RUT
+    if (val && !val.includes('@') && /^[0-9kK.\-\s]+$/.test(val)) {
+      setRecoveryInput(formatRun(val));
+    } else {
+      setRecoveryInput(val);
     }
-    return true;
-  });
+  };
+
+  const handleRecoverySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecoveryError(null);
+    const clean = recoveryInput.trim();
+    if (!clean) {
+      setRecoveryError('Por favor ingrese su RUT o Correo Electrónico registrado.');
+      return;
+    }
+    setRecoverySubmitting(true);
+    try {
+      const res = await fetchFromApi<RecuperacionResult>('/auth/recuperar-password', {
+        method: 'POST',
+        body: JSON.stringify({ identificador: clean }),
+      });
+      setRecoverySuccess(res);
+      setUsername(clean);
+      setPassword('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo procesar la solicitud.';
+      setRecoveryError(msg);
+    } finally {
+      setRecoverySubmitting(false);
+    }
+  };
+
+  // Estados para la presentación inicial (7 segundos completos y transición suave) vs. despedida al cerrar sesión
+  const [showSplash, setShowSplash] = useState<boolean>(true);
   const [isExitingSplash, setIsExitingSplash] = useState(false);
   const [splashStatus, setSplashStatus] = useState('Iniciando plataforma de atención para Funcionarios Municipales...');
 
@@ -67,13 +121,12 @@ export default function LoginPage() {
     }, 650);
   };
 
-  // Efecto al montar: detectar si venimos de un Cierre de Sesión para mostrar despedida en lugar del splash inicial
+  // Efecto al montar: detectar únicamente si venimos de un Cierre de Sesión recién ejecutado
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
     const loggedOutName = sessionStorage.getItem(LOGOUT_USER_KEY);
     if (loggedOutName) {
       sessionStorage.removeItem(LOGOUT_USER_KEY);
-      sessionStorage.setItem(SPLASH_SEEN_KEY, '1');
       setShowSplash(false);
       setFarewellUser(loggedOutName);
 
@@ -316,7 +369,7 @@ export default function LoginPage() {
           FASE 2: FORMULARIO DE LOGIN CON ACABADO INSTITUCIONAL ELEGANTE
           ========================================================================= */}
       <div
-        className={`relative z-10 w-full max-w-lg space-y-5 transition-all duration-[1200ms] ease-out ${
+        className={`relative z-10 w-full max-w-[450px] space-y-2.5 transition-all duration-[1200ms] ease-out ${
           showSplash && !isExitingSplash
             ? 'opacity-0 scale-95 translate-y-8 pointer-events-none'
             : 'animate-reveal-card opacity-100 scale-100 translate-y-0'
@@ -325,27 +378,27 @@ export default function LoginPage() {
         <div className="bg-white rounded-3xl shadow-2xl ring-1 ring-[#cfa145]/30 overflow-hidden">
           <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
 
-          <div className="p-6 sm:p-9">
-            <div className="flex flex-col items-center text-center pb-5 mb-6 border-b border-slate-100">
-              <div className="relative w-64 sm:w-72 aspect-[2.85/1] overflow-hidden mb-3">
+          <div className="p-5 sm:px-7 sm:py-5">
+            <div className="flex flex-col items-center text-center pb-3 mb-3.5 border-b border-slate-100">
+              <div className="relative w-48 sm:w-52 aspect-[2.85/1] overflow-hidden mb-1.5">
                 <img
                   src="/logo-peralillo.png"
                   alt="Ilustre Municipalidad de Peralillo"
                   className="w-[124%] max-w-none h-auto absolute left-1/2 -translate-x-[48.5%] -top-[27%] select-none pointer-events-none"
                 />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#006799] bg-[#006799]/5 px-3.5 py-1 rounded-full border border-[#006799]/20 mb-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#006799] bg-[#006799]/5 px-3 py-0.5 rounded-full border border-[#006799]/20 mb-1">
                 Servicio de Bienestar • Atención al Funcionario
               </span>
-              <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Iniciar Sesión en el Portal</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h2 className="text-lg font-extrabold text-slate-800 tracking-tight">Iniciar Sesión en el Portal</h2>
+              <p className="text-[11px] text-slate-500">
                 Ingresa tus credenciales de socio o funcionario municipal
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-2.5">
               <div>
-                <label htmlFor="login-username" className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="login-username" className="block text-[11px] font-semibold text-slate-700 mb-1">
                   RUT o Correo Electrónico Institucional
                 </label>
                 <input
@@ -354,13 +407,13 @@ export default function LoginPage() {
                   autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ej: 15.489.123-K o usuario@mperalillo.cl"
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] transition"
+                  placeholder="Ej: 12.345.678-9 o usuario@mperalillo.cl"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] transition"
                 />
               </div>
 
               <div>
-                <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="login-password" className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Contraseña
                 </label>
                 <input
@@ -370,27 +423,31 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] transition"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] transition"
                 />
               </div>
 
               {error && (
-                <div id="login-error" className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                <div id="login-error" className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5">
                   {error}
                 </div>
               )}
 
-              <div className="flex justify-end text-xs">
-                <a href="#" onClick={(e) => { e.preventDefault(); alert('Por favor contacte a mesa de ayuda: bienestar@mperalillo.cl'); }} className="text-slate-400 hover:text-slate-600">
+              <div className="flex justify-end text-[11px]">
+                <button
+                  type="button"
+                  onClick={abrirModalRecuperacion}
+                  className="font-semibold text-[#006799] hover:text-[#0f2942] hover:underline transition cursor-pointer"
+                >
                   ¿Olvidaste tu clave?
-                </a>
+                </button>
               </div>
 
               <button
                 id="login-submit"
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-[#006799] via-[#1c6e7d] to-[#5b7c29] hover:from-[#00547d] hover:to-[#486320] shadow-lg shadow-slate-900/15 transition active:scale-[0.99] disabled:opacity-60"
+                className="w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-gradient-to-r from-[#006799] via-[#1c6e7d] to-[#5b7c29] hover:from-[#00547d] hover:to-[#486320] shadow-md shadow-slate-900/15 transition active:scale-[0.99] disabled:opacity-60"
               >
                 {submitting ? 'Verificando…' : 'Ingresar al Portal'}
               </button>
@@ -399,35 +456,27 @@ export default function LoginPage() {
             <a
               id="login-solicitar-incorporacion"
               href="/afiliacion/solicitud"
-              className="mt-4 block w-full py-2.5 px-4 rounded-xl text-center font-semibold text-sm text-[#5b7c29] bg-[#5b7c29]/8 border border-[#5b7c29]/25 hover:bg-[#5b7c29]/15 transition"
+              className="mt-2.5 block w-full py-2 px-3 rounded-xl text-center font-semibold text-xs text-[#5b7c29] bg-[#5b7c29]/8 border border-[#5b7c29]/25 hover:bg-[#5b7c29]/15 transition"
             >
               ¿Aún no eres socio? Solicitar incorporación al Comité
             </a>
 
-            <button
-              type="button"
-              onClick={() => setBuzonOpen(true)}
-              className="mt-2.5 block w-full py-2.5 px-4 rounded-xl text-center font-semibold text-xs text-[#006799] bg-sky-50 border border-sky-200 hover:bg-sky-100 transition cursor-pointer"
-            >
-              📬 ¿Ya postulaste? Ver Buzón de Correos (Estado de Solicitud y Clave Temporal)
-            </button>
-
             {process.env.NODE_ENV !== 'production' && (
-              <div className="mt-6 pt-5 border-t border-slate-100">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 text-center">
+              <div className="mt-3.5 pt-3 border-t border-slate-100">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 text-center">
                   Cuentas de prueba (clic para rellenar)
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                   {TEST_ACCOUNTS.map((acc) => (
                     <button
                       key={acc.user}
                       id={`test-account-${acc.label.split(' ')[0].toLowerCase()}`}
                       type="button"
                       onClick={() => { setUsername(acc.user); setPassword(acc.pass); setError(null); }}
-                      className={`p-2.5 text-left rounded-xl border border-slate-200 transition ${COLOR_CLASSES[acc.color]}`}
+                      className={`px-2.5 py-1.5 text-left rounded-xl border border-slate-200 transition ${COLOR_CLASSES[acc.color]}`}
                     >
-                      <span className="block text-[11px] font-bold">{acc.label}</span>
-                      <span className="block text-[10px] text-slate-400 truncate">{acc.user}</span>
+                      <span className="block text-[10px] font-bold leading-tight">{acc.label}</span>
+                      <span className="block text-[9px] text-slate-400 truncate leading-tight">{acc.user}</span>
                     </button>
                   ))}
                 </div>
@@ -436,7 +485,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="flex flex-col items-center justify-center gap-2 text-center text-xs text-slate-400">
+        <div className="flex flex-col items-center justify-center gap-0.5 text-center text-[11px] text-slate-400">
           <p>Comité de Bienestar • Ilustre Municipalidad de Peralillo &copy; 2026</p>
           <button
             type="button"
@@ -450,17 +499,139 @@ export default function LoginPage() {
             <span>↺</span> Ver presentación de bienvenida nuevamente
           </button>
         </div>
-        <BuzonCorreosModal
-          isOpen={buzonOpen}
-          onClose={() => setBuzonOpen(false)}
-          filtroInicial={username}
-          onUsarCredenciales={(usr, pwd) => {
-            setUsername(usr);
-            setPassword(pwd);
-            setError(null);
-          }}
-        />
       </div>
+
+      {/* =========================================================================
+          MODAL CORPORATIVO DE RECUPERACIÓN DE CONTRASEÑA POR CORREO ELECTRÓNICO
+          ========================================================================= */}
+      {recoveryOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#061523]/75 backdrop-blur-md animate-fadeIn"
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden"
+          >
+            {/* Franja institucional superior */}
+            <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
+
+            <div className="p-6 sm:p-7 space-y-4">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3.5">
+                <div>
+                  <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-sky-50 text-[#006799] border border-sky-200">
+                    Seguridad del Portal • Bienestar
+                  </span>
+                  <h3 className="text-base font-extrabold text-[#0f2942] mt-1.5">
+                    Recuperación de Contraseña
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Reciba una clave temporal de un solo uso en su correo registrado
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={recoverySubmitting}
+                  onClick={() => setRecoveryOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold text-base cursor-pointer disabled:opacity-40"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {!recoverySuccess ? (
+                <form onSubmit={handleRecoverySubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#0f2942] mb-1.5">
+                      RUT o Correo Electrónico Registrado *
+                    </label>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={recoveryInput}
+                      onChange={(e) => handleRecoveryChange(e.target.value)}
+                      placeholder="Ej: 12.345.678-9 o usuario@correo.cl"
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50/80 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]/20 focus:border-[#006799] transition"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                      Enviaremos automáticamente un correo institucional con una <strong>Contraseña Temporal</strong>. Al iniciar sesión con ella, el portal le pedirá definir su nueva clave personal.
+                    </p>
+                  </div>
+
+                  {recoveryError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
+                      {recoveryError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setRecoveryOpen(false)}
+                      disabled={recoverySubmitting}
+                      className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={recoverySubmitting}
+                      className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#006799] to-[#0f2942] hover:from-[#00547d] hover:to-[#163a5c] shadow-sm transition cursor-pointer disabled:opacity-60"
+                    >
+                      {recoverySubmitting ? 'Enviando correo...' : 'Enviar Clave Temporal al Correo'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-sky-50/40 border border-emerald-200/80 border-l-4 border-l-emerald-600 text-xs space-y-1.5">
+                    <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-white text-[10px]">
+                        ✓
+                      </span>
+                      Correo de recuperación enviado
+                    </p>
+                    <p className="text-slate-700 leading-relaxed">
+                      Hemos enviado su nueva <strong>Contraseña Temporal</strong> e instrucciones de acceso al correo{' '}
+                      <strong className="text-[#006799]">{recoverySuccess.emailDestino}</strong>.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/80 text-xs">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-medium">Funcionario(a)</span>
+                      <span className="font-bold text-[#0f2942]">{recoverySuccess.nombreCompleto}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-medium">RUN / Folio</span>
+                      <span className="font-mono font-semibold text-slate-700">
+                        {recoverySuccess.rut} · {recoverySuccess.folio}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl p-3.5 bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 space-y-1">
+                    <span className="font-bold uppercase tracking-wider text-slate-500 block text-[10px]">
+                      ¿Cómo continuar?
+                    </span>
+                    <p>1. Abra el correo recibido en <strong>{recoverySuccess.emailDestino}</strong>.</p>
+                    <p>2. Copie la <strong>Contraseña Temporal</strong> indicada en el recuadro de seguridad.</p>
+                    <p>3. Inicie sesión aquí y defina su nueva contraseña personal.</p>
+                  </div>
+
+                  <div className="flex justify-end pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setRecoveryOpen(false)}
+                      className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-[#0f2942] hover:bg-[#163a5c] transition cursor-pointer shadow-sm"
+                    >
+                      Ir a Iniciar Sesión con mi Clave Temporal
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

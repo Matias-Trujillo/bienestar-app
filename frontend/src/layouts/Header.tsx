@@ -1,16 +1,77 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { fetchFromApi } from '@/lib/api';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
+const ROLES_DIRECTIVA = ['presidente', 'secretario', 'tesorero', 'admin', 'auditor', 'superusuario'];
+
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
+  const pathname = usePathname();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [reembolsosPendientes, setReembolsosPendientes] = useState(0);
+  const [afiliacionPendientes, setAfiliacionPendientes] = useState(0);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
+  const esDirectiva = Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
+
+  const cargarNotificaciones = useCallback(async () => {
+    if (!token) return;
+    if (esAdminOSuper) {
+      try {
+        const r = await fetchFromApi<{ pendientes: number }>('/reembolsos/admin/conteo-pendientes', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r && typeof r.pendientes === 'number') setReembolsosPendientes(r.pendientes);
+      } catch {
+        // Ignorar
+      }
+    }
+    if (esDirectiva) {
+      try {
+        const a = await fetchFromApi<{ pendientes: number }>('/afiliacion/conteo-pendientes', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (a && typeof a.pendientes === 'number') setAfiliacionPendientes(a.pendientes);
+      } catch {
+        // Ignorar
+      }
+    }
+  }, [esAdminOSuper, esDirectiva, token]);
+
+  useEffect(() => {
+    cargarNotificaciones();
+    const interval = setInterval(cargarNotificaciones, 15000);
+    const handleUpdate = () => cargarNotificaciones();
+    window.addEventListener('solicitudes-updated', handleUpdate);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('solicitudes-updated', handleUpdate);
+    };
+  }, [cargarNotificaciones, pathname]);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notifOpen]);
+
+  const totalAlertas = (esDirectiva ? afiliacionPendientes : 0) + (esAdminOSuper ? reembolsosPendientes : 0);
 
   // Cerrar el modal con Escape
   useEffect(() => {
@@ -77,21 +138,101 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       {/* Perfil de Usuario y Acciones */}
       <div className="flex items-center gap-3 sm:gap-6">
         {/* Notificaciones */}
-        <button
-          className="relative p-2 text-slate-500 rounded-xl hover:bg-slate-100 hover:text-slate-700 transition"
-          aria-label="Notificaciones"
-          title="Notificaciones"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-            />
-          </svg>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ea580c] ring-2 ring-white"></span>
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button
+            type="button"
+            onClick={() => setNotifOpen((prev) => !prev)}
+            className="relative p-2 text-slate-500 rounded-xl hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+            aria-label="Notificaciones"
+            title={
+              totalAlertas > 0
+                ? `${totalAlertas} solicitudes pendientes de revisión`
+                : 'Sin solicitudes pendientes'
+            }
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+            {totalAlertas > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
+                {totalAlertas > 99 ? '99+' : totalAlertas}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200/90 overflow-hidden z-50">
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                <span className="text-xs font-bold text-[#0f2942]">Solicitudes Pendientes</span>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {totalAlertas} {totalAlertas === 1 ? 'pendiente' : 'pendientes'}
+                </span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {esDirectiva && (
+                  <Link
+                    href="/afiliacion"
+                    onClick={() => setNotifOpen(false)}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition"
+                  >
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Afiliación y Cargas</p>
+                      <p className="text-[11px] text-slate-500">
+                        {afiliacionPendientes > 0
+                          ? `${afiliacionPendientes} ${afiliacionPendientes === 1 ? 'solicitud de incorporación pendiente' : 'solicitudes de incorporación pendientes'}`
+                          : 'Sin solicitudes pendientes'}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold min-w-[24px] text-center ${
+                        afiliacionPendientes > 0
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {afiliacionPendientes}
+                    </span>
+                  </Link>
+                )}
+                {esAdminOSuper && (
+                  <Link
+                    href="/aprobaciones"
+                    onClick={() => setNotifOpen(false)}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition"
+                  >
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Aprobaciones (Reembolsos)</p>
+                      <p className="text-[11px] text-slate-500">
+                        {reembolsosPendientes > 0
+                          ? `${reembolsosPendientes} ${reembolsosPendientes === 1 ? 'reembolso pendiente de revisión' : 'reembolsos pendientes de revisión'}`
+                          : 'Sin reembolsos pendientes'}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold min-w-[24px] text-center ${
+                        reembolsosPendientes > 0
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {reembolsosPendientes}
+                    </span>
+                  </Link>
+                )}
+                {!esDirectiva && !esAdminOSuper && (
+                  <div className="px-4 py-5 text-center text-xs text-slate-400">
+                    No tienes notificaciones pendientes.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Separador vertical */}
         <div className="hidden sm:block w-px h-8 bg-slate-200"></div>

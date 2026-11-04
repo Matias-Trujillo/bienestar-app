@@ -80,8 +80,8 @@ def _num_palabra(n: int) -> str:
 # ---------------------------------------------------------------------------
 def normalizar_run(value: str) -> str:
     limpio = re.sub(r"[^0-9kK]", "", value or "").upper()
-    if len(limpio) < 2:
-        raise ValueError("RUN inválido")
+    if len(limpio) < 8 or len(limpio) > 9:
+        raise ValueError("RUN inválido (debe tener entre 7 y 8 dígitos más dígito verificador)")
     cuerpo, dv = limpio[:-1], limpio[-1]
     if not cuerpo.isdigit():
         raise ValueError("RUN inválido")
@@ -452,6 +452,18 @@ async def consultar_solicitud(folio: str, run: str, db: AsyncSession = Depends(g
 DIRECTIVA = (UserRole.PRESIDENTE, UserRole.SECRETARIO, UserRole.TESORERO, UserRole.ADMIN, UserRole.AUDITOR)
 
 
+@router.get("/conteo-pendientes", summary="Conteo de solicitudes de incorporación pendientes (Directiva)")
+async def conteo_solicitudes_pendientes(
+    _: User = Depends(require_roles(*DIRECTIVA)), db: AsyncSession = Depends(get_db)
+) -> Dict[str, int]:
+    total = await db.scalar(
+        select(func.count(SolicitudAfiliacion.id)).where(
+            SolicitudAfiliacion.estado == EstadoSolicitud.PENDIENTE
+        )
+    )
+    return {"pendientes": int(total or 0)}
+
+
 @router.get("/solicitudes", response_model=List[ComprobanteOut], summary="Listar solicitudes de incorporación (Directiva)")
 async def listar_solicitudes(
     _: User = Depends(require_roles(*DIRECTIVA)), db: AsyncSession = Depends(get_db)
@@ -515,6 +527,12 @@ async def resolver_solicitud(
     )
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+
+    if solicitud.estado != EstadoSolicitud.PENDIENTE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"La solicitud {solicitud.folio} ya fue resuelta ({solicitud.estado.value}) y no puede volver a modificarse.",
+        )
 
     run_formateado = formatear_run(solicitud.run)
     rut_sin_simbolos = re.sub(r"[^0-9kK]", "", solicitud.run).upper()
@@ -626,9 +644,8 @@ async def resolver_solicitud(
                 recurso_id=solicitud.folio,
                 detalles=(
                     f"Solicitud N° {solicitud.folio} ACEPTADA ({motivo_aprobacion}). "
-                    f"Cuenta activada para {solicitud.nombre_completo} ({run_formateado}) con clave temporal "
-                    f"({clave_temporal}) y cambio obligatorio en primer ingreso. "
-                    f"Notificación enviada a {email_usuario}."
+                    f"Cuenta activada para {solicitud.nombre_completo} ({run_formateado}) con cambio de clave "
+                    f"obligatorio en primer ingreso. Credenciales enviadas por correo a {email_usuario}."
                 ),
                 ip_origen="127.0.0.1",
             )
@@ -753,10 +770,11 @@ async def reenviar_correo_solicitud(
 
 @router.get(
     "/buzon",
-    summary="Buzón de Correos Institucionales emitidos por el sistema (Recepción, Aprobación con Clave y Rechazo)",
+    summary="Auditoría interna de correos emitidos (Solo Directiva autenticada)",
 )
 async def obtener_buzon_correos(
     q: Optional[str] = None,
+    _: User = Depends(require_roles(*DIRECTIVA)),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """

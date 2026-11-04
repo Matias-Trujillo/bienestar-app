@@ -61,14 +61,14 @@ export function getStatusBadgeStyle(estado: string): { bg: string; text: string;
 }
 
 /**
- * Valida un RUN chileno usando el algoritmo módulo 11.
+ * Valida un RUN chileno usando el algoritmo módulo 11 (requiere entre 7 y 8 dígitos base + 1 dígito verificador).
  */
 export function isValidRun(value: string): boolean {
   const clean = (value || '').replace(/[^0-9kK]/g, '').toUpperCase();
-  if (clean.length < 2) return false;
+  if (clean.length < 8 || clean.length > 9) return false;
   const body = clean.slice(0, -1);
   const dv = clean.slice(-1);
-  if (!/^\d+$/.test(body)) return false;
+  if (!/^\d{7,8}$/.test(body)) return false;
   let sum = 0;
   let mult = 2;
   for (let i = body.length - 1; i >= 0; i--) {
@@ -81,11 +81,74 @@ export function isValidRun(value: string): boolean {
 }
 
 /**
- * Formatea un RUN como "12.345.678-9".
+ * Formatea un RUN en tiempo real mientras el usuario escribe (ej: "171836972" -> "17.183.697-2").
+ * Sólo permite números en el cuerpo y número o K en el dígito verificador (máx 9 caracteres limpios).
  */
 export function formatRun(value: string): string {
-  const clean = (value || '').replace(/[^0-9kK]/g, '').toUpperCase();
-  if (clean.length < 2) return value;
-  const body = clean.slice(0, -1).replace(/^0+/, '');
+  const raw = (value || '').replace(/[^0-9kK]/g, '').toUpperCase();
+  if (!raw) return '';
+  // Solo el último carácter puede ser 'K'; eliminar cualquier 'K' intermedia y limitar a 9 caracteres
+  const digitsOnlyPrefix = raw.slice(0, -1).replace(/[^0-9]/g, '');
+  const lastChar = raw.slice(-1);
+  const clean = (digitsOnlyPrefix + lastChar).slice(0, 9);
+  if (clean.length <= 1) return clean;
+  const body = clean.slice(0, -1).replace(/^0+/, '') || '0';
   return `${body.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}-${clean.slice(-1)}`;
+}
+
+export const formatRut = formatRun;
+
+/**
+ * Diagnóstico detallado en vivo para un RUN chileno mientras se digita.
+ */
+export function validateRunLive(value: string): {
+  isValid: boolean;
+  cleanLength: number;
+  error: string | null;
+  successMsg: string | null;
+} {
+  const clean = (value || '').replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length === 0) {
+    return { isValid: false, cleanLength: 0, error: 'El RUN es obligatorio.', successMsg: null };
+  }
+  if (clean.length < 8) {
+    return {
+      isValid: false,
+      cleanLength: clean.length,
+      error: `RUN incompleto (${clean.length}/8 dígitos mínimos, ej: 12.345.678-9).`,
+      successMsg: null,
+    };
+  }
+  const body = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  if (!/^\d{7,8}$/.test(body)) {
+    return {
+      isValid: false,
+      cleanLength: clean.length,
+      error: 'Formato de RUN inválido (solo números y dígito verificador).',
+      successMsg: null,
+    };
+  }
+  let sum = 0;
+  let mult = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * mult;
+    mult = mult === 7 ? 2 : mult + 1;
+  }
+  const res = 11 - (sum % 11);
+  const expected = res === 11 ? '0' : res === 10 ? 'K' : String(res);
+  if (dv !== expected) {
+    return {
+      isValid: false,
+      cleanLength: clean.length,
+      error: `RUN inválido (dígito verificador no corresponde).`,
+      successMsg: null,
+    };
+  }
+  return {
+    isValid: true,
+    cleanLength: clean.length,
+    error: null,
+    successMsg: '✔ RUN válido',
+  };
 }

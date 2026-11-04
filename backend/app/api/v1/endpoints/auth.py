@@ -1,5 +1,6 @@
 """Endpoints de autenticación (login JWT, perfil, cambio de clave y listado de usuarios)."""
 import json
+import secrets
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -21,6 +22,10 @@ from app.models import (
     User,
 )
 from app.models.user import ROLE_LABELS, UserRole
+from app.services.email_service import (
+    actualizar_config_smtp_runtime,
+    generar_correo_recuperacion_password,
+)
 from app.services.reembolso_service import TOPE_ANUAL_SALUD, obtener_resumen_socio
 
 router = APIRouter()
@@ -404,3 +409,129 @@ async def listar_usuarios(
             )
         )
     return salida
+
+
+class RecuperarPasswordIn(BaseModel):
+    identificador: str  # RUT o correo electrónico
+
+
+def _enmascarar_correo(email: str) -> str:
+    partes = (email or "").strip().split("@")
+    if len(partes) != 2:
+        return email
+    local, dominio = partes
+    if len(local) <= 2:
+        local_mask = local[0] + "***"
+    else:
+        local_mask = local[:2] + "***" + local[-1]
+    return f"{local_mask}@{dominio}"
+
+
+async def _sincronizar_smtp_desde_db(db: AsyncSession) -> None:
+    params = await db.scalars(
+        select(ParametroSistema).where(ParametroSistema.clave.like("SMTP_%"))
+    )
+    mapa = {p.clave: p.valor for p in params}
+    if mapa:
+        actualizar_config_smtp_runtime(
+            host=mapa.get("SMTP_HOST"),
+            port=int(mapa["SMTP_PORT"]) if mapa.get("SMTP_PORT", "").isdigit() else None,
+            user=mapa.get("SMTP_USER"),
+            password=mapa.get("SMTP_PASSWORD"),
+        )
+
+
+@router.post(
+    "/recuperar-password",
+    summary="Recuperar contraseña enviando una Clave Temporal al correo registrado (público)",
+)
+async def recuperar_password_por_correo(
+    body: RecuperarPasswordIn,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    ident = (body.identificador or "").strip()
+    if not ident:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Debe ingresar su RUT o Correo Electrónico.",
+        )
+
+    await _sincronizar_smtp_desde_db(db)
+
+    rut_norm = _normalize_rut(ident)
+    user = await db.scalar(
+        select(User).where(
+            or_(
+                func.lower(User.email) == ident.lower(),
+                func.upper(func.replace(func.replace(User.rut, ".", ""), "-", "")) == rut_norm,
+            )
+        )
+    )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se encontró una cuenta registrada con el RUT o correo electrónico ingresado.",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="La cuenta asociada se encuentra inactiva. Contacte a la Directiva del Comité de Bienestar.",
+        )
+
+    # Generar Contraseña Temporal única de 1 solo uso y exigir cambio obligatorio en el próximo inicio de sesión
+    codigo_random = secrets.randbelow(9000) + 1000
+    clave_temporal = f"Peralillo#{codigo_random}"
+
+    user.hashed_password = get_password_hash(clave_temporal)
+    await guardar_seguridad_usuario(
+        db,
+        user.id,
+        intentos=0,
+        bloqueada=False,
+        debe_cambiar=True,
+    )
+
+    rol_label = ROLE_LABELS.get(user.rol, "Socio Activo")
+    resultado_email = generar_correo_recuperacion_password(
+        nombre_completo=user.nombre_completo,
+        run_formateado=user.rut,
+        email_destino=user.email,
+        clave_temporal=clave_temporal,
+        rol_label=rol_label,
+        enviar_smtp=True,
+    )
+
+    db.add(
+        AuditLog(
+            usuario_id=user.id,
+            usuario_nombre=user.nombre_completo,
+            usuario_rut=user.rut,
+            usuario_rol=user.rol.value,
+            modulo="SEGURIDAD",
+            accion="RECUPERAR_PASSWORD_CORREO",
+            recurso_tipo="User",
+            recurso_id=str(user.id),
+            detalles=(
+                f"Solicitud de recuperación de contraseña para {user.nombre_completo} ({user.rut}). "
+                f"Se envió Clave Temporal de un solo uso al correo {user.email} ({resultado_email['folio']})."
+            ),
+            ip_origen="127.0.0.1",
+        )
+    )
+    db.add(user)
+    await db.commit()
+
+    return {
+        "ok": True,
+        "folio": resultado_email["folio"],
+        "nombreCompleto": user.nombre_completo,
+        "rut": user.rut,
+        "emailEnmascarado": _enmascarar_correo(user.email),
+        "emailDestino": user.email,
+        "enviadoSmtp": resultado_email["enviadoSmtp"],
+        "mensaje": (
+            f"Hemos enviado una Contraseña Temporal de un solo uso e instrucciones de acceso "
+            f"a su correo electrónico registrado ({_enmascarar_correo(user.email)})."
+        ),
+    }
