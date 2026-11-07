@@ -184,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                       <p className="text-xs font-semibold text-slate-800">Afiliación y Cargas</p>
                       <p className="text-[11px] text-slate-500">
                         {afiliacionPendientes > 0
-                          ? `${afiliacionPendientes} ${afiliacionPendientes === 1 ? 'solicitud de incorporación pendiente' : 'solicitudes de incorporación pendientes'}`
+                          ? `${afiliacionPendientes} ${afiliacionPendientes === 1 ? 'solicitud de afiliación o carga pendiente' : 'solicitudes de afiliación o cargas pendientes'}`
                           : 'Sin solicitudes pendientes'}
                       </p>
                     </div>

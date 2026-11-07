@@ -2,7 +2,7 @@
 import enum
 from typing import List, Optional
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -70,3 +70,39 @@ class CargaFamiliar(Base, TimestampMixin):
     parentesco: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
     solicitud: Mapped[SolicitudAfiliacion] = relationship(back_populates="cargas")
+
+
+class SolicitudCargaFamiliar(Base, TimestampMixin):
+    """Solicitud posterior de incorporación de nueva carga familiar por un socio activo."""
+
+    __tablename__ = "solicitudes_cargas_familiares"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    folio: Mapped[str] = mapped_column(String(24), unique=True, index=True)
+
+    # Socio titular solicitante
+    socio_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
+    socio_nombre: Mapped[str] = mapped_column(String(120))
+    socio_rut: Mapped[str] = mapped_column(String(20), index=True)
+    socio_email: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+
+    # Datos de la nueva carga familiar
+    nombre_completo: Mapped[str] = mapped_column(String(120))
+    run: Mapped[str] = mapped_column(String(15), index=True)  # normalizado: 12345678-9
+    parentesco: Mapped[str] = mapped_column(String(40))
+    observacion_socio: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+
+    # Certificado de respaldo (Nacimiento / Matrimonio / Nacimiento del Socio, etc.)
+    certificado_nombre: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    certificado_tipo: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    certificado_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Estado y resolución de Directiva
+    estado: Mapped[EstadoSolicitud] = mapped_column(
+        _enum(EstadoSolicitud, "estado_solicitud"), default=EstadoSolicitud.PENDIENTE
+    )
+    fecha_sesion: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    numero_acta: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    observaciones_resolucion: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    resuelto_por: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    resuelto_at: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)

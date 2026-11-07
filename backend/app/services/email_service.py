@@ -15,6 +15,9 @@ from app.core.config import settings
 logger = logging.getLogger("uvicorn.error")
 
 _LOGO_EMAIL_PATH = Path(__file__).resolve().parent.parent / "assets" / "logo-peralillo-email.png"
+_LOGO_EMAIL_BYTES: Optional[bytes] = (
+    _LOGO_EMAIL_PATH.read_bytes() if _LOGO_EMAIL_PATH.exists() else None
+)
 
 # Cache en memoria sincronizada con ParametroSistema (Administración -> Parámetros Base)
 _SMTP_RUNTIME: Dict[str, Any] = {
@@ -406,12 +409,11 @@ def _enviar_smtp_real(
         msg_root.attach(msg_alt)
 
         # Adjuntar logotipo institucional de la Ilustre Municipalidad de Peralillo como imagen CID inline
-        if _LOGO_EMAIL_PATH.exists():
-            with open(_LOGO_EMAIL_PATH, "rb") as f_logo:
-                img_part = MIMEImage(f_logo.read(), _subtype="png")
-                img_part.add_header("Content-ID", "<logo_peralillo>")
-                img_part.add_header("Content-Disposition", "inline", filename="logo-peralillo.png")
-                msg_root.attach(img_part)
+        if _LOGO_EMAIL_BYTES:
+            img_part = MIMEImage(_LOGO_EMAIL_BYTES, _subtype="png")
+            img_part.add_header("Content-ID", "<logo_peralillo>")
+            img_part.add_header("Content-Disposition", "inline", filename="logo-peralillo.png")
+            msg_root.attach(img_part)
 
         raw_msg = msg_root.as_string().replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8")
 
@@ -985,6 +987,133 @@ def generar_correo_recuperacion_password(
 
     return {
         "folio": folio_seguridad,
+        "destinatario": destinatario,
+        "enviadoSmtp": enviado_smtp,
+        "errorSmtp": error_smtp,
+    }
+
+
+def generar_correo_resolucion_carga_familiar(
+    folio: str,
+    socio_nombre: str,
+    socio_rut: str,
+    email_destino: str,
+    carga_nombre: str,
+    carga_run: str,
+    parentesco: str,
+    aprobada: bool,
+    motivo: str = "",
+    fecha_sesion: Optional[str] = None,
+    numero_acta: Optional[str] = None,
+    enviar_smtp: bool = True,
+) -> Dict[str, Any]:
+    """Envía al socio la notificación de aprobación o rechazo de una nueva carga familiar."""
+    destinatario = (email_destino or "").strip()
+    fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+
+    if aprobada:
+        asunto = f"[Bienestar Peralillo] Nueva Carga Familiar APROBADA ({folio})"
+        motivo_texto = motivo or "Cumple acreditación de carga familiar legal."
+        alerta_html = f"""
+        <div style="background-color: #ecfdf5; border-left: 4px solid #059669; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;">
+          <p style="margin: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; color: #065f46; letter-spacing: 0.5px;">
+            ✔ Incorporación de Carga Familiar APROBADA ({folio})
+          </p>
+          <p style="margin: 5px 0 0 0; font-size: 13.5px; color: #064e3b;">
+            <strong>Acuerdo / Detalle:</strong> {motivo_texto}
+          </p>
+        </div>
+        """
+        pasos = [
+            f"La carga familiar <strong>{carga_nombre}</strong> ({parentesco} · RUN {carga_run}) ha quedado registrada como <strong>Vigente</strong> en su Hoja de Socio.",
+            "Ya puede presentar solicitudes de reembolso médico o beneficios asociados a esta carga familiar dentro del Portal.",
+        ]
+        cuerpo_html = _envolver_html_institucional(
+            folio=folio,
+            fecha_emision=fecha_emision,
+            badge_texto="CARGA APROBADA",
+            badge_bg="#dcfce7",
+            badge_color="#166534",
+            banner_bg="#064e3b",
+            banner_subtitulo="REGISTRO DE CARGAS FAMILIARES • BIENESTAR MUNICIPAL",
+            banner_titulo=f"✔ Nueva Carga Familiar Incorporada ({folio})",
+            saludo_nombre=socio_nombre,
+            intro_html=(
+                "Junto con saludar, le informamos que la Directiva del <strong>Comité de Bienestar de la Ilustre Municipalidad de Peralillo</strong> "
+                "ha aprobado la incorporación de su nueva carga familiar:"
+            ),
+            alerta_estado_html=alerta_html,
+            filas_tabla=[
+                ("Folio de Solicitud", f"{folio} — APROBADA"),
+                ("Socio(a) Titular", f"{socio_nombre} (RUN {socio_rut})"),
+                ("Carga Familiar Incorporada", carga_nombre),
+                ("RUN Carga Familiar", carga_run),
+                ("Parentesco Reconocido", parentesco),
+                ("Acta / Sesión", f"{numero_acta or 'Sesión Ordinaria'} ({fecha_sesion or fecha_emision[:10]})"),
+            ],
+            titulo_pasos="Información sobre su cobertura",
+            pasos=pasos,
+        )
+        cuerpo_texto = (
+            f"Estimado(a) {socio_nombre}:\n\n"
+            f"Su solicitud N° {folio} para incorporar a la carga familiar {carga_nombre} (RUN {carga_run}, {parentesco}) "
+            f"ha sido APROBADA por la Directiva del Comité de Bienestar.\n"
+            f"Detalle: {motivo_texto}\n"
+        )
+    else:
+        asunto = f"[Bienestar Peralillo] Solicitud de Carga Familiar N° {folio} RECHAZADA"
+        motivo_texto = motivo or "Antecedentes de acreditación de carga familiar incompletos."
+        alerta_html = f"""
+        <div style="background-color: #fff1f2; border-left: 4px solid #e11d48; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;">
+          <p style="margin: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; color: #9f1239; letter-spacing: 0.5px;">
+            ✕ Solicitud de Carga Familiar N° {folio} RECHAZADA
+          </p>
+          <p style="margin: 5px 0 0 0; font-size: 13.5px; color: #881337;">
+            <strong>Motivo / Observación:</strong> {motivo_texto}
+          </p>
+        </div>
+        """
+        pasos = [
+            f"Revise la observación informada por la Directiva: \"{motivo_texto}\".",
+            "Una vez reunida la documentación de respaldo, puede ingresar una nueva solicitud en el módulo Afiliación y Cargas del Portal.",
+        ]
+        cuerpo_html = _envolver_html_institucional(
+            folio=folio,
+            fecha_emision=fecha_emision,
+            badge_texto="CARGA RECHAZADA",
+            badge_bg="#ffe4e6",
+            badge_color="#9f1239",
+            banner_bg="#881337",
+            banner_subtitulo="REGISTRO DE CARGAS FAMILIARES • BIENESTAR MUNICIPAL",
+            banner_titulo=f"✕ Solicitud de Carga Familiar N° {folio} Rechazada",
+            saludo_nombre=socio_nombre,
+            intro_html=(
+                "Junto con saludar, cumplimos con informar a usted la resolución de su solicitud de incorporación de carga familiar "
+                "en el <strong>Comité de Bienestar de la Ilustre Municipalidad de Peralillo</strong>:"
+            ),
+            alerta_estado_html=alerta_html,
+            filas_tabla=[
+                ("Folio de Solicitud", f"{folio} — RECHAZADA"),
+                ("Socio(a) Titular", f"{socio_nombre} (RUN {socio_rut})"),
+                ("Carga Familiar Evaluada", f"{carga_nombre} (RUN {carga_run} · {parentesco})"),
+                ("Causal / Observación", motivo_texto),
+            ],
+            titulo_pasos="Pasos para subsanar",
+            pasos=pasos,
+        )
+        cuerpo_texto = (
+            f"Estimado(a) {socio_nombre}:\n\n"
+            f"Su solicitud N° {folio} para incorporar a la carga familiar {carga_nombre} (RUN {carga_run}, {parentesco}) "
+            f"ha sido RECHAZADA.\nMotivo: {motivo_texto}\n"
+        )
+
+    enviado_smtp, error_smtp = (
+        _enviar_smtp_real(destinatario, asunto, cuerpo_texto, cuerpo_html)
+        if enviar_smtp and destinatario
+        else (False, None)
+    )
+    return {
+        "folio": folio,
         "destinatario": destinatario,
         "enviadoSmtp": enviado_smtp,
         "errorSmtp": error_smtp,

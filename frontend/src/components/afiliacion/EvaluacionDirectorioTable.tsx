@@ -197,8 +197,16 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
                 {solicitudes.map((s) => (
                   <tr key={s.folio} className="hover:bg-slate-50/70 transition align-middle">
                     <td className="py-3.5 px-3 whitespace-nowrap">
-                      <div className="font-mono font-bold text-[#0f2942]">{s.folio}</div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => onVerCorreo?.(s)}
+                        className="inline-flex items-center gap-1 font-mono font-bold text-[#006799] bg-sky-50 hover:bg-[#006799] hover:text-white border border-sky-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                        title="Pinche aquí para abrir la solicitud y resolver"
+                      >
+                        <span>{s.folio}</span>
+                        <span className="text-[10px]">→</span>
+                      </button>
+                      <div className="text-[11px] text-slate-400 mt-1 pl-0.5">
                         {new Date(s.fechaIngreso).toLocaleDateString('es-CL')}
                       </div>
                     </td>

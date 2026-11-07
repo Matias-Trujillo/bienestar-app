@@ -11,6 +11,7 @@ from app.models.afiliacion import (
     CargaFamiliar,
     EstadoSolicitud,
     SolicitudAfiliacion,
+    SolicitudCargaFamiliar,
 )
 from app.models.beneficios import (
     ParametroSistema,
@@ -32,6 +33,7 @@ __all__ = [
     "EstadoReembolso",
     "SolicitudAfiliacion",
     "CargaFamiliar",
+    "SolicitudCargaFamiliar",
     "CalidadContractual",
     "EstadoSolicitud",
     "ParametroSistema",
