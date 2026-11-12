@@ -70,6 +70,22 @@ services:
     networks:
       - bienestar_network
 
+  # Interfaz Gráfica Web de Base de Datos (Adminer)
+  adminer:
+    image: adminer:latest
+    container_name: bienestar_db_admin
+    restart: always
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bienestar_network
+
 volumes:
   postgres_data:
     driver: local

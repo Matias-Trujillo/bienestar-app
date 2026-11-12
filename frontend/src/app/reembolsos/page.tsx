@@ -86,11 +86,11 @@ export default function ReembolsosPage() {
     dias: number;
   } | null>(null);
 
-  // [ESTUDIANTE INFORMÁTICA] Función asíncrona que consume 'GET /reembolsos/'; obtiene el resumen actualizado y las solicitudes para alimentar los componentes hijos.
+  // [ESTUDIANTE INFORMÁTICA] Función asíncrona que consume 'GET /reembolsos'; obtiene el resumen actualizado y las solicitudes para alimentar los componentes hijos.
   const cargarReembolsos = useCallback(async () => {
     if (!token) return;
     try {
-      const data = await fetchFromApi<ReembolsoHistorialResponse>('/reembolsos/', {
+      const data = await fetchFromApi<ReembolsoHistorialResponse>('/reembolsos', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setResumen(data.resumen);

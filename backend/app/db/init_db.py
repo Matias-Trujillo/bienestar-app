@@ -100,6 +100,109 @@ async def init_db() -> None:
         for sql in nuevas_columnas:
             await conn.execute(text(sql))
 
+        # [ESTUDIANTE INFORMÁTICA] Capa de seguridad nativa en PostgreSQL: habilita pgcrypto (Bcrypt costo 12),
+        # auto-encripta contraseñas modificadas desde la interfaz DBA sin persistir texto plano,
+        # registra auditoría inmutable en audit_logs y expone la vista de seguridad de roles.
+        if engine.dialect.name == "postgresql":
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto;"))
+            await conn.execute(text("""
+                CREATE OR REPLACE FUNCTION fn_usuarios_auto_bcrypt()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    IF NEW.hashed_password IS NOT NULL
+                       AND NEW.hashed_password NOT LIKE '$2a$%'
+                       AND NEW.hashed_password NOT LIKE '$2b$%' THEN
+                        IF length(trim(NEW.hashed_password)) < 8 THEN
+                            RAISE EXCEPTION 'Seguridad BD: La contraseña debe tener al menos 8 caracteres.';
+                        END IF;
+                        NEW.hashed_password := crypt(NEW.hashed_password, gen_salt('bf', 12));
+                        IF NEW.id IS NOT NULL THEN
+                            DELETE FROM parametros_sistema WHERE clave = 'SEC_USR_' || NEW.id::text;
+                        END IF;
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+            """))
+            await conn.execute(text("DROP TRIGGER IF EXISTS trg_usuarios_auto_bcrypt ON usuarios;"))
+            await conn.execute(text("""
+                CREATE TRIGGER trg_usuarios_auto_bcrypt
+                BEFORE INSERT OR UPDATE OF hashed_password ON usuarios
+                FOR EACH ROW EXECUTE FUNCTION fn_usuarios_auto_bcrypt();
+            """))
+            await conn.execute(text("""
+                CREATE OR REPLACE FUNCTION fn_usuarios_audit_db()
+                RETURNS TRIGGER AS $$
+                DECLARE
+                    v_cambios TEXT := '';
+                BEGIN
+                    IF OLD.hashed_password IS DISTINCT FROM NEW.hashed_password THEN
+                        v_cambios := v_cambios || 'password_hash_actualizado ';
+                    END IF;
+                    IF OLD.rol IS DISTINCT FROM NEW.rol THEN
+                        v_cambios := v_cambios || 'rol(' || OLD.rol::text || '->' || NEW.rol::text || ') ';
+                    END IF;
+                    IF OLD.is_active IS DISTINCT FROM NEW.is_active THEN
+                        v_cambios := v_cambios || 'is_active(' || OLD.is_active::text || '->' || NEW.is_active::text || ') ';
+                    END IF;
+                    IF OLD.is_superuser IS DISTINCT FROM NEW.is_superuser THEN
+                        v_cambios := v_cambios || 'is_superuser(' || OLD.is_superuser::text || '->' || NEW.is_superuser::text || ') ';
+                    END IF;
+                    IF v_cambios <> '' THEN
+                        INSERT INTO audit_logs (
+                            created_at, usuario_id, usuario_nombre, usuario_rut, usuario_rol,
+                            modulo, accion, recurso_tipo, recurso_id, detalles, ip_origen
+                        ) VALUES (
+                            NOW(), NEW.id, NEW.nombre_completo, NEW.rut, NEW.rol::text,
+                            'SEGURIDAD_BD', 'ACTUALIZACION_CREDencial_USUARIO', 'User', NEW.rut,
+                            'Cambio registrado en tabla usuarios: ' || trim(v_cambios), 'motor-postgresql'
+                        );
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+            """))
+            await conn.execute(text("DROP TRIGGER IF EXISTS trg_usuarios_audit_db ON usuarios;"))
+            await conn.execute(text("""
+                CREATE TRIGGER trg_usuarios_audit_db
+                AFTER UPDATE ON usuarios
+                FOR EACH ROW EXECUTE FUNCTION fn_usuarios_audit_db();
+            """))
+            await conn.execute(text("""
+                CREATE OR REPLACE VIEW v_auditoria_usuarios_roles AS
+                SELECT
+                    u.id,
+                    u.rol::text AS rol_institucional,
+                    u.rut,
+                    u.email,
+                    u.nombre_completo,
+                    u.departamento,
+                    u.is_active AS cuenta_activa,
+                    u.is_superuser AS privilegio_superusuario,
+                    CASE
+                        WHEN u.hashed_password LIKE '$2b$12$%' OR u.hashed_password LIKE '$2a$12$%'
+                        THEN 'BCRYPT_COSTO_12_OK'
+                        ELSE 'VERIFICAR_HASH'
+                    END AS estandar_criptografico,
+                    COALESCE((p.valor::jsonb ->> 'i')::int, 0) AS intentos_fallidos,
+                    COALESCE((p.valor::jsonb ->> 'b')::boolean, false) AS bloqueado_por_intentos,
+                    COALESCE((p.valor::jsonb ->> 'c')::boolean, false) AS cambio_clave_obligatorio,
+                    (p.valor::jsonb ->> 'u') AS ultimo_acceso_utc
+                FROM usuarios u
+                LEFT JOIN parametros_sistema p ON p.clave = ('SEC_USR_' || u.id::text)
+                ORDER BY
+                    CASE u.rol::text
+                        WHEN 'superusuario' THEN 1
+                        WHEN 'presidente' THEN 2
+                        WHEN 'secretario' THEN 3
+                        WHEN 'tesorero' THEN 4
+                        WHEN 'admin' THEN 5
+                        WHEN 'auditor' THEN 6
+                        ELSE 7
+                    END,
+                    u.id;
+            """))
+
     async with AsyncSessionLocal() as db:
         # 1. Cargar Usuarios
         for data in SEED_USERS:

@@ -13,6 +13,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-bienestar_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-PeralilloSeguro2026_Prod}
       POSTGRES_DB: ${POSTGRES_DB:-bienestar_db_prod}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
@@ -35,8 +37,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-c9f18a45b73d2e1f6a09c84e27bb140f7d56e3a981c2f40b82e1d75a6c3f09ab}
       ENVIRONMENT: production
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      # HU-01: en producción la validación de período ene-jun se activa por defecto
-      AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-true}
+      # HU-01: en servidor de pruebas se permite postular fuera del período ene-jun
+      AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-false}
       AFILIACION_PORCENTAJE_DESCUENTO: 4
       AFILIACION_MESES_CARENCIA: 6
     ports:
@@ -65,6 +67,22 @@ services:
       - "3000:3000"
     depends_on:
       - backend
+    networks:
+      - bienestar_prod_network
+
+  # 4. Interfaz Gráfica Web de Base de Datos (Adminer — Acceso restringido a Red Local / VPN Tailscale)
+  adminer:
+    image: adminer:latest
+    container_name: bienestar_db_admin_prod
+    restart: always
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - bienestar_prod_network
 

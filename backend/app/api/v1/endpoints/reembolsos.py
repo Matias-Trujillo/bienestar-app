@@ -47,7 +47,7 @@ from app.services.reembolso_service import (
     validar_plazo_30_dias,
 )
 
-UPLOAD_DIR = Path(__file__).resolve().parents[4] / "uploads" / "reembolsos"
+UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "reembolsos"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 router = APIRouter()

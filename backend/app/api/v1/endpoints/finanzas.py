@@ -5,6 +5,7 @@ from typing import Dict, Any
 router = APIRouter()
 
 
+@router.get("", include_in_schema=False)
 @router.get("/", summary="Obtener estado financiero general del comité")
 async def get_finanzas() -> Dict[str, Any]:
     return {

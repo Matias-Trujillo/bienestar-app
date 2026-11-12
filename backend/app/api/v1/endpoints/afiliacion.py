@@ -39,6 +39,7 @@ ROLES_RESOLUTIVOS = (
 
 
 # [ESTUDIANTE INFORMÁTICA] Retorna la descripción institucional y normativa del módulo de afiliación.
+@router.get("", include_in_schema=False)
 @router.get("/", summary="Obtener información de afiliación del socio")
 async def get_afiliacion() -> Dict[str, Any]:
     return {
