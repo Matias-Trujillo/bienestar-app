@@ -380,11 +380,11 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-[430px] space-y-4 animate-reveal-card">
         {/* Cabecera institucional vertical centrada con Escudo Oficial */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center p-3.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/50 transition-transform hover:scale-105">
+          <div className="inline-flex items-center justify-center transition-transform hover:scale-105">
             <img
               src="/escudo-peralillo.png"
               alt="Escudo Oficial de la I. Municipalidad de Peralillo"
-              className="h-20 sm:h-24 w-auto object-contain mx-auto drop-shadow-md"
+              className="h-28 sm:h-36 md:h-40 w-auto object-contain mx-auto drop-shadow-[0_12px_24px_rgba(0,0,0,0.55)]"
             />
           </div>
           <div>
