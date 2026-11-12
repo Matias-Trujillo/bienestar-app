@@ -53,9 +53,14 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 router = APIRouter()
 
 
-# ---------- GET /reembolsos/ ----------
+# ---------- GET /reembolsos/ y GET /reembolsos ----------
 
-# [ESTUDIANTE INFORMÁTICA] Este endpoint atiende la carga inicial de la pantalla de reembolsos del socio; consulta el resumen de fondos y el listado de solicitudes para devolver ambos en una sola respuesta.
+# [ESTUDIANTE INFORMÁTICA] Se registran ambas rutas (con y sin barra final) para evitar redirecciones 307 de FastAPI que bloquean cabeceras CORS en navegadores.
+@router.get(
+    "",
+    response_model=ReembolsoHistorialResponse,
+    include_in_schema=False,
+)
 @router.get(
     "/",
     response_model=ReembolsoHistorialResponse,
@@ -344,9 +349,12 @@ async def get_comprobante(
     )
 
 
+ROLES_GESTION_REEMBOLSOS = (UserRole.ADMIN, UserRole.SUPERUSUARIO, UserRole.PRESIDENTE, UserRole.TESORERO)
+
+
 # ---------- GET /reembolsos/admin/solicitudes ----------
 
-# [ESTUDIANTE INFORMÁTICA] Este endpoint abastece la bandeja de Directiva/Administración (HU-04); restringe el acceso solo a administradores y permite filtrar solicitudes por su estado (ej: 'en_revision').
+# [ESTUDIANTE INFORMÁTICA] Este endpoint abastece la bandeja de Directiva/Administración (HU-04); restringe el acceso solo a administradores y directivos colegiados.
 @router.get(
     "/admin/solicitudes",
     response_model=List[ReembolsoOut],
@@ -357,10 +365,10 @@ async def get_admin_solicitudes(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not (user.is_superuser or user.rol in (UserRole.ADMIN, UserRole.SUPERUSUARIO)):
+    if not (user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido a Administradores y Superusuarios.",
+            detail="Acceso restringido a Directiva y Administradores.",
         )
     solicitudes = await listar_todas_solicitudes_admin(db, estado=estado)
     return [solicitud_to_out(s) for s in solicitudes]
@@ -377,10 +385,10 @@ async def get_admin_conteo_pendientes(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not (user.is_superuser or user.rol in (UserRole.ADMIN, UserRole.SUPERUSUARIO)):
+    if not (user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido a Administradores y Superusuarios.",
+            detail="Acceso restringido a Directiva y Administradores.",
         )
     total = await contar_solicitudes_pendientes_admin(db)
     return {"pendientes": total}
@@ -388,7 +396,7 @@ async def get_admin_conteo_pendientes(
 
 # ---------- PATCH /reembolsos/admin/solicitud/{solicitud_id}/resolver ----------
 
-# [ESTUDIANTE INFORMÁTICA] Este endpoint ejecuta la resolución de HU-04 (Aprobar o Rechazar); valida que el usuario sea Administrador o Superusuario, llama al servicio para actualizar el estado, maneja la restitución de saldo y permite auditar la operación.
+# [ESTUDIANTE INFORMÁTICA] Este endpoint ejecuta la resolución de HU-04 (Aprobar o Rechazar); valida que el usuario pertenezca a la Directiva o sea Administrador, llama al servicio para actualizar el estado, maneja la restitución de saldo y permite auditar la operación.
 @router.patch(
     "/admin/solicitud/{solicitud_id}/resolver",
     response_model=ReembolsoOut,
@@ -400,10 +408,10 @@ async def patch_resolver_solicitud(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not (user.is_superuser or user.rol in (UserRole.ADMIN, UserRole.SUPERUSUARIO)):
+    if not (user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido a Administradores y Superusuarios.",
+            detail="Acceso restringido a Directiva y Administradores.",
         )
     try:
         solicitud = await resolver_solicitud_reembolso(

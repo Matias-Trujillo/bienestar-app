@@ -26,11 +26,13 @@ app = FastAPI(
 )
 
 # Configuración de CORS para permitir la comunicación con el frontend (Next.js)
+# [ESTUDIANTE INFORMÁTICA] Se permiten orígenes locales (localhost y 127.0.0.1) para evitar bloqueos 'Failed to fetch' en navegadores.
 origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["http://localhost:3000"],
+    allow_origins=origins or ["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

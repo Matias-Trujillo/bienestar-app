@@ -31,7 +31,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bienestar_user}:${POSTGRES_PASSWORD:-bienestar_secret_pass}@postgres:5432/${POSTGRES_DB:-bienestar_db}
       SECRET_KEY: ${SECRET_KEY:-super_secret_jwt_key_bienestar_2026}
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       # HU-01: en desarrollo se permite postular fuera del período ene-jun. Poner "true" en producción.
       AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-false}
     ports:

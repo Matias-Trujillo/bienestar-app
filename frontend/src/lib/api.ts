@@ -41,13 +41,22 @@ export async function fetchFromApi<T>(endpoint: string, options: RequestInit = {
     if (token) defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...((options.headers as Record<string, string>) || {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...((options.headers as Record<string, string>) || {}),
+      },
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    if (errorMsg === 'Failed to fetch') {
+      throw new Error('No se pudo establecer conexión con el servidor (verifique la red o que el backend esté activo).');
+    }
+    throw err;
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -66,11 +75,20 @@ export async function subirArchivoApi<T>(endpoint: string, formData: FormData): 
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    if (errorMsg === 'Failed to fetch') {
+      throw new Error('No se pudo transferir el archivo al servidor (error de conexión de red).');
+    }
+    throw err;
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();

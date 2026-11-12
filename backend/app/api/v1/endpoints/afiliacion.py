@@ -82,6 +82,19 @@ async def consultar_solicitud(
     return await AfiliacionService.consultar_solicitud(db, folio, run)
 
 
+# [ESTUDIANTE INFORMÁTICA] Retorna la cantidad de solicitudes de afiliación pendientes para badges de menú y notificaciones.
+@router.get(
+    "/conteo-pendientes",
+    summary="Obtener cantidad de solicitudes de afiliación pendientes de resolución",
+)
+async def get_conteo_pendientes(
+    _: User = Depends(require_roles(*ROLES_DIRECTIVA)),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, int]:
+    total = await AfiliacionService.contar_pendientes(db)
+    return {"pendientes": total}
+
+
 # [ESTUDIANTE INFORMÁTICA] Lista todas las solicitudes de incorporación para la bandeja de evaluación de la Directiva.
 @router.get(
     "/solicitudes",
