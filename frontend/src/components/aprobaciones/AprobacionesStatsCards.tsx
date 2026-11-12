@@ -21,64 +21,64 @@ export const AprobacionesStatsCards: React.FC<AprobacionesStatsCardsProps> = ({ 
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0">
       <div className="card-modern-interactive p-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="block text-[11px] font-bold text-[#b45309] uppercase tracking-wider truncate">
+          <span className="block text-xs font-medium text-[#b45309] truncate">
             Pendientes
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-1 block tabular-nums">
+          <span className="text-2xl font-bold text-slate-900 mt-1 block tabular-nums">
             {pendientes.length}
           </span>
-          <span className="text-xs text-slate-500 font-medium tabular-nums block truncate">
-            Por liquidar: <strong className="text-slate-800">{formatCurrency(montoPendiente)}</strong>
+          <span className="text-xs text-slate-500 font-normal tabular-nums block truncate">
+            Por liquidar: <strong className="text-slate-800 font-semibold">{formatCurrency(montoPendiente)}</strong>
           </span>
         </div>
-        <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200/80 text-[#b45309] flex items-center justify-center font-mono text-xs font-bold shrink-0">
+        <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200/80 text-[#b45309] flex items-center justify-center text-xs font-semibold shrink-0">
           REV
         </div>
       </div>
 
       <div className="card-modern-interactive p-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="block text-[11px] font-bold text-[#166534] uppercase tracking-wider truncate">
+          <span className="block text-xs font-medium text-[#166534] truncate">
             Aprobadas
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-1 block tabular-nums">
+          <span className="text-2xl font-bold text-slate-900 mt-1 block tabular-nums">
             {aprobadas.length}
           </span>
-          <span className="text-xs text-slate-500 font-medium tabular-nums block truncate">
-            Imputado: <strong className="text-[#166534]">{formatCurrency(montoAprobado)}</strong>
+          <span className="text-xs text-slate-500 font-normal tabular-nums block truncate">
+            Imputado: <strong className="text-[#166534] font-semibold">{formatCurrency(montoAprobado)}</strong>
           </span>
         </div>
-        <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-[#166534] flex items-center justify-center font-mono text-xs font-bold shrink-0">
+        <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-[#166534] flex items-center justify-center text-xs font-semibold shrink-0">
           APR
         </div>
       </div>
 
       <div className="card-modern-interactive p-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="block text-[11px] font-bold text-rose-700 uppercase tracking-wider truncate">
+          <span className="block text-xs font-medium text-rose-700 truncate">
             Rechazadas
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-1 block tabular-nums">
+          <span className="text-2xl font-bold text-slate-900 mt-1 block tabular-nums">
             {rechazadas.length}
           </span>
-          <span className="text-xs text-slate-500 block truncate">Cupo restituido al socio</span>
+          <span className="text-xs text-slate-500 font-normal block truncate">Cupo restituido al socio</span>
         </div>
-        <div className="w-11 h-11 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 flex items-center justify-center font-mono text-xs font-bold shrink-0">
+        <div className="w-11 h-11 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 flex items-center justify-center text-xs font-semibold shrink-0">
           REC
         </div>
       </div>
 
       <div className="card-modern-interactive p-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+          <span className="block text-xs font-medium text-slate-500 truncate">
             Total Histórico
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-1 block tabular-nums">
+          <span className="text-2xl font-bold text-slate-900 mt-1 block tabular-nums">
             {solicitudes.length}
           </span>
-          <span className="text-xs text-slate-500 block truncate">Expedientes auditados</span>
+          <span className="text-xs text-slate-500 font-normal block truncate">Expedientes auditados</span>
         </div>
-        <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200/80 text-[#0c2b45] flex items-center justify-center font-mono text-xs font-bold shrink-0">
+        <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200/80 text-[#0c2b45] flex items-center justify-center text-xs font-semibold shrink-0">
           TOT
         </div>
       </div>

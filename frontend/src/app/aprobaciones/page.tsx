@@ -205,6 +205,11 @@ export default function AprobacionesPage() {
               isImage: !sol.comprobante_filename.toLowerCase().endsWith('.pdf'),
             });
           }}
+          onIniciarAprobar={(sol) => setSolicitudAprobar(sol)}
+          onIniciarRechazar={(sol) => {
+            setSolicitudRechazar(sol);
+            setMotivoRechazo('');
+          }}
         />
       )}
       {previewComprobante && (

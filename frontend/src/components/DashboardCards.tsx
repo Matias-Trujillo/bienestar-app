@@ -38,19 +38,19 @@ const PrimaryHealthPanel: React.FC<PrimaryHealthPanelProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-600">
+              <span className="text-base font-semibold text-slate-900">
                 Fondo Médico y Dental
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200/80 tabular-nums">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-[#166534] border border-emerald-200/80 tabular-nums">
                 Año {anioActual}
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">Saldo Anual de Salud Disponible</p>
+            <p className="text-xs text-slate-500 mt-0.5 font-normal">Saldo Anual de Salud Disponible</p>
           </div>
         </div>
         <Link
           href="/reembolsos"
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-[#006799] bg-sky-50 hover:bg-sky-100/80 border border-sky-200/70 transition-colors shrink-0"
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-[#006799] bg-sky-50 hover:bg-sky-100/80 border border-sky-200/70 transition-colors shrink-0"
         >
           <span>Cartola médica</span>
           <span>→</span>
@@ -60,19 +60,19 @@ const PrimaryHealthPanel: React.FC<PrimaryHealthPanelProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-4 items-center">
         <div className="sm:col-span-2 min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+            <span className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums">
               {formatCurrency(dispReal)}
             </span>
-            <span className="text-xs text-slate-400 font-semibold tabular-nums">
+            <span className="text-xs text-slate-500 font-normal tabular-nums">
               / {formatCurrency(topeReal)} tope anual
             </span>
           </div>
         </div>
         <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/80 flex flex-col justify-center min-w-0">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+          <span className="text-xs font-medium text-slate-500 truncate">
             Utilizado / En Revisión
           </span>
-          <span className="text-base font-extrabold text-slate-800 tabular-nums mt-0.5">
+          <span className="text-lg font-bold text-slate-900 tabular-nums mt-0.5">
             {formatCurrency(saldoUtilizado)}
           </span>
         </div>
@@ -86,9 +86,9 @@ const PrimaryHealthPanel: React.FC<PrimaryHealthPanelProps> = ({
           style={{ width: `${porcentajeDisponible}%` }}
         />
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 tabular-nums">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 tabular-nums font-normal">
         <span>
-          <strong className="text-slate-800">{porcentajeDisponible}% disponible</strong> del cupo anual
+          <strong className="text-slate-800 font-semibold">{porcentajeDisponible}% disponible</strong> del cupo anual
         </span>
         <span>Renueva el 01 Ene {anioActual + 1}</span>
       </div>
@@ -130,20 +130,20 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
                 </svg>
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block truncate">
+                <span className="text-xs font-medium text-slate-500 block truncate">
                   Condición Previsional
                 </span>
-                <span className="text-xl font-extrabold text-slate-900">{estadoPrevisional}</span>
+                <span className="text-xl font-bold text-slate-900">{estadoPrevisional}</span>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-50 text-[#006799] border border-sky-200/80 shrink-0">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-sky-50 text-[#006799] border border-sky-200/80 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-[#166534]" />
               Habilitado
             </span>
           </div>
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-500">
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-500 font-normal">
             <span className="truncate">Cotización 4% por planilla RRHH</span>
-            <Link href="/finanzas" className="font-bold text-[#006799] hover:underline shrink-0">
+            <Link href="/finanzas" className="font-semibold text-[#006799] hover:underline shrink-0">
               Ver nómina →
             </Link>
           </div>
@@ -159,22 +159,22 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
                 </svg>
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block truncate">
+                <span className="text-xs font-medium text-slate-500 block truncate">
                   Grupo Familiar
                 </span>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-extrabold text-slate-900 tabular-nums">{cargasFamiliares}</span>
-                  <span className="text-xs text-slate-500 font-medium truncate">cargas vigentes</span>
+                  <span className="text-xl font-bold text-slate-900 tabular-nums">{cargasFamiliares}</span>
+                  <span className="text-xs text-slate-500 font-normal truncate">cargas vigentes</span>
                 </div>
               </div>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-[#b45309] border border-amber-200/80 shrink-0">
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-[#b45309] border border-amber-200/80 shrink-0 tabular-nums">
               100% Amparados
             </span>
           </div>
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-500">
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-500 font-normal">
             <span className="truncate">Cobertura médica y bonos activa</span>
-            <Link href="/afiliacion" className="font-bold text-[#006799] hover:underline shrink-0">
+            <Link href="/afiliacion" className="font-semibold text-[#006799] hover:underline shrink-0">
               Gestionar →
             </Link>
           </div>

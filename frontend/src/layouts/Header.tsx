@@ -268,16 +268,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
         <div className="hidden sm:block min-w-0">
           <div className="flex items-center gap-2.5">
-            <h1 className="text-base font-extrabold text-slate-900 tracking-tight truncate">
+            <h1 className="text-base font-bold text-slate-900 tracking-tight truncate">
               Portal de Bienestar Municipal
             </h1>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#166534] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/80 shrink-0">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-[#166534] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/80 shrink-0 tabular-nums">
               <span className="w-1.5 h-1.5 rounded-full bg-[#166534]" />
               Peralillo {new Date().getFullYear()}
             </span>
           </div>
-          <p className="text-xs text-slate-500 truncate">
-            Ilustre Municipalidad de Peralillo • <span className="text-[#ea580c] font-medium italic">La comuna que soñamos</span>
+          <p className="text-xs text-slate-500 truncate font-normal">
+            Ilustre Municipalidad de Peralillo • <span className="text-[#ea580c] font-medium">La comuna que soñamos</span>
           </p>
         </div>
       </div>
@@ -294,7 +294,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
             {totalAlertas > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold tabular-nums flex items-center justify-center ring-2 ring-white">
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-xs font-semibold tabular-nums flex items-center justify-center ring-2 ring-white">
                 {totalAlertas > 99 ? '99+' : totalAlertas}
               </span>
             )}
@@ -316,21 +316,21 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
         <div className="flex items-center gap-2.5">
           <div className="relative shrink-0">
-            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-[#0c2b45] to-[#006799] text-white font-bold text-xs shadow-xs">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-[#0c2b45] to-[#006799] text-white font-semibold text-xs shadow-xs">
               {getInitials(user?.nombreCompleto)}
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#166534] ring-2 ring-white" />
           </div>
           <div className="text-left hidden md:block leading-tight">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-900 max-w-[160px] truncate">
+              <span className="text-xs font-semibold text-slate-900 max-w-[160px] truncate">
                 {user?.nombreCompleto || 'Socio'}
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-[#006799] border border-sky-200/80">
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-[#006799] border border-sky-200/80">
                 {user?.rolLabel || 'Socio Activo'}
               </span>
             </div>
-            <span className="text-[11px] font-mono text-slate-500 tabular-nums">
+            <span className="text-xs text-slate-500 tabular-nums font-normal">
               RUT {user?.rut || 'Sin especificar'}
             </span>
           </div>

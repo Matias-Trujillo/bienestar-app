@@ -40,18 +40,18 @@ export default function DashboardPage() {
         <div className="p-6 sm:p-7 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
           <div className="space-y-2 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/10 text-amber-200 border border-white/15 tabular-nums">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-amber-200 border border-white/15 tabular-nums">
                 <span className="w-2 h-2 rounded-full bg-[#78a200]" />
                 Ficha de Filiación N° #{String(user?.id || '1').padStart(4, '0')}
               </span>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/25">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/25 tabular-nums">
                 Ley N° 19.754 • Bienestar Municipal
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
               Hoja de Socio y Resumen Previsional
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed font-normal">
               Estado consolidado de coberturas médicas, cupos anuales y beneficios vigentes en el{' '}
               <strong className="text-amber-200 font-semibold">
                 Comité de Bienestar de la I. Municipalidad de Peralillo
@@ -59,20 +59,18 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs w-full xl:w-auto xl:min-w-[500px] min-w-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full xl:w-auto xl:min-w-[500px] min-w-0">
             {metrics.map((item) => (
               <div
                 key={item.label}
                 className="p-3.5 rounded-xl bg-white/[0.08] backdrop-blur-xs border border-white/15 min-w-0"
               >
-                <span className="block text-slate-300 text-[10px] uppercase tracking-wider font-semibold mb-1 truncate">
+                <span className="block text-slate-300 text-xs font-medium mb-1 truncate">
                   {item.label}
                 </span>
                 <span
                   title={item.value}
-                  className={`text-xs sm:text-sm font-extrabold truncate block ${
-                    item.mono ? 'font-mono tabular-nums' : ''
-                  } ${
+                  className={`text-sm font-semibold tabular-nums truncate block ${
                     item.variant === 'warning'
                       ? 'text-amber-200'
                       : item.variant === 'success'
@@ -91,10 +89,10 @@ export default function DashboardPage() {
       {/* Sección 1: Operaciones Directas */}
       <section className="space-y-3 min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-600">
+          <h2 className="text-sm font-semibold text-slate-700">
             Trámites y Accesos Rápidos
           </h2>
-          <span className="text-xs text-slate-400 font-medium">Gestión 100% digital con trazabilidad</span>
+          <span className="text-xs text-slate-500 font-normal">Gestión 100% digital con trazabilidad</span>
         </div>
         <QuickActions />
       </section>
@@ -102,10 +100,10 @@ export default function DashboardPage() {
       {/* Sección 2: Estado de Fondos y Coberturas */}
       <section className="space-y-3 min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-600">
+          <h2 className="text-sm font-semibold text-slate-700">
             Estado de Fondos y Cobertura Familiar
           </h2>
-          <span className="text-xs text-[#166534] font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/80 tabular-nums">
+          <span className="text-xs text-[#166534] font-medium bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/80 tabular-nums">
             Vigencia Anual {new Date().getFullYear()} (01 Ene – 31 Dic)
           </span>
         </div>

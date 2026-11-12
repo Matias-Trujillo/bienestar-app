@@ -55,49 +55,49 @@ export const AdminDashboardHeader: React.FC<AdminDashboardHeaderProps> = ({ stat
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0">
           <div className="card-modern-interactive p-5 min-w-0">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-[#006799] block truncate">
+            <span className="text-xs font-medium text-[#006799] block truncate">
               Padrón de Usuarios
             </span>
-            <p className="text-2xl font-extrabold text-slate-900 mt-1 tabular-nums">
+            <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
               {stats.usuarios.total}
             </p>
-            <p className="text-xs text-slate-500 mt-1 tabular-nums truncate">
+            <p className="text-xs text-slate-500 font-normal mt-1 tabular-nums truncate">
               {stats.usuarios.socios_total} socios ({stats.usuarios.socios_habilitados} hab. / {stats.usuarios.socios_carencia} carencia)
             </p>
           </div>
 
           <div className="card-modern-interactive p-5 min-w-0">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-[#b45309] block truncate">
+            <span className="text-xs font-medium text-[#b45309] block truncate">
               Pendientes por Resolver
             </span>
-            <p className="text-2xl font-extrabold text-[#b45309] mt-1 tabular-nums">
+            <p className="text-2xl font-bold text-[#b45309] mt-1 tabular-nums">
               {stats.pendientes.total}
             </p>
-            <p className="text-xs text-slate-500 mt-1 tabular-nums truncate">
+            <p className="text-xs text-slate-500 font-normal mt-1 tabular-nums truncate">
               {stats.pendientes.afiliaciones} afil. • {stats.pendientes.reembolsos} salud • {stats.pendientes.beneficios} bonos
             </p>
           </div>
 
           <div className="card-modern-interactive p-5 min-w-0">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-[#166534] block truncate">
+            <span className="text-xs font-medium text-[#166534] block truncate">
               Cómputo Carencias
             </span>
-            <p className="text-2xl font-extrabold text-[#166534] mt-1 tabular-nums">
+            <p className="text-2xl font-bold text-[#166534] mt-1 tabular-nums">
               Regla 6 Meses
             </p>
-            <p className="text-xs text-slate-500 mt-1 truncate">
+            <p className="text-xs text-slate-500 font-normal mt-1 truncate">
               Validación activa en salud y bonos
             </p>
           </div>
 
           <div className="card-modern-interactive p-5 min-w-0">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-[#0c2b45] block truncate">
+            <span className="text-xs font-medium text-[#0c2b45] block truncate">
               Eventos Auditados
             </span>
-            <p className="text-2xl font-extrabold text-slate-900 mt-1 tabular-nums">
+            <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
               {stats.auditoria.total_eventos}
             </p>
-            <p className="text-xs text-slate-500 mt-1 truncate">
+            <p className="text-xs text-slate-500 font-normal mt-1 truncate">
               Registros inmutables en base de datos
             </p>
           </div>

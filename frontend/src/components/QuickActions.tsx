@@ -67,19 +67,19 @@ export const QuickActions: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.iconPath} />
                 </svg>
               </div>
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${action.badgeStyle}`}>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border tabular-nums ${action.badgeStyle}`}>
                 {action.code}
               </span>
             </div>
-            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 group-hover:text-[#006799] transition-colors">
+            <h3 className="text-base font-semibold text-slate-900 group-hover:text-[#006799] transition-colors">
               {action.title}
             </h3>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{action.description}</p>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed font-normal">{action.description}</p>
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-            <span className="text-slate-400 font-medium truncate">{action.meta}</span>
-            <span className="inline-flex items-center gap-1 font-bold text-[#006799] group-hover:translate-x-1 transition-transform shrink-0">
+            <span className="text-slate-500 font-normal truncate">{action.meta}</span>
+            <span className="inline-flex items-center gap-1 font-semibold text-[#006799] group-hover:translate-x-1 transition-transform shrink-0">
               <span>Iniciar</span>
               <span>→</span>
             </span>

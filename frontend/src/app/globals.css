@@ -20,14 +20,40 @@
 body {
   color: rgb(var(--foreground-rgb));
   background-color: #f4f7fa;
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-/* [ESTUDIANTE INFORMÁTICA] Alineación numérica tabular para montos CLP, RUN y fechas */
-.font-tabular {
+/* [ESTUDIANTE INFORMÁTICA] Alineación numérica tabular y normalización tipográfica para que textos y números mantengan el mismo estándar */
+.font-tabular,
+.font-mono,
+table,
+td,
+th,
+input,
+select,
+button {
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-variant-numeric: tabular-nums;
+}
+
+.italic {
+  font-style: normal;
+}
+
+.font-black,
+.font-extrabold {
+  font-weight: 700;
+}
+
+/* [ESTUDIANTE INFORMÁTICA] Estándar de tablas densas compactas para evitar scroll horizontal en resoluciones de escritorio */
+table th,
+table td {
+  font-size: 0.75rem;
+  line-height: 1.15rem;
 }
 
 @layer components {

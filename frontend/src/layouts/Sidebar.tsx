@@ -143,13 +143,13 @@ const SidebarBrandHeader: React.FC<{ onClose: () => void }> = ({ onClose }) => (
           />
         </div>
         <div className="min-w-0">
-          <span className="block text-xs font-extrabold tracking-tight text-slate-900 truncate">
+          <span className="block text-sm font-bold tracking-tight text-slate-900 truncate">
             Comité de Bienestar
           </span>
-          <span className="block text-[11px] font-semibold text-[#006799] truncate">
+          <span className="block text-xs font-medium text-[#006799] truncate">
             I. Municipalidad de Peralillo
           </span>
-          <span className="block text-[10px] text-[#ea580c] font-medium italic truncate">
+          <span className="block text-xs text-[#ea580c] font-normal truncate">
             La comuna que soñamos
           </span>
         </div>
@@ -230,7 +230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <SidebarBrandHeader onClose={onClose} />
 
         <div className="flex-1 px-3.5 py-5 overflow-y-auto space-y-1">
-          <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <p className="px-3 pb-2 text-xs font-semibold text-slate-400">
             Navegación del Portal
           </p>
           {itemsVisibles.map((item) => {
@@ -249,9 +249,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`group flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                className={`group flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                   isActive
-                    ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-sm shadow-[#006799]/20'
+                    ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white font-semibold shadow-sm shadow-[#006799]/20'
                     : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                 }`}
               >
@@ -264,7 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {badge.text !== undefined && (
                   <span
                     title={badge.tooltip}
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums min-w-[22px] text-center shrink-0 ml-2 ${badge.className}`}
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums min-w-[22px] text-center shrink-0 ml-2 ${badge.className}`}
                   >
                     {badge.text}
                   </span>
@@ -276,18 +276,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <div className="p-3.5 mx-3.5 mb-3.5 rounded-2xl bg-gradient-to-br from-slate-50 to-sky-50/50 border border-slate-200/80">
           <div className="flex items-center justify-between mb-1">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-800">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800">
               <span className="w-2 h-2 rounded-full bg-[#166534]" />
               Mesa de Ayuda
             </span>
-            <span className="text-[10px] font-mono text-slate-400">Ley 19.754</span>
+            <span className="text-xs text-slate-400 tabular-nums">Ley 19.754</span>
           </div>
-          <p className="text-[11px] text-slate-500 leading-snug mb-1.5">
+          <p className="text-xs text-slate-500 leading-snug mb-1.5 font-normal">
             ¿Dudas con tus reembolsos o beneficios?
           </p>
           <a
             href="mailto:bienestar@mperalillo.cl"
-            className="text-[11px] font-bold text-[#006799] hover:text-[#0c2b45] hover:underline block truncate"
+            className="text-xs font-semibold text-[#006799] hover:text-[#0c2b45] hover:underline block truncate"
           >
             bienestar@mperalillo.cl
           </a>

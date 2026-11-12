@@ -163,64 +163,59 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
         </div>
       ) : (
         <>
-          {/* Vista Móvil */}
+          {/* Vista Móvil (Pinchar expediente o fila abre la ficha completa con su comprobante) */}
           <div className="block md:hidden divide-y divide-slate-100">
             {solicitudesFiltradas.map((sol) => {
               const badge = getEstadoBadge(sol.estado);
               const anioSol = obtenerAnioSolicitud(sol);
               return (
-                <div key={sol.id} className="p-4 space-y-2.5 hover:bg-slate-50/70">
+                <div
+                  key={sol.id}
+                  onClick={() => onVerDetalle(sol)}
+                  className="p-4 space-y-2 hover:bg-slate-50/80 cursor-pointer transition-colors"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
-                      {sol.codigo} • {anioSol}
-                    </span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badge.bg}`}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onVerDetalle(sol);
+                      }}
+                      className="text-xs font-semibold text-[#006799] hover:underline tabular-nums inline-flex items-center gap-1"
+                    >
+                      <span>{sol.codigo}</span>
+                      <span>→</span>
+                    </button>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${badge.bg}`}>
                       {sol.estado.replace('_', ' ')}
                     </span>
                   </div>
-                  <p className="text-xs font-bold text-slate-800">
+                  <p className="text-xs font-medium text-slate-900">
                     {TIPO_PRESTACION_LABELS[sol.tipo_prestacion]} — {sol.beneficiario_nombre}
                   </p>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs font-mono font-extrabold text-[#166534] tabular-nums">
+                  <div className="flex items-center justify-between pt-0.5 text-xs">
+                    <span className="text-slate-500 tabular-nums">
+                      Atención: {formatDate(sol.fecha_atencion)} ({anioSol})
+                    </span>
+                    <span className="font-semibold text-[#166534] tabular-nums">
                       Reembolso: {formatCurrency(sol.monto_reembolso)}
                     </span>
-                    <div className="flex items-center gap-1.5">
-                      {sol.comprobante_filename && (
-                        <button
-                          type="button"
-                          onClick={() => onVerComprobante(sol)}
-                          className="px-2.5 py-1 text-xs font-bold text-[#006799] bg-sky-50 border border-sky-200 rounded-lg"
-                        >
-                          Doc
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onVerDetalle(sol)}
-                        className="px-3 py-1 text-xs font-bold text-white bg-[#006799] rounded-lg"
-                      >
-                        Ver Ficha
-                      </button>
-                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Vista Desktop */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          {/* Vista Desktop: 5 Columnas Limpias con Estado al Final (Pinchar expediente abre ficha completa) */}
+          <div className="hidden md:block w-full overflow-hidden">
+            <table className="w-full table-fixed text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="px-5 py-3.5">Folio</th>
-                  <th className="px-5 py-3.5">Prestación / Glosa</th>
-                  <th className="px-5 py-3.5">Beneficiario</th>
-                  <th className="px-5 py-3.5">Atención / Ejercicio</th>
-                  <th className="px-5 py-3.5 text-right">Boleta CLP</th>
-                  <th className="px-5 py-3.5 text-right">Reembolso CLP</th>
-                  <th className="px-5 py-3.5 text-center">Estado</th>
-                  <th className="px-5 py-3.5 text-right">Acciones</th>
+                <tr className="bg-slate-50/80 border-b border-slate-100 font-semibold text-slate-600">
+                  <th className="w-[20%] px-4 py-3">Expediente y Fecha</th>
+                  <th className="w-[26%] px-4 py-3">Tipo de Prestación</th>
+                  <th className="w-[20%] px-4 py-3">Beneficiario</th>
+                  <th className="w-[17%] px-4 py-3 text-right">Copago / Reembolso</th>
+                  <th className="w-[17%] px-4 py-3 text-right">Estado de la Solicitud</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -229,83 +224,71 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
                   const anioSol = obtenerAnioSolicitud(sol);
                   const esAnioAnterior = anioSol < anioActual;
                   return (
-                    <tr key={sol.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-3.5 font-mono font-bold text-slate-800 tabular-nums whitespace-nowrap">
-                        {sol.codigo}
+                    <tr
+                      key={sol.id}
+                      onClick={() => onVerDetalle(sol)}
+                      className="hover:bg-sky-50/40 cursor-pointer transition-colors group"
+                    >
+                      <td className="px-4 py-3 align-middle tabular-nums">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onVerDetalle(sol);
+                          }}
+                          className="inline-flex items-center gap-1.5 font-semibold text-[#006799] group-hover:text-[#0c2b45] group-hover:underline truncate"
+                          title="Pinchar para ver toda la información de la solicitud y su comprobante"
+                        >
+                          <span>{sol.codigo}</span>
+                          <span className="text-[11px] opacity-75 group-hover:translate-x-0.5 transition-transform">→</span>
+                        </button>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-slate-500">
+                          <span>{formatDate(sol.fecha_atencion)}</span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                              esAnioAnterior
+                                ? 'bg-slate-100 text-slate-600'
+                                : 'bg-emerald-50 text-[#166534] border border-emerald-200/70'
+                            }`}
+                          >
+                            {anioSol}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <span className="px-2 py-1 rounded-lg bg-sky-50 border border-sky-200/80 text-[10px] font-mono font-bold text-[#006799] shrink-0">
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="px-1.5 py-0.5 rounded-md bg-sky-50 border border-sky-200/80 text-[10px] font-semibold text-[#006799] shrink-0 tabular-nums">
                             {getTipoPrestacionIcon(sol.tipo_prestacion)}
                           </span>
                           <div className="min-w-0">
-                            <p className="font-bold text-slate-900">
+                            <p className="font-medium text-slate-900 truncate" title={TIPO_PRESTACION_LABELS[sol.tipo_prestacion]}>
                               {TIPO_PRESTACION_LABELS[sol.tipo_prestacion]}
                             </p>
-                            <p className="text-[11px] text-slate-500 truncate max-w-[200px]" title={sol.descripcion}>
+                            <p className="text-slate-500 font-normal truncate" title={sol.descripcion}>
                               {sol.descripcion || 'Sin observaciones'}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3.5">
-                        <p className="font-semibold text-slate-800">{sol.beneficiario_nombre}</p>
-                        <p className="text-[11px] text-slate-400">{sol.beneficiario_parentesco}</p>
-                      </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap">
-                        <p className="font-mono text-slate-800 font-semibold tabular-nums">
-                          {formatDate(sol.fecha_atencion)}
+                      <td className="px-4 py-3 align-middle">
+                        <p className="font-medium text-slate-900 truncate" title={sol.beneficiario_nombre}>
+                          {sol.beneficiario_nombre}
                         </p>
-                        <span
-                          className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold tabular-nums ${
-                            esAnioAnterior
-                              ? 'bg-slate-100 text-slate-600'
-                              : 'bg-emerald-50 text-[#166534] border border-emerald-200/70'
-                          }`}
-                        >
-                          Cupo {anioSol}
-                        </span>
+                        <p className="text-slate-500 font-normal truncate mt-0.5">{sol.beneficiario_parentesco}</p>
                       </td>
-                      <td className="px-5 py-3.5 text-right font-mono font-semibold text-slate-700 tabular-nums whitespace-nowrap">
-                        {formatCurrency(sol.monto_boleta)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                        <span className="font-mono font-extrabold text-[#166534] tabular-nums">
+                      <td className="px-4 py-3 text-right align-middle tabular-nums">
+                        <div className="font-semibold text-[#166534]">
                           {formatCurrency(sol.monto_reembolso)}
-                        </span>
-                        <span className="block text-[10px] text-slate-400 tabular-nums">
-                          {esAnioAnterior
-                            ? `Cerrado ${anioSol}`
-                            : sol.monto_copago > 0
-                            ? `${Math.round((sol.monto_reembolso / sol.monto_copago) * 100)}% copago`
-                            : 'Directo'}
-                        </span>
+                        </div>
+                        <div className="text-slate-500 font-normal truncate mt-0.5">
+                          Boleta: {formatCurrency(sol.monto_boleta)}
+                        </div>
                       </td>
-                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border ${badge.bg}`}>
+                      <td className="px-4 py-3 text-right align-middle">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badge.bg}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
                           {sol.estado.replace('_', ' ')}
                         </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1.5">
-                          {sol.comprobante_filename && (
-                            <button
-                              type="button"
-                              onClick={() => onVerComprobante(sol)}
-                              className="px-2.5 py-1.5 text-xs font-bold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200/80 rounded-xl transition-colors"
-                              title={`Ver ${sol.comprobante_filename}`}
-                            >
-                              Doc
-                            </button>
-                          )}
-                          <button
-                            onClick={() => onVerDetalle(sol)}
-                            className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
-                          >
-                            Ficha
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   );

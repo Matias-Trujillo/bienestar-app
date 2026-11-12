@@ -80,27 +80,27 @@ export const ResumenSaludCards: React.FC<ResumenSaludCardsProps> = ({ resumen, s
       <div className="lg:col-span-5 card-modern-interactive p-5 flex flex-col justify-between min-w-0">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-slate-500 uppercase font-extrabold tracking-wider truncate">
+            <span className="text-xs text-slate-500 font-medium truncate">
               Saldo Disponible
             </span>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200/80 tabular-nums shrink-0">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-[#166534] border border-emerald-200/80 tabular-nums shrink-0">
               Año {anioActual}
             </span>
           </div>
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
-            <p className="text-2xl sm:text-3xl font-extrabold text-[#166534] tabular-nums">
+            <p className="text-2xl font-bold text-[#166534] tabular-nums">
               {formatCurrency(resumen.saldo_salud_disponible)}
             </p>
-            <span className="text-xs text-slate-400 font-medium tabular-nums">
+            <span className="text-xs text-slate-500 font-normal tabular-nums">
               / {formatCurrency(topeAnual)} tope
             </span>
           </div>
         </div>
 
         <div className="mt-4 pt-3 border-t border-slate-100">
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5 tabular-nums">
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5 tabular-nums font-normal">
             <span>Utilizado en {anioActual}</span>
-            <span className="font-bold text-slate-800">{resumen.porcentaje_utilizado}%</span>
+            <span className="font-semibold text-slate-800">{resumen.porcentaje_utilizado}%</span>
           </div>
           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
             <div
@@ -108,7 +108,7 @@ export const ResumenSaludCards: React.FC<ResumenSaludCardsProps> = ({ resumen, s
               style={{ width: `${Math.min(resumen.porcentaje_utilizado, 100)}%` }}
             />
           </div>
-          <p className="text-[11px] text-slate-400 mt-1.5 tabular-nums">
+          <p className="text-xs text-slate-400 mt-1.5 tabular-nums font-normal">
             Renueva automáticamente el 01 Ene {anioActual + 1}
           </p>
         </div>
@@ -123,7 +123,7 @@ export const ResumenSaludCards: React.FC<ResumenSaludCardsProps> = ({ resumen, s
           >
             <div>
               <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-[11px] text-slate-500 uppercase font-bold tracking-wider truncate">
+                <span className="text-xs text-slate-500 font-medium truncate">
                   {b.label}
                 </span>
                 <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${b.iconBg}`}>
@@ -132,12 +132,12 @@ export const ResumenSaludCards: React.FC<ResumenSaludCardsProps> = ({ resumen, s
                   </svg>
                 </div>
               </div>
-              <p className="text-2xl font-extrabold text-slate-900 tabular-nums">
+              <p className="text-2xl font-bold text-slate-900 tabular-nums">
                 {formatCurrency(b.amount)}
               </p>
             </div>
-            <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 tabular-nums">
-              <span className="font-bold text-slate-800">{b.count}</span>
+            <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 tabular-nums font-normal">
+              <span className="font-semibold text-slate-800">{b.count}</span>
               <span className="truncate ml-1">{b.unit}</span>
             </div>
           </div>

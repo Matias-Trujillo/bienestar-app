@@ -8,6 +8,11 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // [ESTUDIANTE INFORMÁTICA] Unificación tipográfica: tanto sans como mono apuntan a Inter para evitar cambios de tipografía entre textos y números
+      fontFamily: {
+        sans: ['var(--font-inter)', 'Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['var(--font-inter)', 'Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
       colors: {
         peralillo: {
           blue: {

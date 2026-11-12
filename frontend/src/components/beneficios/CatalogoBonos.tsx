@@ -88,43 +88,43 @@ const BonoCatalogoCard: React.FC<BonoCardItemProps> = ({
               {renderBonoIcon(bono.id, 'w-5 h-5')}
             </div>
             <div className="min-w-0">
-              <h3 className="font-extrabold text-slate-900 text-sm leading-tight group-hover:text-[#006799] transition-colors truncate">
+              <h3 className="font-semibold text-slate-900 text-base leading-tight group-hover:text-[#006799] transition-colors truncate">
                 {bono.nombre}
               </h3>
-              <span className="text-[11px] text-slate-500 block truncate">{bono.categoria}</span>
+              <span className="text-xs text-slate-500 font-normal block truncate">{bono.categoria}</span>
             </div>
           </div>
 
           <div className="flex flex-col items-end shrink-0">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-sky-50 text-[#006799] border border-sky-200/80 tabular-nums">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-[#006799] border border-sky-200/80 tabular-nums">
               {bono.porcentaje}% G15
             </span>
             {bono.periodo_devengo && (
-              <span className="text-[10px] text-slate-400 mt-0.5">{bono.periodo_devengo}</span>
+              <span className="text-xs text-slate-400 font-normal mt-0.5">{bono.periodo_devengo}</span>
             )}
           </div>
         </div>
 
         <div className="space-y-2 text-xs">
           <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200/70">
-            <span className="font-bold text-slate-700 text-[11px] block">Requisitos Legales:</span>
-            <p className="text-slate-600 text-[11px] leading-relaxed mt-0.5">{bono.requisitos}</p>
+            <span className="font-semibold text-slate-700 text-xs block">Requisitos Legales:</span>
+            <p className="text-slate-600 text-xs leading-relaxed mt-0.5 font-normal">{bono.requisitos}</p>
           </div>
           <div>
-            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">
+            <span className="text-slate-500 text-xs font-medium block">
               Documentación Requerida:
             </span>
-            <p className="text-slate-700 text-[11px] font-medium mt-0.5">{bono.documentacion_requerida}</p>
+            <p className="text-slate-700 text-xs font-normal mt-0.5">{bono.documentacion_requerida}</p>
           </div>
         </div>
       </div>
 
       <div className="px-5 py-3.5 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
+          <span className="text-xs text-slate-500 font-medium block">
             Monto a Liquidar
           </span>
-          <span className="text-lg font-extrabold text-[#166534] font-mono tabular-nums">
+          <span className="text-xl font-bold text-[#166534] tabular-nums">
             {formatCurrency(bono.monto_calculado)}
           </span>
         </div>
