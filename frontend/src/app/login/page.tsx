@@ -384,7 +384,7 @@ export default function LoginPage() {
             <img
               src="/escudo-peralillo.png"
               alt="Escudo Oficial de la I. Municipalidad de Peralillo"
-              className="h-28 sm:h-36 md:h-40 w-auto object-contain mx-auto drop-shadow-[0_12px_24px_rgba(0,0,0,0.55)]"
+              className="h-36 sm:h-44 md:h-52 w-auto object-contain mx-auto drop-shadow-[0_16px_32px_rgba(0,0,0,0.65)]"
             />
           </div>
           <div>
