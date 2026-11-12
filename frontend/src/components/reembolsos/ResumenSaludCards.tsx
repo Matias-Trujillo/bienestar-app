@@ -26,10 +26,11 @@ interface SubBucketItem {
   amount: number;
   count: number;
   unit: string;
-  accentBorder: string;
+  iconBg: string;
+  iconPath: string;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Panel Data-Dense asimétrico: destaca el saldo anual disponible y desglosa los 3 rubros de salud sin esferas difusas.
+// [ESTUDIANTE INFORMÁTICA] Tarjetas modernas de salud con iconos vectoriales suaves, barra de progreso y cero desborde.
 export const ResumenSaludCards: React.FC<ResumenSaludCardsProps> = ({ resumen, solicitudes }) => {
   const anioActual = resumen.anio_calendario || new Date().getFullYear();
   const topeAnual = resumen.saldo_salud_total_anual || 150000;
@@ -48,86 +49,96 @@ export const ResumenSaludCards: React.FC<ResumenSaludCardsProps> = ({ resumen, s
 
   const buckets: SubBucketItem[] = [
     {
-      label: `Prestaciones Ambulatorias (${anioActual})`,
+      label: `Ambulatorio (${anioActual})`,
       amount: ambulatorio.reduce((acc, s) => acc + s.monto_reembolso, 0),
       count: ambulatorio.length,
-      unit: 'atenciones imputadas',
-      accentBorder: 'border-l-[#006799]',
+      unit: 'atenciones médicas',
+      iconBg: 'bg-sky-50 text-[#006799] border-sky-200/80',
+      iconPath: 'M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
     },
     {
-      label: `Recetas de Farmacia (${anioActual})`,
+      label: `Farmacia (${anioActual})`,
       amount: farmacia.reduce((acc, s) => acc + s.monto_reembolso, 0),
       count: farmacia.length,
       unit: 'recetas reembolsadas',
-      accentBorder: 'border-l-[#0c2b45]',
+      iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
+      iconPath: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z',
     },
     {
-      label: `Tratamientos Dentales (${anioActual})`,
+      label: `Fondo Dental (${anioActual})`,
       amount: dental.reduce((acc, s) => acc + s.monto_reembolso, 0),
       count: dental.length,
       unit: 'prestaciones dentales',
-      accentBorder: 'border-l-[#b45309]',
+      iconBg: 'bg-amber-50 text-[#b45309] border-amber-200/80',
+      iconPath: 'M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-      {/* Bloque Principal: Cupo Anual Disponible */}
-      <div className="lg:col-span-5 p-4 bg-white rounded-lg border border-slate-200 border-l-4 border-l-[#166534] flex flex-col justify-between">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-w-0">
+      {/* Tarjeta Principal: Cupo Anual Disponible */}
+      <div className="lg:col-span-5 card-modern-interactive p-5 flex flex-col justify-between min-w-0">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
-              Cupo Anual de Salud Disponible
+            <span className="text-xs text-slate-500 uppercase font-extrabold tracking-wider truncate">
+              Saldo Disponible
             </span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200 tabular-nums">
-              Ejercicio {anioActual}
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200/80 tabular-nums shrink-0">
+              Año {anioActual}
             </span>
           </div>
-          <div className="flex items-baseline gap-2 mt-1.5">
+          <div className="flex items-baseline gap-2 mt-2 flex-wrap">
             <p className="text-2xl sm:text-3xl font-extrabold text-[#166534] tabular-nums">
               {formatCurrency(resumen.saldo_salud_disponible)}
             </p>
-            <span className="text-xs text-slate-500 tabular-nums">
+            <span className="text-xs text-slate-400 font-medium tabular-nums">
               / {formatCurrency(topeAnual)} tope
             </span>
           </div>
         </div>
 
-        <div className="mt-3 pt-2.5 border-t border-slate-100">
-          <div className="flex items-center justify-between text-[11px] text-slate-600 mb-1 tabular-nums">
-            <span>Ejecución presupuestaria {anioActual}</span>
-            <span className="font-bold text-slate-900">{resumen.porcentaje_utilizado}% utilizado</span>
+        <div className="mt-4 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5 tabular-nums">
+            <span>Utilizado en {anioActual}</span>
+            <span className="font-bold text-slate-800">{resumen.porcentaje_utilizado}%</span>
           </div>
-          <div className="w-full h-2 bg-slate-100 rounded-sm overflow-hidden border border-slate-200/70">
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#166534] transition-all duration-300"
+              className="h-full bg-gradient-to-r from-[#166534] to-[#006799] rounded-full transition-all duration-500"
               style={{ width: `${Math.min(resumen.porcentaje_utilizado, 100)}%` }}
             />
           </div>
           <p className="text-[11px] text-slate-400 mt-1.5 tabular-nums">
-            Renovación automática: 01/01/{anioActual + 1}
+            Renueva automáticamente el 01 Ene {anioActual + 1}
           </p>
         </div>
       </div>
 
-      {/* Bloques Desglosados por Rubro */}
-      <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      {/* Rubros Desglosados */}
+      <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-0">
         {buckets.map((b) => (
           <div
             key={b.label}
-            className={`p-4 bg-white rounded-lg border border-slate-200 border-l-4 ${b.accentBorder} flex flex-col justify-between`}
+            className="card-modern-interactive p-5 flex flex-col justify-between min-w-0"
           >
             <div>
-              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">
-                {b.label}
-              </span>
-              <p className="text-xl font-extrabold text-slate-900 mt-1.5 tabular-nums">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className="text-[11px] text-slate-500 uppercase font-bold tracking-wider truncate">
+                  {b.label}
+                </span>
+                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${b.iconBg}`}>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={b.iconPath} />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-2xl font-extrabold text-slate-900 tabular-nums">
                 {formatCurrency(b.amount)}
               </p>
             </div>
-            <div className="pt-2.5 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 tabular-nums">
-              <span className="font-semibold text-slate-700">{b.count}</span>
-              <span>{b.unit}</span>
+            <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 tabular-nums">
+              <span className="font-bold text-slate-800">{b.count}</span>
+              <span className="truncate ml-1">{b.unit}</span>
             </div>
           </div>
         ))}

@@ -352,26 +352,27 @@ export default function ReembolsosPage() {
   };
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in min-w-0">
       {/* Cabecera Ejecutiva del Módulo Reembolsos */}
-      <div className="rounded-lg bg-[#0c2b45] text-white border border-slate-800 overflow-hidden">
-        <div className="h-1 w-full bg-[#166534]" />
-        <div className="p-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-300 block">
+      <div className="hero-institutional">
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
+        <div className="p-6 sm:p-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/10 text-emerald-200 border border-white/15 mb-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#78a200]" />
               Módulo 2 • HU-03 • Prestaciones de Salud
             </span>
-            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
               Reembolsos Médicos, Farmacia y Dental
             </h1>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
               Plazo reglamentario de 30 días corridos desde la atención • Retención preventiva de cupo en revisión
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <Link
               href="/"
-              className="px-3 py-1.5 text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/15 rounded-md border border-white/15 transition-colors"
+              className="px-3.5 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 rounded-xl border border-white/15 transition-colors"
             >
               ← Hoja Socio
             </Link>
@@ -380,13 +381,13 @@ export default function ReembolsosPage() {
               disabled={!puedeSolicitar}
               title={!puedeSolicitar ? 'Requiere al menos 6 meses de antigüedad' : undefined}
               id="btn-nueva-solicitud"
-              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
+              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm ${
                 puedeSolicitar
-                  ? 'text-white bg-[#166534] hover:bg-emerald-700 border border-emerald-500/40'
+                  ? 'text-white bg-gradient-to-r from-[#166534] to-[#558b2f] hover:opacity-95'
                   : 'text-slate-400 bg-slate-700 cursor-not-allowed'
               }`}
             >
-              + Ingresar Solicitud
+              + Nueva Solicitud
             </button>
           </div>
         </div>
@@ -394,16 +395,16 @@ export default function ReembolsosPage() {
 
       {/* Alerta normativa de carencia (6 meses) */}
       {!puedeSolicitar && (
-        <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-300 border-l-4 border-l-[#b45309] text-amber-900">
-          <div className="flex items-start justify-between gap-3">
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 shadow-2xs">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#b45309]">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-[#b45309]">
                 Período de Carencia Estatutaria Activo (6 Meses)
               </p>
               <p className="text-xs mt-0.5 text-slate-700">{resumen.mensaje_carencia}</p>
             </div>
             {resumen.fecha_habilitacion && (
-              <span className="px-2.5 py-1 rounded bg-white border border-amber-300 text-xs font-mono font-bold text-[#b45309] tabular-nums shrink-0">
+              <span className="px-3 py-1 rounded-xl bg-white border border-amber-300 text-xs font-mono font-bold text-[#b45309] tabular-nums shrink-0">
                 Habilitación: {formatDate(resumen.fecha_habilitacion)}
               </span>
             )}
@@ -412,14 +413,14 @@ export default function ReembolsosPage() {
       )}
 
       {successMsg && (
-        <div className="p-3 rounded-md bg-emerald-50 border border-emerald-300 text-[#166534] flex items-center justify-between text-xs font-bold">
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-[#166534] flex items-center justify-between text-xs font-bold shadow-2xs">
           <span>✓ {successMsg}</span>
           <button onClick={() => setSuccessMsg(null)} className="px-2 hover:text-emerald-950">✕</button>
         </div>
       )}
 
       {errorMsg && (
-        <div className="p-3 rounded-md bg-rose-50 border border-rose-300 text-rose-800 flex items-center justify-between text-xs font-bold">
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between text-xs font-bold shadow-2xs">
           <span>✕ {errorMsg}</span>
           <button onClick={() => setErrorMsg(null)} className="px-2 hover:text-rose-950">✕</button>
         </div>

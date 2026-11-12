@@ -428,29 +428,30 @@ export default function AfiliacionPage() {
   const mailActivo = solicitudCorreo?.notificacionEmail;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div className="rounded-lg bg-[#0c2b45] text-white border border-slate-800 overflow-hidden">
-        <div className="h-1 w-full bg-[#006799]" />
-        <div className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-300 block">
+    <div className="space-y-6 animate-fade-in min-w-0">
+      <div className="hero-institutional">
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
+        <div className="p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/10 text-sky-200 border border-white/15 mb-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#78a200]" />
               Módulo 1 • HU-01 & HU-02 • Registro Estatutario
             </span>
-            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
               Afiliación al Comité y Cargas Familiares
             </h1>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs sm:text-sm text-slate-300">
               {esDirectiva
                 ? 'Resolución colegiada en sesión ordinaria (Presidente/Secretario), actas y acreditación de cargas'
                 : 'Consulta de cargas familiares reconocidas y solicitud de incorporación de nuevos causantes'}
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <div className="flex items-center gap-2.5 flex-wrap shrink-0">
             {puedeCargaMasiva && (
               <button
                 type="button"
                 onClick={() => setModalCargaMasivaOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-[#006799] hover:bg-sky-700 rounded-md border border-sky-400/30 transition-colors whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#006799] hover:bg-sky-700 rounded-xl border border-sky-400/30 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
                 title="Exclusivo para las 7 cuentas institucionales de la Municipalidad de Peralillo"
               >
                 <svg className="w-3.5 h-3.5 text-sky-200 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -462,14 +463,14 @@ export default function AfiliacionPage() {
             {esDirectiva && (
               <Link
                 href="/finanzas"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/15 border border-white/15 rounded-md transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl transition-colors whitespace-nowrap"
               >
                 <span>Nómina 4% (Finanzas)</span>
               </Link>
             )}
             <Link
               href="/"
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/15 border border-white/15 rounded-md transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl transition-colors whitespace-nowrap"
             >
               ← Hoja Socio
             </Link>
@@ -478,7 +479,7 @@ export default function AfiliacionPage() {
       </div>
 
       {mensajeExito && (
-        <div className="p-3 rounded-md bg-emerald-50 border border-emerald-300 border-l-4 border-l-[#166534] text-[#166534] text-xs font-bold flex items-center justify-between">
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-[#166534] text-xs font-bold flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
             <span>✓</span>
             <span>{mensajeExito}</span>

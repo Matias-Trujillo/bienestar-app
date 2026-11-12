@@ -15,10 +15,10 @@ interface MobileNavEntry {
   iconPath: string;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Accesos directos móviles para consulta rápida de saldos y trámites en smartphones.
+// [ESTUDIANTE INFORMÁTICA] Accesos móviles inferiores con indicador de píldora para smartphones.
 const MOBILE_ITEMS: MobileNavEntry[] = [
   {
-    name: 'Hoja Socio',
+    name: 'Inicio',
     href: '/',
     iconPath: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
   },
@@ -39,51 +39,51 @@ const MOBILE_ITEMS: MobileNavEntry[] = [
   },
 ];
 
-// [ESTUDIANTE INFORMÁTICA] Barra inferior compacta con bordes definidos para navegación móvil sin sombras invasivas.
+// [ESTUDIANTE INFORMÁTICA] Barra inferior móvil con efecto cristal y feedback táctil moderno.
 export const BottomNav: React.FC<BottomNavProps> = ({ onOpenSidebar, pendientesCount }) => {
   const pathname = usePathname();
 
   return (
     <nav
       aria-label="Navegación móvil"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 lg:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-4px_16px_rgba(15,23,42,0.05)] lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="grid grid-cols-5 h-14 max-w-lg mx-auto divide-x divide-slate-100">
+      <div className="grid grid-cols-5 h-15 max-w-lg mx-auto px-1">
         {MOBILE_ITEMS.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center py-1 transition-colors ${
-                isActive
-                  ? 'text-[#006799] bg-sky-50/60 font-bold border-t-2 border-[#006799]'
-                  : 'text-slate-500 hover:text-slate-900'
+              className={`flex flex-col items-center justify-center py-1.5 transition-colors ${
+                isActive ? 'text-[#006799] font-bold' : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.iconPath} />
-              </svg>
-              <span className="text-[10px] tracking-tight mt-1 truncate">{item.name}</span>
+              <div className={`p-1 rounded-lg ${isActive ? 'bg-sky-50' : ''}`}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.iconPath} />
+                </svg>
+              </div>
+              <span className="text-[10px] tracking-tight mt-0.5 truncate">{item.name}</span>
             </Link>
           );
         })}
 
         <button
           onClick={onOpenSidebar}
-          className="flex flex-col items-center justify-center py-1 text-slate-500 hover:text-slate-900 transition-colors relative"
+          className="flex flex-col items-center justify-center py-1.5 text-slate-500 hover:text-slate-900 transition-colors relative"
           aria-label="Abrir menú completo"
         >
-          <div className="relative">
+          <div className="relative p-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
             {typeof pendientesCount === 'number' && pendientesCount > 0 && (
-              <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-[#b45309] rounded-full ring-2 ring-white" />
+              <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white" />
             )}
           </div>
-          <span className="text-[10px] tracking-tight mt-1">Módulos</span>
+          <span className="text-[10px] tracking-tight mt-0.5">Menú</span>
         </button>
       </div>
     </nav>

@@ -20,7 +20,7 @@ interface BeneficiosNavTabsProps {
   onOpenAsignacionDirecta: () => void;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Selector de vistas del Módulo 3 con pestañas estructuradas de bordes nítidos.
+// [ESTUDIANTE INFORMÁTICA] Pestañas modernas con flex-wrap para evitar desbordes horizontales en pantallas medianas.
 export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
   activeTab,
   setActiveTab,
@@ -31,34 +31,34 @@ export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
   onOpenAsignacionDirecta,
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-2.5">
-      <div className="inline-flex items-center gap-1 p-1 bg-slate-200/70 rounded-md border border-slate-300/80 overflow-x-auto max-w-full">
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-200/80 pb-3 min-w-0">
+      <div className="inline-flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200/70">
         <button
           onClick={() => setActiveTab('catalogo')}
-          className={`px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+          className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
             activeTab === 'catalogo'
-              ? 'bg-[#0c2b45] text-white'
-              : 'text-slate-700 hover:bg-white/60 hover:text-slate-900'
+              ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-xs'
+              : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
           }`}
         >
-          <GiftIcon className="w-3.5 h-3.5" />
-          Catálogo Grado 15
+          <GiftIcon className="w-4 h-4" />
+          <span>Catálogo & Reglas</span>
         </button>
 
         <button
           onClick={() => setActiveTab('hoja_socio')}
-          className={`px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+          className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
             activeTab === 'hoja_socio'
-              ? 'bg-[#0c2b45] text-white'
-              : 'text-slate-700 hover:bg-white/60 hover:text-slate-900'
+              ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-xs'
+              : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
           }`}
         >
-          <FileTextIcon className="w-3.5 h-3.5" />
-          Mis Postulaciones
+          <FileTextIcon className="w-4 h-4" />
+          <span>Mi Hoja de Beneficios</span>
           {totalSolicitudes > 0 && (
             <span
-              className={`px-1.5 py-0.2 rounded text-[10px] font-mono tabular-nums ${
-                activeTab === 'hoja_socio' ? 'bg-white/20 text-white' : 'bg-white text-[#006799] border border-slate-300'
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
+                activeTab === 'hoja_socio' ? 'bg-white/20 text-white' : 'bg-white text-[#006799] border border-slate-200'
               }`}
             >
               {totalSolicitudes}
@@ -70,45 +70,45 @@ export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
           <>
             <button
               onClick={() => setActiveTab('gestion_directiva')}
-              className={`px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
                 activeTab === 'gestion_directiva'
-                  ? 'bg-[#006799] text-white'
-                  : 'text-slate-700 hover:bg-white/60 hover:text-slate-900'
+                  ? 'bg-[#006799] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
               }`}
             >
-              <ShieldCheckIcon className="w-3.5 h-3.5" />
-              Resolución Directiva
+              <ShieldCheckIcon className="w-4 h-4" />
+              <span>Gestión Directiva</span>
             </button>
 
             <button
               onClick={() => setActiveTab('liquidacion_masiva')}
-              className={`px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
                 activeTab === 'liquidacion_masiva'
-                  ? 'bg-[#166534] text-white'
-                  : 'text-slate-700 hover:bg-white/60 hover:text-slate-900'
+                  ? 'bg-[#166534] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
               }`}
             >
-              <SlidersIcon className="w-3.5 h-3.5" />
-              Nómina Masiva (HU-06)
+              <SlidersIcon className="w-4 h-4" />
+              <span>Liquidación Masiva</span>
             </button>
           </>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         {esDirectivaOAdmin && (
           <button
             onClick={onOpenAsignacionDirecta}
-            className="px-3 py-1.5 rounded-md text-xs font-bold text-white bg-[#166534] hover:bg-emerald-800 flex items-center gap-1.5 transition-colors"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#166534] to-[#558b2f] hover:opacity-95 shadow-xs flex items-center gap-1.5 transition-all"
           >
-            <PalmtreeIcon className="w-3.5 h-3.5" />
-            Asignación Directa Vacaciones
+            <PalmtreeIcon className="w-4 h-4" />
+            <span>Asignación Directa Vacaciones</span>
           </button>
         )}
         <button
           onClick={onRefresh}
-          className="p-1.5 text-slate-600 hover:text-slate-900 bg-white border border-slate-300 rounded-md transition-colors"
-          title="Actualizar datos"
+          className="p-2 text-slate-600 hover:text-slate-900 bg-white border border-slate-200/90 rounded-xl shadow-2xs transition-colors"
+          title="Refrescar datos"
         >
           <RefreshCwIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>

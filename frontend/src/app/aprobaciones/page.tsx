@@ -117,36 +117,36 @@ export default function AprobacionesPage() {
   const conteoPendientes = solicitudes.filter((s) => s.estado === 'en_revision').length;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div className="rounded-lg bg-[#0c2b45] text-white border border-slate-800 overflow-hidden">
-        <div className="h-1 w-full bg-[#b45309]" />
-        <div className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300 block">
+    <div className="space-y-6 animate-fade-in min-w-0">
+      <div className="hero-institutional">
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
+        <div className="p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/10 text-amber-200 border border-white/15 mb-1.5">
               Módulo 2 • HU-04 • Bandeja Colegiada de Directiva
             </span>
-            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
               Auditoría y Resolución de Reembolsos Médicos
             </h1>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs sm:text-sm text-slate-300">
               Control de plazo de 30 días, visor de respaldos adjuntos y restitución automática de cupo ante rechazos.
             </p>
           </div>
           <Link
             href="/reembolsos"
-            className="px-3 py-1.5 text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/15 rounded-md border border-white/15 shrink-0"
+            className="px-4 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 rounded-xl border border-white/15 shrink-0 transition-colors"
           >
             ← Cartola Socio
           </Link>
         </div>
       </div>
 
-      {successMsg && <div className="p-3 text-xs bg-emerald-50 text-[#166534] border border-emerald-300 rounded-md font-bold">{successMsg}</div>}
-      {errorMsg && <div className="p-3 text-xs bg-rose-50 text-rose-800 border border-rose-300 rounded-md font-bold">{errorMsg}</div>}
+      {successMsg && <div className="p-4 text-xs bg-emerald-50 text-[#166534] border border-emerald-200 rounded-2xl font-bold shadow-2xs">{successMsg}</div>}
+      {errorMsg && <div className="p-4 text-xs bg-rose-50 text-rose-800 border border-rose-200 rounded-2xl font-bold shadow-2xs">{errorMsg}</div>}
 
       <AprobacionesStatsCards solicitudes={solicitudes} />
 
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <div className="card-modern overflow-hidden min-w-0">
         <FiltrosAprobaciones
           filtroEstado={filtroEstado}
           setFiltroEstado={setFiltroEstado}

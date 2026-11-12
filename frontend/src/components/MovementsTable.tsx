@@ -59,42 +59,42 @@ const INITIAL_MOVEMENTS: Movimiento[] = [
 
 const FILTER_TABS = ['Todos', 'Aprobado', 'Pagado', 'En Revisión'] as const;
 
-// [ESTUDIANTE INFORMÁTICA] Modal compacto de inspección de comprobante con firma SHA-256 y bordes definidos.
+// [ESTUDIANTE INFORMÁTICA] Modal moderno de comprobante digital con firma SHA-256 y esquinas suaves.
 const ReceiptPreviewModal: React.FC<{ receipt: Movimiento; onClose: () => void }> = ({
   receipt,
   onClose,
 }) => (
   <div
-    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 animate-fade-in"
+    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
     onClick={onClose}
   >
     <div
-      className="bg-white rounded-lg max-w-md w-full border border-slate-300 overflow-hidden animate-scale-in"
+      className="bg-white rounded-2xl max-w-md w-full border border-slate-200/90 shadow-2xl overflow-hidden animate-scale-in"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="h-1 w-full bg-[#006799]" />
-      <div className="p-5 space-y-4">
-        <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
+      <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase text-[#006799] block">
-              Respaldo Contable • Comité de Bienestar
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#006799] block">
+              Respaldo Digital • Comité de Bienestar
             </span>
-            <h3 className="text-sm font-bold text-slate-900 font-mono tabular-nums">
+            <h3 className="text-base font-extrabold text-slate-900 tabular-nums">
               Comprobante #{receipt.id}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="px-2 py-1 text-xs font-bold text-slate-500 hover:text-slate-800 rounded border border-transparent hover:border-slate-200"
+            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-3.5 rounded-md bg-slate-50 border border-slate-200 space-y-2 text-xs">
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2.5 text-xs">
           <div className="flex justify-between gap-2">
             <span className="text-slate-500">Concepto:</span>
-            <span className="font-semibold text-slate-900 text-right">{receipt.concepto}</span>
+            <span className="font-bold text-slate-900 text-right">{receipt.concepto}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Fecha de Emisión:</span>
@@ -103,27 +103,27 @@ const ReceiptPreviewModal: React.FC<{ receipt: Movimiento; onClose: () => void }
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Monto Imputado:</span>
-            <span className="font-bold text-[#166534] text-sm tabular-nums">
+            <span className="text-slate-500">Monto Acreditado:</span>
+            <span className="font-extrabold text-[#166534] text-sm tabular-nums">
               {formatCurrency(receipt.monto)}
             </span>
           </div>
           <div className="flex justify-between gap-3">
-            <span className="text-slate-500 shrink-0">Glosa / Respaldo:</span>
+            <span className="text-slate-500 shrink-0">Detalle / Glosa:</span>
             <span className="text-slate-700 text-right">{receipt.detalle}</span>
           </div>
-          <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-            <span className="text-slate-500">Integridad:</span>
-            <span className="text-[10px] font-mono font-bold text-[#166534] bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-              VERIFICADO SHA-256
+          <div className="flex justify-between items-center pt-2.5 border-t border-slate-200/80">
+            <span className="text-slate-500">Firma Electrónica:</span>
+            <span className="text-[10px] font-mono font-bold text-[#166534] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              ✓ VALIDADA SHA-256
             </span>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-1">
+        <div className="flex items-center justify-end gap-2.5 pt-1">
           <button
             onClick={onClose}
-            className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
           >
             Cerrar
           </button>
@@ -132,9 +132,9 @@ const ReceiptPreviewModal: React.FC<{ receipt: Movimiento; onClose: () => void }
               alert(`Descargando comprobante oficial ${receipt.id}...`);
               onClose();
             }}
-            className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#006799] hover:bg-[#0c2b45] rounded-md transition-colors"
+            className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95 rounded-xl shadow-sm transition-all"
           >
-            Descargar PDF
+            Descargar Archivo PDF
           </button>
         </div>
       </div>
@@ -149,34 +149,34 @@ interface ToolbarProps {
   onFilterChange: (v: string) => void;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Barra de herramientas superior con buscador instantáneo y selector segmentado con contadores.
+// [ESTUDIANTE INFORMÁTICA] Barra de herramientas moderna con buscador redondeado y pestañas tipo píldora con contadores.
 const MovementsToolbar: React.FC<ToolbarProps> = ({
   search,
   onSearchChange,
   filter,
   onFilterChange,
 }) => (
-  <div className="p-4 sm:px-5 border-b border-slate-200 bg-slate-50/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
+  <div className="p-5 sm:px-6 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
     <div>
-      <h2 className="text-sm font-bold text-[#0c2b45] uppercase tracking-wider">
-        Registro Histórico de Movimientos y Solicitudes
+      <h2 className="text-base font-extrabold text-slate-900">
+        Últimos Movimientos y Solicitudes
       </h2>
-      <p className="text-xs text-slate-500">
-        Trazabilidad de reembolsos médicos y beneficios sociales tramitados
+      <p className="text-xs text-slate-500 mt-0.5">
+        Historial de solicitudes de reembolsos médicos y beneficios sociales tramitados
       </p>
     </div>
 
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="relative">
+    <div className="flex flex-wrap items-center gap-2.5">
+      <div className="relative w-full sm:w-56">
         <input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Filtrar por folio o concepto..."
-          className="pl-7 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#006799] w-48 sm:w-56"
+          placeholder="Buscar por concepto o folio..."
+          className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]"
         />
         <svg
-          className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2"
+          className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -185,7 +185,7 @@ const MovementsToolbar: React.FC<ToolbarProps> = ({
         </svg>
       </div>
 
-      <div className="inline-flex p-0.5 bg-slate-200/70 rounded-md border border-slate-300/80 text-xs">
+      <div className="inline-flex flex-wrap p-1 bg-slate-100/90 rounded-xl border border-slate-200/60 text-xs">
         {FILTER_TABS.map((tab) => {
           const count =
             tab === 'Todos'
@@ -195,9 +195,9 @@ const MovementsToolbar: React.FC<ToolbarProps> = ({
             <button
               key={tab}
               onClick={() => onFilterChange(tab)}
-              className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
                 filter === tab
-                  ? 'bg-white text-[#0c2b45] font-bold border border-slate-300/80'
+                  ? 'bg-white text-slate-900 font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 font-medium'
               }`}
             >
@@ -211,7 +211,7 @@ const MovementsToolbar: React.FC<ToolbarProps> = ({
   </div>
 );
 
-// [ESTUDIANTE INFORMÁTICA] Tabla de alta densidad (Data-Dense) con números tabulares y soporte responsivo móvil.
+// [ESTUDIANTE INFORMÁTICA] Tabla de movimientos con curvatura moderna (card-modern) y celdas bien espaciadas sin desborde.
 export const MovementsTable: React.FC = () => {
   const [filter, setFilter] = useState<string>('Todos');
   const [search, setSearch] = useState<string>('');
@@ -228,7 +228,7 @@ export const MovementsTable: React.FC = () => {
   const totalMontoFiltrado = filteredMovements.reduce((acc, m) => acc + m.monto, 0);
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+    <div className="card-modern overflow-hidden min-w-0">
       <MovementsToolbar
         search={search}
         onSearchChange={setSearch}
@@ -236,24 +236,26 @@ export const MovementsTable: React.FC = () => {
         onFilterChange={setFilter}
       />
 
-      {/* Vista Móvil Compacta */}
-      <div className="block sm:hidden divide-y divide-slate-200">
+      {/* Vista Móvil */}
+      <div className="block sm:hidden divide-y divide-slate-100">
         {filteredMovements.map((mov) => {
           const badge = getStatusBadgeStyle(mov.estado);
           return (
-            <div key={mov.id} className="p-3.5 hover:bg-slate-50 space-y-2">
+            <div key={mov.id} className="p-4 hover:bg-slate-50/70 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-mono text-slate-500 tabular-nums">
                   {mov.id} • {formatDate(mov.fecha)}
                 </span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badge.bg}`}>
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badge.bg}`}>
                   {mov.estado}
                 </span>
               </div>
-              <div className="text-xs font-bold text-slate-900">{mov.concepto}</div>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-500">{mov.modulo}</span>
-                <span className="text-xs font-extrabold text-slate-900 tabular-nums">
+              <div className="text-sm font-bold text-slate-900">{mov.concepto}</div>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">
+                  {mov.modulo}
+                </span>
+                <span className="text-sm font-extrabold text-slate-900 tabular-nums">
                   {formatCurrency(mov.monto)}
                 </span>
               </div>
@@ -262,70 +264,68 @@ export const MovementsTable: React.FC = () => {
         })}
       </div>
 
-      {/* Vista Desktop Data-Dense */}
+      {/* Vista Desktop */}
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              <th className="py-2.5 px-4">Folio</th>
-              <th className="py-2.5 px-4">Fecha</th>
-              <th className="py-2.5 px-4">Concepto y Glosa</th>
-              <th className="py-2.5 px-4">Módulo</th>
-              <th className="py-2.5 px-4 text-right">Monto CLP</th>
-              <th className="py-2.5 px-4 text-center">Estado</th>
-              <th className="py-2.5 px-4 text-right">Respaldo</th>
+            <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <th className="py-3.5 px-6">Fecha</th>
+              <th className="py-3.5 px-6">Concepto y Módulo</th>
+              <th className="py-3.5 px-6 text-right">Monto CLP</th>
+              <th className="py-3.5 px-6 text-center">Estado</th>
+              <th className="py-3.5 px-6 text-right">Comprobante</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 text-xs">
+          <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
             {filteredMovements.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-400">
-                  No existen registros que coincidan con el criterio seleccionado.
+                <td colSpan={5} className="py-10 text-center text-slate-400 text-xs">
+                  No se encontraron movimientos para el filtro aplicado.
                 </td>
               </tr>
             ) : (
               filteredMovements.map((mov) => {
                 const badge = getStatusBadgeStyle(mov.estado);
                 return (
-                  <tr key={mov.id} className="hover:bg-slate-50/90 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-slate-700 tabular-nums whitespace-nowrap">
-                      {mov.id}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-slate-600 tabular-nums whitespace-nowrap">
+                  <tr key={mov.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <td className="py-4 px-6 font-mono text-xs text-slate-600 tabular-nums whitespace-nowrap">
                       {formatDate(mov.fecha)}
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">{mov.concepto}</div>
-                      {mov.detalle && (
-                        <div className="text-[11px] text-slate-500 truncate max-w-md">{mov.detalle}</div>
-                      )}
+                    <td className="py-4 px-6">
+                      <div className="font-bold text-slate-900 group-hover:text-[#006799] transition-colors">
+                        {mov.concepto}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[11px] font-mono text-slate-400 tabular-nums">{mov.id}</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">
+                          {mov.modulo}
+                        </span>
+                      </div>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium border border-slate-200">
-                        {mov.modulo}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums whitespace-nowrap">
+                    <td className="py-4 px-6 text-right font-mono font-extrabold text-slate-900 tabular-nums whitespace-nowrap">
                       {formatCurrency(mov.monto)}
                     </td>
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
+                    <td className="py-4 px-6 text-center whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border ${badge.bg}`}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg}`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
                         {mov.estado}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                    <td className="py-4 px-6 text-right whitespace-nowrap">
                       {mov.comprobanteUrl ? (
                         <button
                           onClick={() => setSelectedReceipt(mov)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#006799] hover:bg-sky-50 bg-white border border-slate-300 hover:border-[#006799] rounded transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200/80 rounded-xl transition-colors"
                         >
-                          <span>Ver PDF</span>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span>PDF</span>
                         </button>
                       ) : (
-                        <span className="text-[11px] text-slate-400">—</span>
+                        <span className="text-xs text-slate-400 italic">No adjunto</span>
                       )}
                     </td>
                   </tr>
@@ -336,9 +336,9 @@ export const MovementsTable: React.FC = () => {
         </table>
       </div>
 
-      <div className="py-2.5 px-5 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-600 tabular-nums">
+      <div className="py-3.5 px-6 border-t border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 tabular-nums">
         <span>
-          Mostrando <strong>{filteredMovements.length}</strong> de {INITIAL_MOVEMENTS.length} movimientos
+          Mostrando <strong className="text-slate-700">{filteredMovements.length}</strong> de {INITIAL_MOVEMENTS.length} movimientos
         </span>
         <span>
           Subtotal listado: <strong className="font-mono text-slate-900">{formatCurrency(totalMontoFiltrado)}</strong>

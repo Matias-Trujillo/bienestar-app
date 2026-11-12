@@ -21,7 +21,7 @@ export interface NavItem {
 
 const ROLES_DIRECTIVA = ['presidente', 'secretario', 'tesorero', 'admin', 'auditor', 'superusuario'];
 
-// [ESTUDIANTE INFORMÁTICA] Catálogo de rutas de navegación para los 5 módulos estatutarios y bandejas directivas.
+// [ESTUDIANTE INFORMÁTICA] Catálogo de navegación principal con iconos SVG vectoriales nítidos.
 export const navigationItems: NavItem[] = [
   {
     name: 'Hoja de Socio',
@@ -93,7 +93,7 @@ export const navigationItems: NavItem[] = [
   },
 ];
 
-// [ESTUDIANTE INFORMÁTICA] Resuelve el texto y estilo del contador numérico en vivo para bandejas de aprobación.
+// [ESTUDIANTE INFORMÁTICA] Calcula el estilo de píldora para los contadores de pendientes en la barra lateral.
 function resolveSidebarBadge(
   item: NavItem,
   isActive: boolean,
@@ -103,59 +103,71 @@ function resolveSidebarBadge(
   reembolsosCount: number | null
 ): { text?: string; tooltip?: string; className: string } {
   const baseClass = isActive
-    ? 'bg-[#006799]/15 text-[#0c2b45] border border-[#006799]/30'
-    : 'bg-slate-100 text-slate-600 border border-slate-200';
+    ? 'bg-white/20 text-white border border-white/25'
+    : 'bg-slate-100 text-slate-600 border border-slate-200/80';
 
   if (item.href === '/afiliacion' && esDirectiva) {
     if (afiliacionCount === null) return { className: baseClass };
     const text = afiliacionCount > 99 ? '99+' : `${afiliacionCount}`;
-    const alertClass = afiliacionCount > 0 ? 'bg-amber-50 text-[#b45309] border border-amber-300 font-bold' : baseClass;
+    const alertClass =
+      afiliacionCount > 0
+        ? 'bg-amber-500 text-white font-bold shadow-xs'
+        : baseClass;
     return { text, tooltip: `${afiliacionCount} solicitudes de incorporación pendientes`, className: alertClass };
   }
 
   if (item.href === '/aprobaciones' && esAdminOSuper) {
     if (reembolsosCount === null) return { className: baseClass };
     const text = reembolsosCount > 99 ? '99+' : `${reembolsosCount}`;
-    const alertClass = reembolsosCount > 0 ? 'bg-amber-50 text-[#b45309] border border-amber-300 font-bold' : baseClass;
+    const alertClass =
+      reembolsosCount > 0
+        ? 'bg-amber-500 text-white font-bold shadow-xs'
+        : baseClass;
     return { text, tooltip: `${reembolsosCount} reembolsos pendientes`, className: alertClass };
   }
 
   return { text: item.badge, className: baseClass };
 }
 
-// [ESTUDIANTE INFORMÁTICA] Encabezado institucional del menú lateral con escudo oficial y botón de cierre móvil.
+// [ESTUDIANTE INFORMÁTICA] Encabezado del Sidebar con logo institucional y filete superior de Peralillo.
 const SidebarBrandHeader: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-  <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200 bg-[#0c2b45] text-white">
-    <div className="flex items-center gap-2.5 min-w-0">
-      <div className="flex items-center justify-center p-1 bg-white rounded-md border border-slate-300 shrink-0">
-        <img
-          src="/logo-peralillo.png"
-          alt="I. Municipalidad de Peralillo"
-          className="h-8 w-auto max-w-[46px] object-contain"
-        />
+  <div className="relative">
+    <div className="h-1 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
+    <div className="flex items-center justify-between h-[72px] px-4 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/60">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-center p-1.5 bg-white rounded-xl border border-slate-200/90 shadow-xs shrink-0">
+          <img
+            src="/logo-peralillo.png"
+            alt="I. Municipalidad de Peralillo"
+            className="h-9 w-auto max-w-[52px] object-contain"
+          />
+        </div>
+        <div className="min-w-0">
+          <span className="block text-xs font-extrabold tracking-tight text-slate-900 truncate">
+            Comité de Bienestar
+          </span>
+          <span className="block text-[11px] font-semibold text-[#006799] truncate">
+            I. Municipalidad de Peralillo
+          </span>
+          <span className="block text-[10px] text-[#ea580c] font-medium italic truncate">
+            La comuna que soñamos
+          </span>
+        </div>
       </div>
-      <div className="min-w-0">
-        <span className="block text-xs font-bold tracking-tight leading-tight truncate text-white">
-          Comité de Bienestar
-        </span>
-        <span className="block text-[10px] font-medium text-sky-200 truncate">
-          I. Municipalidad de Peralillo
-        </span>
-      </div>
+      <button
+        onClick={onClose}
+        className="p-1.5 text-slate-400 rounded-xl lg:hidden hover:bg-slate-100 hover:text-slate-700 transition-colors"
+        aria-label="Cerrar menú"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
-    <button
-      onClick={onClose}
-      className="p-1 text-slate-300 rounded-md lg:hidden hover:bg-white/10"
-      aria-label="Cerrar menú"
-    >
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
   </div>
 );
 
-// [ESTUDIANTE INFORMÁTICA] Barra lateral de navegación Data-Dense con sincronización periódica de trámites pendientes.
+// [ESTUDIANTE INFORMÁTICA] Sidebar moderno con botones tipo píldora suave (rounded-xl), estado activo con relieve y tarjeta de soporte.
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
   const { user, token } = useAuth();
@@ -175,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         });
         if (typeof data?.pendientes === 'number') setPendientesCount(data.pendientes);
       } catch {
-        // Silencioso si no disponible
+        // Silencioso
       }
     }
     if (esDirectiva) {
@@ -185,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         });
         if (typeof dataAf?.pendientes === 'number') setAfiliacionPendientesCount(dataAf.pendientes);
       } catch {
-        // Silencioso si no disponible
+        // Silencioso
       }
     }
   }, [esAdminOSuper, esDirectiva, token]);
@@ -205,21 +217,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs lg:hidden transition-opacity"
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col w-64 bg-white border-r border-slate-200 transition-transform duration-200 ease-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col w-[268px] bg-white border-r border-slate-200/90 shadow-[2px_0_16px_-4px_rgba(15,23,42,0.04)] transition-transform duration-200 ease-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <SidebarBrandHeader onClose={onClose} />
 
-        <div className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
-          <p className="px-2.5 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Módulos Operativos
+        <div className="flex-1 px-3.5 py-5 overflow-y-auto space-y-1">
+          <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Navegación del Portal
           </p>
           {itemsVisibles.map((item) => {
             const isActive = pathname === item.href;
@@ -237,22 +249,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`group flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                className={`group flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
                   isActive
-                    ? 'bg-sky-50/90 text-[#0c2b45] font-bold border-l-[3px] border-[#006799]'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-sm shadow-[#006799]/20'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <span className={isActive ? 'text-[#006799]' : 'text-slate-400 group-hover:text-slate-700'}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`shrink-0 ${isActive ? 'text-sky-200' : 'text-slate-400 group-hover:text-[#006799]'}`}>
                     {item.icon}
                   </span>
-                  <span>{item.name}</span>
+                  <span className="truncate">{item.name}</span>
                 </div>
                 {badge.text !== undefined && (
                   <span
                     title={badge.tooltip}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-semibold tabular-nums min-w-[22px] text-center ${badge.className}`}
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums min-w-[22px] text-center shrink-0 ml-2 ${badge.className}`}
                   >
                     {badge.text}
                   </span>
@@ -262,20 +274,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           })}
         </div>
 
-        <div className="p-3.5 mx-3 mb-3 rounded-md bg-slate-50 border border-slate-200">
+        <div className="p-3.5 mx-3.5 mb-3.5 rounded-2xl bg-gradient-to-br from-slate-50 to-sky-50/50 border border-slate-200/80">
           <div className="flex items-center justify-between mb-1">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-800">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#166534]" />
-              Soporte Bienestar
+              <span className="w-2 h-2 rounded-full bg-[#166534]" />
+              Mesa de Ayuda
             </span>
             <span className="text-[10px] font-mono text-slate-400">Ley 19.754</span>
           </div>
           <p className="text-[11px] text-slate-500 leading-snug mb-1.5">
-            Consultas sobre boletas, topes o cargas familiares:
+            ¿Dudas con tus reembolsos o beneficios?
           </p>
           <a
             href="mailto:bienestar@mperalillo.cl"
-            className="text-[11px] font-semibold text-[#006799] hover:underline block truncate"
+            className="text-[11px] font-bold text-[#006799] hover:text-[#0c2b45] hover:underline block truncate"
           >
             bienestar@mperalillo.cl
           </a>

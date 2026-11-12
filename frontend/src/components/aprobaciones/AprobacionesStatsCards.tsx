@@ -8,7 +8,7 @@ interface AprobacionesStatsCardsProps {
   solicitudes: SolicitudReembolso[];
 }
 
-// [ESTUDIANTE INFORMÁTICA] Paneles analíticos de bandeja directiva con bordes firmes y cifras tabulares.
+// [ESTUDIANTE INFORMÁTICA] Tarjetas analíticas modernas de la bandeja directiva con badges vectoriales suaves.
 export const AprobacionesStatsCards: React.FC<AprobacionesStatsCardsProps> = ({ solicitudes }) => {
   const pendientes = solicitudes.filter((s) => s.estado === 'en_revision');
   const aprobadas = solicitudes.filter((s) => s.estado === 'aprobado' || s.estado === 'pagado');
@@ -18,69 +18,69 @@ export const AprobacionesStatsCards: React.FC<AprobacionesStatsCardsProps> = ({ 
   const montoAprobado = aprobadas.reduce((acc, s) => acc + (s.monto_reembolso || 0), 0);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-      <div className="p-4 rounded-lg bg-white border border-slate-200 border-l-4 border-l-[#b45309] flex items-center justify-between">
-        <div>
-          <span className="block text-[10px] font-bold text-[#b45309] uppercase tracking-wider">
-            Pendientes de Resolución
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0">
+      <div className="card-modern-interactive p-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="block text-[11px] font-bold text-[#b45309] uppercase tracking-wider truncate">
+            Pendientes
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-0.5 block tabular-nums">
+          <span className="text-2xl font-extrabold text-slate-900 mt-1 block tabular-nums">
             {pendientes.length}
           </span>
-          <span className="text-xs text-slate-600 font-medium tabular-nums">
-            Retenido: <strong className="text-slate-900">{formatCurrency(montoPendiente)}</strong>
+          <span className="text-xs text-slate-500 font-medium tabular-nums block truncate">
+            Por liquidar: <strong className="text-slate-800">{formatCurrency(montoPendiente)}</strong>
           </span>
         </div>
-        <span className="px-2 py-1 rounded bg-amber-50 border border-amber-200 text-[#b45309] text-xs font-mono font-bold">
+        <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200/80 text-[#b45309] flex items-center justify-center font-mono text-xs font-bold shrink-0">
           REV
-        </span>
+        </div>
       </div>
 
-      <div className="p-4 rounded-lg bg-white border border-slate-200 border-l-4 border-l-[#166534] flex items-center justify-between">
-        <div>
-          <span className="block text-[10px] font-bold text-[#166534] uppercase tracking-wider">
-            Aprobadas / Liquidadas
+      <div className="card-modern-interactive p-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="block text-[11px] font-bold text-[#166534] uppercase tracking-wider truncate">
+            Aprobadas
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-0.5 block tabular-nums">
+          <span className="text-2xl font-extrabold text-slate-900 mt-1 block tabular-nums">
             {aprobadas.length}
           </span>
-          <span className="text-xs text-slate-600 font-medium tabular-nums">
+          <span className="text-xs text-slate-500 font-medium tabular-nums block truncate">
             Imputado: <strong className="text-[#166534]">{formatCurrency(montoAprobado)}</strong>
           </span>
         </div>
-        <span className="px-2 py-1 rounded bg-emerald-50 border border-emerald-200 text-[#166534] text-xs font-mono font-bold">
+        <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-[#166534] flex items-center justify-center font-mono text-xs font-bold shrink-0">
           APR
-        </span>
+        </div>
       </div>
 
-      <div className="p-4 rounded-lg bg-white border border-slate-200 border-l-4 border-l-rose-600 flex items-center justify-between">
-        <div>
-          <span className="block text-[10px] font-bold text-rose-700 uppercase tracking-wider">
-            Rechazadas (Cupo Restituido)
+      <div className="card-modern-interactive p-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="block text-[11px] font-bold text-rose-700 uppercase tracking-wider truncate">
+            Rechazadas
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-0.5 block tabular-nums">
+          <span className="text-2xl font-extrabold text-slate-900 mt-1 block tabular-nums">
             {rechazadas.length}
           </span>
-          <span className="text-xs text-slate-500">Con causal en auditoría</span>
+          <span className="text-xs text-slate-500 block truncate">Cupo restituido al socio</span>
         </div>
-        <span className="px-2 py-1 rounded bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono font-bold">
+        <div className="w-11 h-11 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 flex items-center justify-center font-mono text-xs font-bold shrink-0">
           REC
-        </span>
+        </div>
       </div>
 
-      <div className="p-4 rounded-lg bg-white border border-slate-200 border-l-4 border-l-[#0c2b45] flex items-center justify-between">
-        <div>
-          <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            Volumen Total Bandeja
+      <div className="card-modern-interactive p-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+            Total Histórico
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-0.5 block tabular-nums">
+          <span className="text-2xl font-extrabold text-slate-900 mt-1 block tabular-nums">
             {solicitudes.length}
           </span>
-          <span className="text-xs text-slate-500">Expedientes auditables</span>
+          <span className="text-xs text-slate-500 block truncate">Expedientes auditados</span>
         </div>
-        <span className="px-2 py-1 rounded bg-slate-100 border border-slate-300 text-[#0c2b45] text-xs font-mono font-bold">
+        <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200/80 text-[#0c2b45] flex items-center justify-center font-mono text-xs font-bold shrink-0">
           TOT
-        </span>
+        </div>
       </div>
     </div>
   );

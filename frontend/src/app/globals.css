@@ -19,28 +19,34 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background-color: #f8fafc;
+  background-color: #f4f7fa;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-/* [ESTUDIANTE INFORMÁTICA] Utilidades tipográficas para alineación numérica estricta en montos CLP, RUTs y fechas */
+/* [ESTUDIANTE INFORMÁTICA] Alineación numérica tabular para montos CLP, RUN y fechas */
 .font-tabular {
   font-variant-numeric: tabular-nums;
 }
 
 @layer components {
-  /* [ESTUDIANTE INFORMÁTICA] Superficie base Data-Dense: bordes nítidos, radio discreto y cero sombras difusas gigantes */
-  .panel-municipal {
-    @apply bg-white border border-slate-200 rounded-lg shadow-none;
+  /* [ESTUDIANTE INFORMÁTICA] Superficie moderna con curvatura suave (rounded-2xl), borde delicado y elevación multicapa */
+  .card-modern {
+    @apply bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_12px_-3px_rgba(15,23,42,0.06)] transition-all duration-200;
   }
 
-  .panel-municipal-interactive {
-    @apply bg-white border border-slate-200 rounded-lg transition-colors duration-150 hover:border-slate-300;
+  .card-modern-interactive {
+    @apply bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_12px_-3px_rgba(15,23,42,0.06)] hover:shadow-[0_12px_28px_-6px_rgba(15,23,42,0.1)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200;
+  }
+
+  /* [ESTUDIANTE INFORMÁTICA] Cabecera ejecutiva con textura arquitectónica sutil y filete multicolor de Peralillo */
+  .hero-institutional {
+    @apply relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#091e32] via-[#0c2b45] to-[#113628] text-white border border-slate-800/80 shadow-[0_10px_30px_-10px_rgba(12,43,69,0.35)];
   }
 }
 
-/* [ESTUDIANTE INFORMÁTICA] Micro-transiciones rápidas (150ms-200ms) para experiencia operativa ágil */
+/* [ESTUDIANTE INFORMÁTICA] Micro-animaciones fluidas y modernas para modales y tarjetas */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -53,18 +59,18 @@ body {
 @keyframes scaleIn {
   from {
     opacity: 0;
-    transform: scale(0.98);
+    transform: scale(0.97) translateY(4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -82,17 +88,17 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.16s ease-out forwards;
+  animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-scale-in {
-  animation: scaleIn 0.15s ease-out forwards;
+  animation: scaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.18s ease-out forwards;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-welcome-bar {
-  animation: progressLineFast 1.4s ease-out forwards;
+  animation: progressLineFast 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
