@@ -284,7 +284,7 @@ def _envolver_html_institucional(
                 <tr>
                   <td valign="top" style="font-size: 12px; line-height: 1.6; color: #cbd5e1;">
                     <strong style="color: #ffffff; font-size: 13px;">Comité de Bienestar &bull; Ilustre Municipalidad de Peralillo</strong><br />
-                    Regulado por Ley N° 19.754 sobre Servicios de Bienestar del Personal Municipal.<br />
+                    Servicios y Beneficios del Personal Municipal.<br />
                     Mesa de Ayuda al Funcionario: <a href="mailto:bienestar@mperalillo.cl" style="color: #38bdf8; text-decoration: none;">bienestar@mperalillo.cl</a>
                   </td>
                   <td valign="top" align="right" style="text-align: right; font-size: 11px; color: #94a3b8;">

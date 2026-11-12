@@ -162,7 +162,7 @@ export default function AprobacionesPage() {
           onVerComprobante={(sol) =>
             setPreviewComprobante({
               id: sol.id,
-              url: `${API_BASE_URL}/reembolsos/solicitud/${sol.id}/comprobante`,
+              url: `${API_BASE_URL}/reembolsos/solicitud/${sol.id}/comprobante${token ? `?token=${encodeURIComponent(token)}` : ''}`,
               filename: sol.comprobante_filename,
               codigo: sol.codigo,
               isPdf: sol.comprobante_filename.toLowerCase().endsWith('.pdf'),
@@ -198,7 +198,7 @@ export default function AprobacionesPage() {
             setShowDetalle(null);
             setPreviewComprobante({
               id: sol.id,
-              url: `${API_BASE_URL}/reembolsos/solicitud/${sol.id}/comprobante`,
+              url: `${API_BASE_URL}/reembolsos/solicitud/${sol.id}/comprobante${token ? `?token=${encodeURIComponent(token)}` : ''}`,
               filename: sol.comprobante_filename,
               codigo: sol.codigo,
               isPdf: sol.comprobante_filename.toLowerCase().endsWith('.pdf'),

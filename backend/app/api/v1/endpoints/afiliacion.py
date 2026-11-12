@@ -39,12 +39,13 @@ ROLES_RESOLUTIVOS = (
 
 
 # [ESTUDIANTE INFORMÁTICA] Retorna la descripción institucional y normativa del módulo de afiliación.
+@router.get("", include_in_schema=False)
 @router.get("/", summary="Obtener información de afiliación del socio")
 async def get_afiliacion() -> Dict[str, Any]:
     return {
         "modulo": "Afiliación y Cargas Familiares",
         "descripcion": "Gestión digital de postulaciones, cuotas y acreditación legal de cargas familiares.",
-        "ley": "Ley N° 19.754 de Bienestar Municipal",
+        "normativa": "Reglamento Interno de Bienestar Municipal",
     }
 
 
@@ -80,6 +81,19 @@ async def consultar_solicitud(
     db: AsyncSession = Depends(get_db),
 ) -> ComprobanteOut:
     return await AfiliacionService.consultar_solicitud(db, folio, run)
+
+
+# [ESTUDIANTE INFORMÁTICA] Retorna la cantidad de solicitudes de afiliación pendientes para badges de menú y notificaciones.
+@router.get(
+    "/conteo-pendientes",
+    summary="Obtener cantidad de solicitudes de afiliación pendientes de resolución",
+)
+async def get_conteo_pendientes(
+    _: User = Depends(require_roles(*ROLES_DIRECTIVA)),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, int]:
+    total = await AfiliacionService.contar_pendientes(db)
+    return {"pendientes": total}
 
 
 # [ESTUDIANTE INFORMÁTICA] Lista todas las solicitudes de incorporación para la bandeja de evaluación de la Directiva.
@@ -119,6 +133,33 @@ async def resolver_solicitud(
     db: AsyncSession = Depends(get_db),
 ) -> ComprobanteOut:
     return await AfiliacionService.resolver_solicitud(db, folio, payload, current_user)
+
+
+# [ESTUDIANTE INFORMÁTICA] Reenvía la notificación correspondiente al estado actual de la postulación por correo real.
+@router.post(
+    "/solicitudes/{folio}/reenviar-correo",
+    response_model=ComprobanteOut,
+    summary="Reenviar notificación por correo según el estado actual de la solicitud (Directiva)",
+)
+async def reenviar_correo_solicitud(
+    folio: str,
+    _: User = Depends(require_roles(*ROLES_DIRECTIVA)),
+    db: AsyncSession = Depends(get_db),
+) -> ComprobanteOut:
+    return await AfiliacionService.reenviar_correo(db, folio)
+
+
+# [ESTUDIANTE INFORMÁTICA] Retorna la bandeja de correos transaccionales emitidos (recepción, resolución con credenciales y rechazo).
+@router.get(
+    "/buzon",
+    summary="Buzón de correos emitidos por el sistema (Recepción, Aprobación y Rechazo)",
+)
+async def get_buzon_correos(
+    q: Optional[str] = None,
+    _: User = Depends(require_roles(*ROLES_DIRECTIVA)),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    return await AfiliacionService.obtener_buzon(db, q)
 
 
 # [ESTUDIANTE INFORMÁTICA] Genera la nómina mensual de retenciones del 4% para exportación a Recursos Humanos y Finanzas (HU-02).

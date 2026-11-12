@@ -32,7 +32,7 @@ const FinanzasSummarySection: React.FC<{ nomina: NominaResponse | null }> = ({ n
     <div className="lg:col-span-7 card-modern-interactive p-6 flex flex-col justify-between min-w-0">
       <div>
         <span className="text-xs font-medium text-[#006799] block">
-          Recaudación Mensual • Ley N° 19.754
+          Recaudación Mensual • Cuotas Sociales
         </span>
         <h2 className="text-base font-semibold text-slate-900 mt-0.5">
           Resumen de Cuotas Sociales por Descuento de Planilla

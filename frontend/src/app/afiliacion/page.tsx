@@ -14,6 +14,7 @@ import {
   ModalCargaMasivaSocios,
   esCuentaAutorizadaCargaMasiva,
 } from '@/components/admin/ModalCargaMasivaSocios';
+import { BuzonCorreosModal } from '@/components/ui/BuzonCorreosModal';
 
 const ROLES_DIRECTIVA = ['presidente', 'secretario', 'tesorero', 'admin', 'auditor', 'superusuario'];
 const ROLES_RESOLUTIVOS = ['presidente', 'secretario', 'superusuario'];
@@ -103,6 +104,7 @@ export default function AfiliacionPage() {
   // Modal de detalle de resolución
   const [solicitudCorreo, setSolicitudCorreo] = useState<SolicitudResumen | null>(null);
   const [reenviandoSmtp, setReenviandoSmtp] = useState(false);
+  const [buzonAbierto, setBuzonAbierto] = useState(false);
 
   // Cargas familiares del socio actual y solicitudes de nuevas cargas (Directiva)
   const [misCargas, setMisCargas] = useState<CargaSocioItem[]>([]);
@@ -461,12 +463,22 @@ export default function AfiliacionPage() {
               </button>
             )}
             {esDirectiva && (
-              <Link
-                href="/finanzas"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl transition-colors whitespace-nowrap"
-              >
-                <span>Nómina 4% (Finanzas)</span>
-              </Link>
+              <>
+                <Link
+                  href="/finanzas"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl transition-colors whitespace-nowrap"
+                >
+                  <span>Nómina 4% (Finanzas)</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setBuzonAbierto(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-sky-100 bg-sky-900/60 hover:bg-sky-900/80 border border-sky-400/40 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                  title="Consultar registro de correos transaccionales emitidos por el sistema"
+                >
+                  <span>📬 Buzón de Correos</span>
+                </button>
+              </>
             )}
             <Link
               href="/"
@@ -1512,6 +1524,10 @@ export default function AfiliacionPage() {
             window.dispatchEvent(new Event('solicitudes-updated'));
           }
         }}
+      />
+      <BuzonCorreosModal
+        isOpen={buzonAbierto}
+        onClose={() => setBuzonAbierto(false)}
       />
     </div>
   );

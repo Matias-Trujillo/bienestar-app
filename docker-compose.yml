@@ -31,7 +31,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bienestar_user}:${POSTGRES_PASSWORD:-bienestar_secret_pass}@postgres:5432/${POSTGRES_DB:-bienestar_db}
       SECRET_KEY: ${SECRET_KEY:-super_secret_jwt_key_bienestar_2026}
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       # HU-01: en desarrollo se permite postular fuera del período ene-jun. Poner "true" en producción.
       AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-false}
     ports:
@@ -70,10 +70,33 @@ services:
     networks:
       - bienestar_network
 
+  # Suite Gráfica Oficial de PostgreSQL (pgAdmin 4)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bienestar_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-superadmin@mperalillo.cl}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-Super#2026}
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+    ports:
+      - "8080:80"
+    volumes:
+      - ./deploy/pgadmin_servers.json:/pgadmin4/servers.json:ro
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bienestar_network
+
 volumes:
   postgres_data:
     driver: local
   backend_uploads:
+    driver: local
+  pgadmin_data:
     driver: local
 
 networks:

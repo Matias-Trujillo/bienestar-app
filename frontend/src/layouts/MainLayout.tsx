@@ -59,7 +59,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </main>
         <footer className="py-3.5 px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 border-t border-slate-200/80 bg-white/80 backdrop-blur-sm mb-14 lg:mb-0">
           <span className="font-medium">Comité de Bienestar &copy; {new Date().getFullYear()} • I. Municipalidad de Peralillo</span>
-          <span className="text-[11px] font-mono text-slate-400">Regulado por Ley N° 19.754</span>
+          <span className="text-[11px] font-mono text-slate-400">Portal Oficial de Socios y Funcionarios</span>
         </footer>
       </div>
 

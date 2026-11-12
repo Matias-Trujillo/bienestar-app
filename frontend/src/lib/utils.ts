@@ -174,3 +174,83 @@ export function getErrorMessage(err: unknown): string {
   return 'Ocurrió un error inesperado';
 }
 
+export type LoginIdentifierMode = 'empty' | 'rut' | 'email';
+
+export interface LoginValidationResult {
+  mode: LoginIdentifierMode;
+  isValid: boolean;
+  error: string | null;
+}
+
+export const MAX_RUN_CLEAN_CHARS = 9; // Máx 8 dígitos de cuerpo + 1 dígito verificador
+export const MAX_RUN_FORMATTED_CHARS = 12; // Formato XX.XXX.XXX-X
+export const MAX_EMAIL_CHARS = 80;
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+/**
+ * [ESTUDIANTE INFORMÁTICA]
+ * Detecta si el texto ingresado corresponde a un correo electrónico o a un RUN chileno.
+ * Criterio: Si contiene '@' o letras distintas a 'k'/'K', se clasifica como correo.
+ */
+export function detectIdentifierMode(val: string): LoginIdentifierMode {
+  const trimmed = (val || '').trim();
+  if (!trimmed) return 'empty';
+  if (trimmed.includes('@') || /[a-jl-z]/i.test(trimmed)) {
+    return 'email';
+  }
+  return 'rut';
+}
+
+/**
+ * [ESTUDIANTE INFORMÁTICA]
+ * Validación sobria ejecutada al enviar el formulario (onSubmit).
+ * - No expone diagnósticos ruidosos ni mensajes redundantes mientras se escribe.
+ * - Valida la regla de negocio chilena (Módulo 11) para RUN y la sintaxis RFC para correos.
+ */
+export function validateLoginIdentifier(value: string): LoginValidationResult {
+  const trimmed = (value || '').trim();
+  const mode = detectIdentifierMode(trimmed);
+
+  if (!trimmed || mode === 'empty') {
+    return {
+      mode: 'empty',
+      isValid: false,
+      error: 'Ingresa tu RUN o correo institucional y contraseña.',
+    };
+  }
+
+  if (mode === 'email') {
+    if (!EMAIL_REGEX.test(trimmed)) {
+      return {
+        mode: 'email',
+        isValid: false,
+        error: 'El formato de correo electrónico ingresado no es válido.',
+      };
+    }
+    return { mode: 'email', isValid: true, error: null };
+  }
+
+  // Modo RUN: requiere al menos 7 dígitos base + 1 DV (mínimo 8 caracteres limpios)
+  const clean = trimmed.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length < 8) {
+    return {
+      mode: 'rut',
+      isValid: false,
+      error: 'El RUN ingresado debe contener al menos 8 dígitos (ej: 12.345.678-9).',
+    };
+  }
+
+  if (!isValidRun(clean)) {
+    return {
+      mode: 'rut',
+      isValid: false,
+      error: 'El RUN ingresado no es válido (dígito verificador no corresponde).',
+    };
+  }
+
+  return { mode: 'rut', isValid: true, error: null };
+}
+
+export const validateLoginIdentifierLive = validateLoginIdentifier;
+
