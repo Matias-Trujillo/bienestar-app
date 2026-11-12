@@ -20,6 +20,9 @@ from app.models.beneficios import ParametroSistema
 # [ESTUDIANTE INFORMÁTICA] Engine asíncrono para SQLite en memoria compartida por prueba.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
+from app.core.config import settings
+settings.DATABASE_URL = TEST_DATABASE_URL
+
 
 @pytest.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:

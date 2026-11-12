@@ -33,6 +33,15 @@ router = APIRouter()
 MAX_INTENTOS_LOGIN = 5
 
 
+def _val(x: Any) -> str:
+    """Extrae el valor en string de forma segura tanto para Enum como para str nativo de PostgreSQL."""
+    if x is None:
+        return ""
+    if hasattr(x, "value"):
+        return str(x.value)
+    return str(x)
+
+
 def _clave_seguridad_usr(user_id: int) -> str:
     return f"SEC_USR_{user_id}"
 
@@ -200,13 +209,20 @@ def to_out(
     estado_pwd = "bloqueada" if bloqueada else ("cambio_pendiente" if debe_cambiar else "vigente")
     meses_ant = int(u.meses_antiguedad) if u.meses_antiguedad is not None else 0
 
+    rol_str = _val(u.rol)
+    try:
+        rol_enum = UserRole(rol_str)
+        rol_label = ROLE_LABELS.get(rol_enum, rol_str.capitalize())
+    except Exception:
+        rol_label = rol_str.capitalize()
+
     return UserOut(
         id=str(u.id),
         rut=u.rut,
         nombreCompleto=u.nombre_completo,
         email=u.email,
-        rol=u.rol.value,
-        rolLabel=ROLE_LABELS[u.rol],
+        rol=rol_str,
+        rolLabel=rol_label,
         isSuperuser=bool(u.is_superuser),
         isActive=bool(u.is_active),
         departamento=u.departamento,
@@ -272,7 +288,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
                     usuario_id=user.id,
                     usuario_nombre=user.nombre_completo,
                     usuario_rut=user.rut,
-                    usuario_rol=user.rol.value,
+                    usuario_rol=_val(user.rol),
                     modulo="SEGURIDAD",
                     accion="BLOQUEO_AUTOMATICO_CLAVE",
                     recurso_tipo="User",
@@ -308,7 +324,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     await obtener_resumen_socio(user, db)
     await db.refresh(user)
 
-    token = create_access_token(user.id, extra_claims={"rol": user.rol.value})
+    token = create_access_token(user.id, extra_claims={"rol": _val(user.rol)})
     return TokenResponse(access_token=token, user=to_out(user, sec))
 
 
@@ -335,17 +351,32 @@ async def cambiar_password_propia(
 
     sec = await obtener_seguridad_usuario(db, user.id)
 
-    if not sec["c"] and body.password_actual:
+    # Si es cambio voluntario (no tiene cambio obligatorio pendiente), exige clave actual
+    if not sec["c"]:
+        if not body.password_actual:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Debe ingresar su contraseña actual para autorizar el cambio de clave.",
+            )
         if not verify_password(body.password_actual, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="La contraseña actual ingresada no es correcta.",
             )
 
+    # Política de seguridad: la nueva clave debe ser distinta a la anterior
     if verify_password(nueva, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La nueva contraseña debe ser distinta a la clave temporal o anterior.",
+        )
+
+    # Política de seguridad municipal: la contraseña no puede contener los dígitos del RUN
+    rut_limpio = user.rut.replace(".", "").replace("-", "").strip()
+    if rut_limpio and len(rut_limpio) >= 6 and (rut_limpio in nueva or rut_limpio[:-1] in nueva):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Por seguridad, la nueva contraseña no puede contener su RUN.",
         )
 
     user.hashed_password = get_password_hash(nueva)
@@ -364,7 +395,7 @@ async def cambiar_password_propia(
             usuario_id=user.id,
             usuario_nombre=user.nombre_completo,
             usuario_rut=user.rut,
-            usuario_rol=user.rol.value,
+            usuario_rol=_val(user.rol),
             modulo="SEGURIDAD",
             accion="CAMBIO_PASSWORD_USUARIO",
             recurso_tipo="User",
@@ -509,7 +540,7 @@ async def recuperar_password_por_correo(
             usuario_id=user.id,
             usuario_nombre=user.nombre_completo,
             usuario_rut=user.rut,
-            usuario_rol=user.rol.value,
+            usuario_rol=_val(user.rol),
             modulo="SEGURIDAD",
             accion="RECUPERAR_PASSWORD_CORREO",
             recurso_tipo="User",
