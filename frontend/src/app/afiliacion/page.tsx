@@ -19,27 +19,18 @@ import { BuzonCorreosModal } from '@/components/ui/BuzonCorreosModal';
 const ROLES_DIRECTIVA = ['presidente', 'secretario', 'tesorero', 'admin', 'auditor', 'superusuario'];
 const ROLES_RESOLUTIVOS = ['presidente', 'secretario', 'superusuario'];
 
+const CERTIFICADO_INFO = {
+  titulo: 'Cédula de Identidad (Frontal)',
+  descripcion:
+    'Fotografía frontal clara o escaneo del carnet de identidad de la carga familiar para contrastar su RUN y nombres antes de autorizar.',
+};
+
 const CERTIFICADO_POR_PARENTESCO: Record<string, { titulo: string; descripcion: string }> = {
-  'Hijo/a': {
-    titulo: 'Certificado de Nacimiento del Hijo/a',
-    descripcion: 'Emitido por el Registro Civil donde conste el nombre, RUN del hijo/a y nombre de los padres.',
-  },
-  'Cónyuge': {
-    titulo: 'Certificado de Matrimonio',
-    descripcion: 'Certificado de Matrimonio vigente emitido por el Servicio de Registro Civil e Identificación.',
-  },
-  'Conviviente Civil': {
-    titulo: 'Certificado de Acuerdo de Unión Civil (AUC)',
-    descripcion: 'Certificado vigente de Acuerdo de Unión Civil emitido por el Registro Civil.',
-  },
-  'Padre / Madre': {
-    titulo: 'Certificado de Nacimiento del Socio Titular',
-    descripcion: 'Certificado de Nacimiento del propio socio titular para acreditar que la persona es su madre o padre.',
-  },
-  'Otro vínculo legal': {
-    titulo: 'Certificado o Resolución de Carga Legal',
-    descripcion: 'Resolución judicial o certificado oficial que acredite la carga familiar.',
-  },
+  'Hijo/a': CERTIFICADO_INFO,
+  'Cónyuge': CERTIFICADO_INFO,
+  'Conviviente Civil': CERTIFICADO_INFO,
+  'Padre / Madre': CERTIFICADO_INFO,
+  'Otro vínculo legal': CERTIFICADO_INFO,
 };
 
 interface CargaSocioItem {
@@ -112,8 +103,9 @@ export default function AfiliacionPage() {
   const [solicitudesCargas, setSolicitudesCargas] = useState<SolicitudCargaItem[]>([]);
   const [cargandoSolCargas, setCargandoSolCargas] = useState(false);
 
-  // Modal: Solicitar Nueva Carga Familiar (Socio)
+  // Modal: Solicitar Nueva Carga Familiar (Socio o Directiva asistida)
   const [modalNuevaCargaOpen, setModalNuevaCargaOpen] = useState(false);
+  const [socioAsistidoRut, setSocioAsistidoRut] = useState('');
   const [nuevaCargaNombre, setNuevaCargaNombre] = useState('');
   const [nuevaCargaRun, setNuevaCargaRun] = useState('');
   const [nuevaCargaParentesco, setNuevaCargaParentesco] = useState('Hijo/a');
@@ -232,9 +224,6 @@ export default function AfiliacionPage() {
     if (!token) return;
     setErrorNuevaCarga(null);
 
-    const certConfig =
-      CERTIFICADO_POR_PARENTESCO[nuevaCargaParentesco] || CERTIFICADO_POR_PARENTESCO['Hijo/a'];
-
     if (nuevaCargaNombre.trim().length < 3) {
       setErrorNuevaCarga('Ingrese el nombre completo de la carga familiar.');
       return;
@@ -244,26 +233,32 @@ export default function AfiliacionPage() {
       return;
     }
     if (!certificadoData || !certificadoNombre) {
-      setErrorNuevaCarga(`Debe adjuntar el ${certConfig.titulo} en formato PDF, JPG o PNG.`);
+      setErrorNuevaCarga('Debe adjuntar la fotografía frontal de la cédula de identidad en formato JPG, PNG o PDF.');
       return;
     }
 
     setEnviandoNuevaCarga(true);
     try {
+      const payloadBody: Record<string, unknown> = {
+        nombreCompleto: nuevaCargaNombre.trim(),
+        run: nuevaCargaRun.trim(),
+        parentesco: nuevaCargaParentesco,
+        observacionSocio: nuevaCargaObservacion.trim() || 'Cédula de Identidad (Frontal)',
+        certificadoNombre,
+        certificadoTipo: 'Cédula de Identidad (Frontal)',
+        certificadoData,
+      };
+      if (esDirectiva && socioAsistidoRut.trim()) {
+        payloadBody.socioRut = socioAsistidoRut.trim();
+      }
+
       const creada = await fetchFromApi<SolicitudCargaItem>('/afiliacion/mis-cargas', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          nombreCompleto: nuevaCargaNombre.trim(),
-          run: nuevaCargaRun.trim(),
-          parentesco: nuevaCargaParentesco,
-          observacionSocio: nuevaCargaObservacion.trim() || certConfig.titulo,
-          certificadoNombre,
-          certificadoTipo: certConfig.titulo,
-          certificadoData,
-        }),
+        body: JSON.stringify(payloadBody),
       });
       setModalNuevaCargaOpen(false);
+      setSocioAsistidoRut('');
       setNuevaCargaNombre('');
       setNuevaCargaRun('');
       setNuevaCargaParentesco('Hijo/a');
@@ -271,7 +266,7 @@ export default function AfiliacionPage() {
       setCertificadoNombre('');
       setCertificadoData('');
       setMensajeExito(
-        `Solicitud ${creada.folio} enviada a la Directiva con su ${certConfig.titulo} adjunto.`
+        `Solicitud ${creada.folio} enviada exitosamente. Se encuentra en estado Pendiente de Revisión por el Directorio de Bienestar.`
       );
       cargarMisCargas();
       cargarSolicitudesCargas();
@@ -283,6 +278,17 @@ export default function AfiliacionPage() {
     } finally {
       setEnviandoNuevaCarga(false);
     }
+  };
+
+  const handleAbrirSubsanacion = (carga: CargaSocioItem) => {
+    setNuevaCargaNombre(carga.nombre);
+    setNuevaCargaRun(carga.rut);
+    setNuevaCargaParentesco(carga.parentesco || 'Hijo/a');
+    setNuevaCargaObservacion('Subsanación: Fotografía corregida de la cédula de identidad');
+    setCertificadoNombre('');
+    setCertificadoData('');
+    setErrorNuevaCarga(null);
+    setModalNuevaCargaOpen(true);
   };
 
   const abrirFichaCarga = (sc: SolicitudCargaItem, modoInicial: 'aprobar' | 'rechazar' = 'aprobar') => {
@@ -737,14 +743,34 @@ export default function AfiliacionPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                            <span>Ver Certificado</span>
+                            <span>Ver Cédula Frontal</span>
                           </button>
                         )}
                       </div>
-                      {carga.observacionesResolucion && carga.estado === 'Rechazada' && (
-                        <span className="block text-[11px] text-rose-600 mt-0.5">
-                          Motivo rechazo: {carga.observacionesResolucion}
-                        </span>
+                      {carga.estado === 'Rechazada' && (
+                        <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-800 text-[11px] max-w-md">
+                          <div className="font-bold flex items-center gap-1.5 text-rose-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                            Motivo informado por Directorio:
+                          </div>
+                          <p className="mt-0.5 text-slate-700 italic">
+                            «{carga.observacionesResolucion || 'Fotografía ilegible o antecedentes discordantes.'}»
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleAbrirSubsanacion(carga)}
+                            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0f2942] hover:bg-[#006799] text-white font-bold text-[10.5px] transition shadow-xs cursor-pointer"
+                          >
+                            <span>↻</span>
+                            <span>Subsanar / Reintentar con nueva foto de carnet</span>
+                          </button>
+                        </div>
+                      )}
+                      {carga.estado === 'Pendiente de Revisión' && (
+                        <div className="mt-1 text-[11px] text-amber-700 font-medium flex items-center gap-1">
+                          <span>⏳</span>
+                          <span>En evaluación por el Directorio de Bienestar</span>
+                        </div>
                       )}
                     </td>
                     <td className="py-3.5 px-4 align-middle">
@@ -763,7 +789,7 @@ export default function AfiliacionPage() {
                               ? 'bg-emerald-500'
                               : carga.estado === 'Rechazada'
                               ? 'bg-rose-500'
-                              : 'bg-amber-500'
+                              : 'bg-amber-500 animate-pulse'
                           }`}
                         />
                         {carga.estado}
@@ -805,6 +831,28 @@ export default function AfiliacionPage() {
               </div>
 
               <div className="space-y-3.5">
+                {esDirectiva && (
+                  <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 block">
+                      Atención Presencial Asistida en Oficina (Directiva)
+                    </span>
+                    <label className="block text-xs font-bold text-slate-700">
+                      RUN del Socio Titular a quien se le inscribe la carga
+                    </label>
+                    <input
+                      type="text"
+                      value={socioAsistidoRut}
+                      onChange={(e) => setSocioAsistidoRut(formatRun(e.target.value))}
+                      placeholder="Ej: 13.579.246-2 (dejar vacío si es para usted)"
+                      maxLength={12}
+                      className="w-full px-3.5 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#006799] bg-white"
+                    />
+                    <span className="text-[10.5px] text-slate-500 block">
+                      Permite ingresar la carga directamente a nombre de un socio que acudió con su carnet físico a la oficina.
+                    </span>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Nombre Completo de la Carga Familiar *
@@ -860,30 +908,31 @@ export default function AfiliacionPage() {
                       onChange={(e) => setNuevaCargaParentesco(e.target.value)}
                       className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]"
                     >
-                      <option value="Hijo/a">Hijo/a (Cert. Nacimiento Hijo/a)</option>
-                      <option value="Cónyuge">Cónyuge (Cert. Matrimonio)</option>
-                      <option value="Padre / Madre">Padre / Madre (Cert. Nacimiento Socio)</option>
-                      <option value="Conviviente Civil">Conviviente Civil (Cert. Unión Civil)</option>
+                      <option value="Hijo/a">Hijo/a</option>
+                      <option value="Cónyuge">Cónyuge</option>
+                      <option value="Padre / Madre">Padre / Madre</option>
+                      <option value="Conviviente Civil">Conviviente Civil</option>
                       <option value="Otro vínculo legal">Otro vínculo legal</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Bloque dinámico de Certificado exigido según Parentesco */}
+                {/* Fotografía Frontal de Cédula de Identidad */}
                 <div className="rounded-2xl p-3.5 bg-sky-50/60 border border-sky-200/80 space-y-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#006799] block">
-                        Documento Exigido para «{nuevaCargaParentesco}» *
+                        Fotografía Frontal de Cédula de Identidad (Carnet) *
                       </span>
                       <span className="text-xs font-bold text-[#0f2942] inline-flex items-center gap-1.5 mt-0.5">
                         <svg className="w-4 h-4 text-[#006799] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span>{certRequeridoActual.titulo}</span>
+                        <span>Cédula de Identidad (Frontal)</span>
                       </span>
                       <span className="text-[11px] text-slate-600 block mt-0.5">
-                        {certRequeridoActual.descripcion}
+                        Fotografía o escaneo claro del carnet de identidad por el frente para contrastar visualmente el RUN y nombre, evitando errores al autorizar.
                       </span>
                     </div>
                   </div>
@@ -897,7 +946,7 @@ export default function AfiliacionPage() {
                               ✓
                             </span>
                             <span className="text-xs font-bold text-emerald-700 truncate">
-                              Archivo cargado: {certificadoNombre}
+                              Foto cargada: {certificadoNombre}
                             </span>
                           </>
                         ) : (
@@ -906,7 +955,7 @@ export default function AfiliacionPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                             </svg>
                             <span className="text-xs font-semibold text-[#006799] truncate">
-                              Seleccionar archivo ({certRequeridoActual.titulo} en PDF, JPG o PNG)
+                              Seleccionar foto frontal de carnet (JPG, PNG o PDF)
                             </span>
                           </>
                         )}
@@ -932,7 +981,7 @@ export default function AfiliacionPage() {
                     type="text"
                     value={nuevaCargaObservacion}
                     onChange={(e) => setNuevaCargaObservacion(e.target.value)}
-                    placeholder={`Ej: Se adjunta ${certRequeridoActual.titulo} emitido por Registro Civil`}
+                    placeholder="Ej: Se adjunta fotografía del carnet de identidad para contrastar datos"
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#006799]"
                   />
                 </div>
@@ -957,7 +1006,7 @@ export default function AfiliacionPage() {
                   disabled={enviandoNuevaCarga}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#0f2942] hover:bg-[#006799] transition shadow-sm cursor-pointer disabled:opacity-50"
                 >
-                  {enviandoNuevaCarga ? 'Enviando solicitud...' : 'Enviar Solicitud con Certificado'}
+                  {enviandoNuevaCarga ? 'Enviando solicitud...' : 'Enviar a Revisión de Directorio'}
                 </button>
               </div>
             </form>

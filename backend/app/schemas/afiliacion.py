@@ -122,8 +122,10 @@ class NuevaCargaIn(BaseModel):
     parentesco: Optional[str] = Field("Hijo/a", max_length=60)
     observacionSocio: Optional[str] = Field(None, max_length=500)
     certificadoNombre: Optional[str] = Field(None, max_length=255)
-    certificadoTipo: Optional[str] = Field(None, max_length=120)
+    certificadoTipo: Optional[str] = Field("Cédula de Identidad (Frontal)", max_length=120)
     certificadoData: Optional[str] = None
+    socioId: Optional[int] = None
+    socioRut: Optional[str] = None
 
     @field_validator("run")
     @classmethod

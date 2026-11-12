@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.models.base import Base
+from app.models import Base
 from app.models.user import User, UserRole
 from app.models.beneficios import ParametroSistema
 

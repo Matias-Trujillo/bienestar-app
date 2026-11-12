@@ -104,42 +104,52 @@ async def asegurar_tabla_cargas(db: AsyncSession) -> None:
     global _TABLA_CARGAS_LISTA
     if _TABLA_CARGAS_LISTA:
         return
-    await db.execute(
-        text(
-            """
-            CREATE TABLE IF NOT EXISTS solicitudes_cargas_familiares (
-                id SERIAL PRIMARY KEY,
-                folio VARCHAR(24) UNIQUE NOT NULL,
-                socio_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                socio_nombre VARCHAR(120) NOT NULL,
-                socio_rut VARCHAR(20) NOT NULL,
-                socio_email VARCHAR(120),
-                nombre_completo VARCHAR(120) NOT NULL,
-                run VARCHAR(15) NOT NULL,
-                parentesco VARCHAR(40) NOT NULL,
-                observacion_socio VARCHAR(300),
-                certificado_nombre VARCHAR(255),
-                certificado_tipo VARCHAR(120),
-                certificado_data TEXT,
-                estado estado_solicitud NOT NULL DEFAULT 'Pendiente de aprobación',
-                fecha_sesion VARCHAR(10),
-                numero_acta VARCHAR(50),
-                observaciones_resolucion VARCHAR(500),
-                resuelto_por VARCHAR(120),
-                resuelto_at VARCHAR(30),
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-            """
+    try:
+        bind = db.get_bind()
+        if bind and "sqlite" in getattr(bind.dialect, "name", ""):
+            _TABLA_CARGAS_LISTA = True
+            return
+    except Exception:
+        pass
+    try:
+        await db.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS solicitudes_cargas_familiares (
+                    id SERIAL PRIMARY KEY,
+                    folio VARCHAR(24) UNIQUE NOT NULL,
+                    socio_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+                    socio_nombre VARCHAR(120) NOT NULL,
+                    socio_rut VARCHAR(20) NOT NULL,
+                    socio_email VARCHAR(120),
+                    nombre_completo VARCHAR(120) NOT NULL,
+                    run VARCHAR(15) NOT NULL,
+                    parentesco VARCHAR(40) NOT NULL,
+                    observacion_socio VARCHAR(300),
+                    certificado_nombre VARCHAR(255),
+                    certificado_tipo VARCHAR(120),
+                    certificado_data TEXT,
+                    estado estado_solicitud NOT NULL DEFAULT 'Pendiente de aprobación',
+                    fecha_sesion VARCHAR(10),
+                    numero_acta VARCHAR(50),
+                    observaciones_resolucion VARCHAR(500),
+                    resuelto_por VARCHAR(120),
+                    resuelto_at VARCHAR(30),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """
+            )
         )
-    )
-    for col_sql in (
-        "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
-        "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
-        "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
-    ):
-        await db.execute(text(col_sql))
-    await db.commit()
+        for col_sql in (
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
+        ):
+            await db.execute(text(col_sql))
+        await db.commit()
+    except Exception:
+        pass
     _TABLA_CARGAS_LISTA = True
 
 
@@ -926,14 +936,18 @@ class AfiliacionService:
             for sc in todas_solicitudes_extra:
                 run_norm = re.sub(r"[^0-9kK]", "", sc.run or "").upper()
                 estado_val = sc.estado.value if isinstance(sc.estado, EstadoSolicitud) else str(sc.estado)
-                estado_mostrar = "Vigente" if estado_val == EstadoSolicitud.APROBADA.value else estado_val
                 if estado_val == EstadoSolicitud.APROBADA.value:
+                    estado_mostrar = "Vigente"
                     runs_vistos.add(run_norm)
+                elif estado_val == EstadoSolicitud.PENDIENTE.value:
+                    estado_mostrar = "Pendiente de Revisión"
+                elif estado_val == EstadoSolicitud.RECHAZADA.value:
+                    estado_mostrar = "Rechazada"
+                else:
+                    estado_mostrar = estado_val
 
                 parentesco_val = sc.parentesco or "Hijo/a"
-                cert_tipo = sc.certificado_tipo or TIPO_CERTIFICADO_POR_PARENTESCO.get(
-                    parentesco_val, "Certificado de Respaldo"
-                )
+                cert_tipo = sc.certificado_tipo or "Cédula de Identidad (Frontal)"
                 cargas_list.append({
                     "id": f"cf-{sc.id}",
                     "folio": sc.folio,
@@ -991,10 +1005,18 @@ class AfiliacionService:
         for sc in solicitudes_extra:
             run_norm = re.sub(r"[^0-9kK]", "", sc.run or "").upper()
             estado_val = sc.estado.value if isinstance(sc.estado, EstadoSolicitud) else str(sc.estado)
-            estado_mostrar = "Vigente" if estado_val == EstadoSolicitud.APROBADA.value else estado_val
             if estado_val == EstadoSolicitud.APROBADA.value:
+                estado_mostrar = "Vigente"
                 runs_vistos.add(run_norm)
+            elif estado_val == EstadoSolicitud.PENDIENTE.value:
+                estado_mostrar = "Pendiente de Revisión"
+            elif estado_val == EstadoSolicitud.RECHAZADA.value:
+                estado_mostrar = "Rechazada"
+            else:
+                estado_mostrar = estado_val
+
             parentesco_val = sc.parentesco or "Hijo/a"
+            cert_tipo = sc.certificado_tipo or "Cédula de Identidad (Frontal)"
             cargas_list.append({
                 "id": f"cf-{sc.id}",
                 "folio": sc.folio,
@@ -1003,7 +1025,7 @@ class AfiliacionService:
                 "rut": formatear_run(sc.run),
                 "observacion": sc.observacion_socio,
                 "certificadoNombre": sc.certificado_nombre,
-                "certificadoTipo": sc.certificado_tipo or TIPO_CERTIFICADO_POR_PARENTESCO.get(parentesco_val, "Certificado"),
+                "certificadoTipo": cert_tipo,
                 "certificadoData": sc.certificado_data,
                 "estado": estado_mostrar,
                 "fechaSolicitud": sc.created_at.strftime("%Y-%m-%d") if sc.created_at else None,
@@ -1014,19 +1036,44 @@ class AfiliacionService:
     @staticmethod
     async def solicitar_nueva_carga(db: AsyncSession, current_user: User, body: NuevaCargaIn) -> SolicitudCargaOut:
         await asegurar_tabla_cargas(db)
+
+        # Doble vía: Si es directiva/admin y se proporciona socioId o socioRut, asociar al socio asistido
+        es_directiva_o_admin = bool(
+            current_user.is_superuser
+            or _val(current_user.rol) in (
+                UserRole.ADMIN.value,
+                UserRole.SUPERUSUARIO.value,
+                UserRole.PRESIDENTE.value,
+                UserRole.SECRETARIO.value,
+                UserRole.TESORERO.value,
+            )
+        )
+        titular = current_user
+        if es_directiva_o_admin and (body.socioId is not None or body.socioRut):
+            if body.socioId is not None:
+                titular = await db.scalar(select(User).where(User.id == body.socioId))
+            elif body.socioRut:
+                rut_norm_busc = normalizar_run(body.socioRut)
+                titular = await db.scalar(select(User).where(User.rut == rut_norm_busc))
+            if not titular:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Socio titular no encontrado en los registros de Bienestar.",
+                )
+
         run_carga_norm = re.sub(r"[^0-9kK]", "", body.run).upper()
-        run_socio_norm = re.sub(r"[^0-9kK]", "", current_user.rut or "").upper()
-        if run_carga_norm == run_socio_norm:
+        run_titular_norm = re.sub(r"[^0-9kK]", "", titular.rut or "").upper()
+        if run_carga_norm == run_titular_norm:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="El RUN de la carga familiar no puede ser igual al RUN del socio titular.",
             )
-        parentesco_limpio = (body.parentesco or "Hijo/a").strip()
-        cert_tipo_exigido = TIPO_CERTIFICADO_POR_PARENTESCO.get(parentesco_limpio, "Certificado de Respaldo Legal")
+
+        # Exigencia de fotografía frontal de la cédula de identidad para verificar fehacientemente los datos
         if not body.certificadoData or not body.certificadoNombre:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Debe adjuntar el {cert_tipo_exigido} para respaldar la solicitud.",
+                detail="Debe adjuntar la fotografía frontal de la cédula de identidad para verificar el RUN y nombres de la carga familiar.",
             )
 
         existente = await db.scalar(
@@ -1055,18 +1102,21 @@ class AfiliacionService:
                 pass
         folio_nuevo = f"CF-{anio}-{max_corr + 1:05d}"
 
+        parentesco_limpio = (body.parentesco or "Hijo/a").strip()
+        cert_tipo = body.certificadoTipo or "Cédula de Identidad (Frontal)"
+
         nueva_sc = SolicitudCargaFamiliar(
             folio=folio_nuevo,
-            socio_id=current_user.id,
-            socio_nombre=current_user.nombre_completo,
-            socio_rut=formatear_run(current_user.rut),
-            socio_email=current_user.email,
+            socio_id=titular.id,
+            socio_nombre=titular.nombre_completo,
+            socio_rut=formatear_run(titular.rut),
+            socio_email=titular.email,
             nombre_completo=body.nombreCompleto.strip(),
             run=body.run,
             parentesco=parentesco_limpio,
-            observacion_socio=(body.observacionSocio or "").strip() or cert_tipo_exigido,
+            observacion_socio=(body.observacionSocio or "").strip() or cert_tipo,
             certificado_nombre=body.certificadoNombre.strip(),
-            certificado_tipo=body.certificadoTipo or cert_tipo_exigido,
+            certificado_tipo=cert_tipo,
             certificado_data=body.certificadoData,
             estado=EstadoSolicitud.PENDIENTE,
         )
@@ -1081,7 +1131,11 @@ class AfiliacionService:
                 accion="SOLICITUD_NUEVA_CARGA_FAMILIAR",
                 recurso_tipo="SolicitudCargaFamiliar",
                 recurso_id=folio_nuevo,
-                detalles=f"Solicitud nueva carga {body.nombreCompleto.strip()} ({parentesco_limpio}).",
+                detalles=(
+                    f"Solicitud nueva carga {body.nombreCompleto.strip()} ({parentesco_limpio}) "
+                    f"para titular {titular.nombre_completo} (RUN {titular.rut}) "
+                    f"{'(asistida en oficina)' if titular.id != current_user.id else '(autogestión)'}."
+                ),
                 ip_origen="127.0.0.1",
             )
         )
@@ -1114,6 +1168,11 @@ class AfiliacionService:
                 detail=f"La solicitud {sc.folio} ya fue resuelta ({_val(sc.estado)}).",
             )
 
+        socio = await db.scalar(select(User).where(User.id == sc.socio_id))
+        email_dest = sc.socio_email or (socio.email if socio else None)
+        run_formateado_carga = formatear_run(sc.run)
+        run_formateado_socio = sc.socio_rut or (formatear_run(socio.rut) if socio else "")
+
         if body.accion == "aprobar":
             sc.estado = EstadoSolicitud.APROBADA
             sc.fecha_sesion = body.fechaSesion or date.today().isoformat()
@@ -1122,14 +1181,43 @@ class AfiliacionService:
             sc.resuelto_por = f"{evaluador.nombre_completo} ({_val(evaluador.rol)})"
             sc.resuelto_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-            socio = await db.scalar(select(User).where(User.id == sc.socio_id))
             if socio:
                 socio.cargas_registradas = int(socio.cargas_registradas or 0) + 1
+
+            generar_correo_resolucion_carga_familiar(
+                folio=sc.folio,
+                socio_nombre=sc.socio_nombre,
+                socio_rut=run_formateado_socio,
+                email_destino=email_dest,
+                carga_nombre=sc.nombre_completo,
+                carga_run=run_formateado_carga,
+                parentesco=sc.parentesco or "Carga Familiar",
+                aprobada=True,
+                motivo=sc.observaciones_resolucion,
+                fecha_sesion=sc.fecha_sesion,
+                numero_acta=sc.numero_acta,
+                enviar_smtp=True,
+            )
         else:
             sc.estado = EstadoSolicitud.RECHAZADA
             sc.observaciones_resolucion = (body.observaciones or "").strip() or "Rechazada por Directorio"
             sc.resuelto_por = f"{evaluador.nombre_completo} ({_val(evaluador.rol)})"
             sc.resuelto_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+            generar_correo_resolucion_carga_familiar(
+                folio=sc.folio,
+                socio_nombre=sc.socio_nombre,
+                socio_rut=run_formateado_socio,
+                email_destino=email_dest,
+                carga_nombre=sc.nombre_completo,
+                carga_run=run_formateado_carga,
+                parentesco=sc.parentesco or "Carga Familiar",
+                aprobada=False,
+                motivo=sc.observaciones_resolucion,
+                fecha_sesion=sc.fecha_sesion,
+                numero_acta=sc.numero_acta,
+                enviar_smtp=True,
+            )
 
         db.add(
             AuditLog(

@@ -21,7 +21,7 @@ from app.models import (
     User,
     UserRole,
 )
-from app.schemas.afiliacion import ResolucionSolicitudIn, SolicitudIn
+from app.schemas.afiliacion import NuevaCargaIn, ResolucionSolicitudIn, SolicitudIn
 from app.services.afiliacion_service import AfiliacionService
 
 
@@ -336,3 +336,263 @@ async def test_obtener_buzon_correos_con_filtro(
     buzon_filtrado = await AfiliacionService.obtener_buzon(db_session, q=comp.folio)
     assert buzon_filtrado["total"] >= 1
     assert any(m["folio"] == comp.folio for m in buzon_filtrado["correos"])
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que la autogestión de carga por el socio quede en estado 'Pendiente de Revisión' con foto frontal de cédula.
+async def test_socio_solicita_nueva_carga_queda_pendiente_de_revision(
+    db_session: AsyncSession,
+) -> None:
+    socio = User(
+        rut="13.579.246-2",
+        email="gvaldes@mperalillo.cl",
+        nombre_completo="Gonzalo Valdés",
+        hashed_password="hash",
+        rol=UserRole.SOCIO,
+        cargas_registradas=0,
+    )
+    db_session.add(socio)
+    await db_session.commit()
+    await db_session.refresh(socio)
+
+    payload = NuevaCargaIn(
+        nombreCompleto="Martina Valdés Pérez",
+        run="23.456.789-6",
+        parentesco="Hijo/a",
+        observacionSocio="Cédula frontal vigente",
+        certificadoNombre="carnet_martina_frontal.jpg",
+        certificadoTipo="Cédula de Identidad (Frontal)",
+        certificadoData="data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+    )
+
+    out = await AfiliacionService.solicitar_nueva_carga(db_session, socio, payload)
+    assert out.folio.startswith("CF-")
+    assert out.socioId == socio.id
+    assert out.nombreCompleto == "Martina Valdés Pérez"
+    assert out.estado == EstadoSolicitud.PENDIENTE.value
+
+    mis_cargas = await AfiliacionService.obtener_mis_cargas(db_session, socio)
+    assert mis_cargas["modoVista"] == "socio"
+    assert len(mis_cargas["cargas"]) >= 1
+    carga_item = next(c for c in mis_cargas["cargas"] if c["folio"] == out.folio)
+    assert carga_item["estado"] == "Pendiente de Revisión"
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida la vía de atención asistida en oficina: Directiva ingresa carga para un socio titular.
+async def test_directiva_asiste_y_agrega_carga_en_nombre_de_socio(
+    db_session: AsyncSession,
+) -> None:
+    directiva = User(
+        rut="10.234.567-8",
+        email="directiva@mperalillo.cl",
+        nombre_completo="Secretaria Directiva",
+        hashed_password="hash",
+        rol=UserRole.SECRETARIO,
+    )
+    socio = User(
+        rut="14.567.890-1",
+        email="msoto@mperalillo.cl",
+        nombre_completo="María Soto Alarcón",
+        hashed_password="hash",
+        rol=UserRole.SOCIO,
+        cargas_registradas=0,
+    )
+    db_session.add_all([directiva, socio])
+    await db_session.commit()
+    await db_session.refresh(directiva)
+    await db_session.refresh(socio)
+
+    payload = NuevaCargaIn(
+        nombreCompleto="Tomás Muñoz Soto",
+        run="24.567.890-8",
+        parentesco="Hijo/a",
+        certificadoNombre="cedula_frontal_tomas.png",
+        certificadoData="data:image/png;base64,iVBORw0KGgoAAA==",
+        socioId=socio.id,
+    )
+
+    out = await AfiliacionService.solicitar_nueva_carga(db_session, directiva, payload)
+    assert out.socioId == socio.id
+    assert out.socioNombre == "María Soto Alarcón"
+    assert out.estado == EstadoSolicitud.PENDIENTE.value
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que un socio regular no pueda suplantar ni asignar cargas a otro socio titular.
+async def test_socio_no_puede_asignar_carga_a_otro_titular(
+    db_session: AsyncSession,
+) -> None:
+    socio_a = User(
+        rut="15.678.901-2",
+        email="socioa@mperalillo.cl",
+        nombre_completo="Socio Legitimo A",
+        hashed_password="hash",
+        rol=UserRole.SOCIO,
+    )
+    socio_b = User(
+        rut="16.789.012-3",
+        email="sociob@mperalillo.cl",
+        nombre_completo="Socio Titular B",
+        hashed_password="hash",
+        rol=UserRole.SOCIO,
+    )
+    db_session.add_all([socio_a, socio_b])
+    await db_session.commit()
+    await db_session.refresh(socio_a)
+    await db_session.refresh(socio_b)
+
+    payload = NuevaCargaIn(
+        nombreCompleto="Felipe Araya",
+        run="25.678.901-9",
+        parentesco="Hijo/a",
+        certificadoNombre="cedula_felipe.jpg",
+        certificadoData="data:image/jpeg;base64,abc",
+        socioId=socio_b.id,  # Intento indebido de asignar a otro usuario
+    )
+
+    out = await AfiliacionService.solicitar_nueva_carga(db_session, socio_a, payload)
+    # Debe quedar forzado a socio_a (el usuario autenticado)
+    assert out.socioId == socio_a.id
+    assert out.socioNombre == socio_a.nombre_completo
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que se rechace con 422 la solicitud de carga que no adjunte la foto frontal de la cédula.
+async def test_solicitud_carga_rechaza_falta_de_foto_carnet(
+    db_session: AsyncSession,
+) -> None:
+    socio = User(
+        rut="17.890.123-4",
+        email="socio_sin_foto@mperalillo.cl",
+        nombre_completo="Juan Sin Foto",
+        hashed_password="hash",
+        rol=UserRole.SOCIO,
+    )
+    db_session.add(socio)
+    await db_session.commit()
+    await db_session.refresh(socio)
+
+    payload = NuevaCargaIn(
+        nombreCompleto="Catalina Sin Carnet",
+        run="26.789.012-9",
+        parentesco="Hijo/a",
+        certificadoNombre=None,
+        certificadoData=None,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await AfiliacionService.solicitar_nueva_carga(db_session, socio, payload)
+    assert exc_info.value.status_code == 422
+    assert "fotografía frontal de la cédula de identidad" in exc_info.value.detail
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que la aprobación en Directorio incremente cargas_registradas del socio y emita correo.
+async def test_resolucion_carga_aprobada_incrementa_contador_y_emite_correo(
+    db_session: AsyncSession,
+) -> None:
+    evaluador = User(
+        rut="11.234.567-9",
+        email="presidente@mperalillo.cl",
+        nombre_completo="Presidente Directorio",
+        hashed_password="hash",
+        rol=UserRole.PRESIDENTE,
+    )
+    socio = User(
+        rut="18.901.234-9",
+        email="titular_aprobado@mperalillo.cl",
+        nombre_completo="Rodrigo Navarro",
+        hashed_password="hash",
+        rol=UserRole.SOCIO,
+        cargas_registradas=0,
+    )
+    db_session.add_all([evaluador, socio])
+    await db_session.commit()
+    await db_session.refresh(evaluador)
+    await db_session.refresh(socio)
+
+    payload = NuevaCargaIn(
+        nombreCompleto="Sofía Navarro Gómez",
+        run="27.890.123-8",
+        parentesco="Hijo/a",
+        certificadoNombre="cedula_sofia.jpg",
+        certificadoData="data:image/jpeg;base64,12345",
+    )
+    solicitud = await AfiliacionService.solicitar_nueva_carga(db_session, socio, payload)
+
+    resolucion = ResolucionSolicitudIn(
+        accion="aprobar",
+        fechaSesion="2026-05-15",
+        numeroActa="Acta N° 08/2026",
+        observaciones="Cédula frontal contrastada y conforme.",
+    )
+    res_out = await AfiliacionService.resolver_solicitud_carga(
+        db_session, solicitud.folio, resolucion, evaluador
+    )
+
+    assert res_out.estado == EstadoSolicitud.APROBADA.value
+    await db_session.refresh(socio)
+    assert socio.cargas_registradas == 1
+
+    mis_cargas = await AfiliacionService.obtener_mis_cargas(db_session, socio)
+    item = next(c for c in mis_cargas["cargas"] if c["folio"] == solicitud.folio)
+    assert item["estado"] == "Vigente"
+
+    # Verificar que el correo transaccional de aprobación está disponible en el buzón institucional
+    buzon = await AfiliacionService.obtener_buzon(db_session, q=solicitud.folio)
+    assert buzon["total"] >= 1
+    assert any("APROBADA" in m.get("asunto", "") for m in buzon["correos"])
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que el rechazo en Directorio registre el motivo para que el usuario pueda subsanar.
+async def test_resolucion_carga_rechazada_registra_motivo_para_subsanacion(
+    db_session: AsyncSession,
+) -> None:
+    evaluador = User(
+        rut="12.345.678-0",
+        email="tesorero@mperalillo.cl",
+        nombre_completo="Tesorero Municipal",
+        hashed_password="hash",
+        rol=UserRole.TESORERO,
+    )
+    socio = User(
+        rut="19.012.345-6",
+        email="titular_rechazado@mperalillo.cl",
+        nombre_completo="Ignacio Castro",
+        hashed_password="hash",
+        rol=UserRole.SOCIO,
+        cargas_registradas=0,
+    )
+    db_session.add_all([evaluador, socio])
+    await db_session.commit()
+    await db_session.refresh(evaluador)
+    await db_session.refresh(socio)
+
+    payload = NuevaCargaIn(
+        nombreCompleto="Esteban Castro Díaz",
+        run="28.901.234-6",
+        parentesco="Hijo/a",
+        certificadoNombre="carnet_borroso.jpg",
+        certificadoData="data:image/jpeg;base64,9876",
+    )
+    solicitud = await AfiliacionService.solicitar_nueva_carga(db_session, socio, payload)
+
+    motivo_rechazo = "Fotografía de la cédula borrosa, no se aprecia el RUN ni la firma."
+    resolucion = ResolucionSolicitudIn(
+        accion="rechazar",
+        observaciones=motivo_rechazo,
+    )
+    res_out = await AfiliacionService.resolver_solicitud_carga(
+        db_session, solicitud.folio, resolucion, evaluador
+    )
+
+    assert res_out.estado == EstadoSolicitud.RECHAZADA.value
+    await db_session.refresh(socio)
+    assert socio.cargas_registradas == 0  # No incrementa
+
+    mis_cargas = await AfiliacionService.obtener_mis_cargas(db_session, socio)
+    item = next(c for c in mis_cargas["cargas"] if c["folio"] == solicitud.folio)
+    assert item["estado"] == "Rechazada"
+    assert item["observacionesResolucion"] == motivo_rechazo
+
+    # Verificar que el correo transaccional de rechazo está registrado
+    buzon = await AfiliacionService.obtener_buzon(db_session, q=solicitud.folio)
+    assert buzon["total"] >= 1
+    assert any("RECHAZADA" in m.get("asunto", "") for m in buzon["correos"])
+
