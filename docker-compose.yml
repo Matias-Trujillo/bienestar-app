@@ -78,7 +78,7 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-superadmin@mperalillo.cl}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-Super#2026}
-      PGADMIN_CONFIG_DEFAULT_SERVER: "0.0.0.0"
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
       PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
     ports:
       - "8080:80"
