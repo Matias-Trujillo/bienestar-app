@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { formatCurrency } from '../lib/utils';
 
 interface DashboardCardsProps {
@@ -10,6 +11,82 @@ interface DashboardCardsProps {
   cargasFamiliares?: number;
 }
 
+interface PrimaryHealthPanelProps {
+  anioActual: number;
+  dispReal: number;
+  topeReal: number;
+  saldoUtilizado: number;
+  porcentajeDisponible: number;
+}
+
+// [ESTUDIANTE INFORMÁTICA] Panel principal (7 columnas) para el Saldo Anual de Salud con cifras tabulares y desglose exacto.
+const PrimaryHealthPanel: React.FC<PrimaryHealthPanelProps> = ({
+  anioActual,
+  dispReal,
+  topeReal,
+  saldoUtilizado,
+  porcentajeDisponible,
+}) => (
+  <div className="lg:col-span-7 bg-white rounded-lg border border-slate-200 border-l-4 border-l-[#166534] p-5 flex flex-col justify-between">
+    <div>
+      <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#0c2b45]">
+            Cupo Anual de Reembolsos Médicos y Dentales
+          </span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200 tabular-nums">
+            Ejercicio {anioActual}
+          </span>
+        </div>
+        <Link
+          href="/reembolsos"
+          className="text-xs font-semibold text-[#006799] hover:underline shrink-0"
+        >
+          Ver cartola médica →
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-4">
+        <div className="sm:col-span-2">
+          <p className="text-xs font-medium text-slate-500 mb-1">Saldo Disponible Actual</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+              {formatCurrency(dispReal)}
+            </span>
+            <span className="text-xs text-slate-500 font-medium tabular-nums">
+              de {formatCurrency(topeReal)}
+            </span>
+          </div>
+        </div>
+        <div className="p-3 rounded-md bg-slate-50 border border-slate-200 flex flex-col justify-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Monto Utilizado / Retenido
+          </span>
+          <span className="text-base font-bold text-slate-800 tabular-nums mt-0.5">
+            {formatCurrency(saldoUtilizado)}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div className="space-y-2 pt-2 border-t border-slate-100">
+      <div className="w-full bg-slate-100 rounded-sm h-2 overflow-hidden border border-slate-200/60">
+        <div
+          className="bg-[#166534] h-full transition-all duration-300"
+          style={{ width: `${porcentajeDisponible}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-[11px] text-slate-500 tabular-nums">
+        <span>
+          <strong className="text-slate-800">{porcentajeDisponible}%</strong> del tope anual disponible
+        </span>
+        <span>Renovación estatutaria: 01/01/{anioActual + 1}</span>
+      </div>
+    </div>
+  </div>
+);
+
+// [ESTUDIANTE INFORMÁTICA] Composición asimétrica (7 + 5 columnas) que jerarquiza el saldo financiero sobre los indicadores de filiación.
 export const DashboardCards: React.FC<DashboardCardsProps> = ({
   saldoDisponible = 150000,
   saldoTotal = 150000,
@@ -23,123 +100,63 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
   const porcentajeDisponible = Math.round((dispReal / topeReal) * 100);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      {/* Tarjeta 1: Saldo Anual de Salud Disponible */}
-      <div className="relative overflow-hidden rounded-2xl bg-white p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition">
-        {/* Decoración de fondo */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#558b2f]/10 blur-xl pointer-events-none" />
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <PrimaryHealthPanel
+        anioActual={anioActual}
+        dispReal={dispReal}
+        topeReal={topeReal}
+        saldoUtilizado={saldoUtilizado}
+        porcentajeDisponible={porcentajeDisponible}
+      />
 
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Fondo Médico y Dental
+      <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+        {/* Panel Secundario 1: Estado Previsional y Retención 4% */}
+        <div className="bg-white rounded-lg border border-slate-200 border-l-4 border-l-[#006799] p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Situación Previsional (Cuota 4%)
             </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-              Año {anioActual}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-sky-50 text-[#006799] border border-sky-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#166534]" />
+              Habilitado
             </span>
           </div>
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-lime-50 text-[#558b2f] border border-lime-100">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
+          <div className="flex items-baseline justify-between my-1">
+            <span className="text-xl font-extrabold text-slate-900">{estadoPrevisional}</span>
+            <span className="text-xs font-mono text-slate-500 tabular-nums">Desc. Planilla RRHH</span>
+          </div>
+          <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>Cotización al día según Ley N° 19.754</span>
+            <Link href="/finanzas" className="font-semibold text-[#006799] hover:underline">
+              Nómina →
+            </Link>
           </div>
         </div>
 
-        <p className="text-sm font-medium text-slate-600 mb-1">
-          Saldo Anual de Salud Disponible
-        </p>
-
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {formatCurrency(dispReal)}
-          </span>
-          <span className="text-xs text-slate-400 font-medium">
-            / {formatCurrency(topeReal)} tope año calendario
-          </span>
-        </div>
-
-        {/* Barra de progreso de saldo con Verde y Azul Peralillo */}
-        <div className="w-full bg-slate-100 rounded-full h-2.5 mb-2 overflow-hidden">
-          <div
-            className="bg-gradient-to-r from-[#558b2f] via-[#65a30d] to-[#0077b6] h-2.5 rounded-full transition-all duration-500"
-            style={{ width: `${porcentajeDisponible}%` }}
-          />
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>{porcentajeDisponible}% disponible • Renueva 1 Ene {anioActual + 1}</span>
-          <span>Utilizado: {formatCurrency(saldoUtilizado)}</span>
-        </div>
-      </div>
-
-      {/* Tarjeta 2: Estado Previsional */}
-      <div className="relative overflow-hidden rounded-2xl bg-white p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition">
-        {/* Decoración de fondo */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#0077b6]/10 blur-xl pointer-events-none" />
-
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Condición de Afiliado
-          </span>
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-sky-50 text-[#0077b6] border border-sky-100">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
+        {/* Panel Secundario 2: Cargas Familiares Registradas */}
+        <div className="bg-white rounded-lg border border-slate-200 border-l-4 border-l-[#b45309] p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Grupo Familiar Acreditado
+            </span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-[#b45309] border border-amber-200">
+              Cobertura 100%
+            </span>
           </div>
-        </div>
-
-        <p className="text-sm font-medium text-slate-600 mb-1">
-          Estado Previsional
-        </p>
-
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {estadoPrevisional}
-          </span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-50 text-[#0077b6] border border-sky-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#558b2f]"></span>
-            Habilitado
-          </span>
-        </div>
-
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>Último aporte cuota: <strong className="text-slate-700">Marzo 2026</strong></span>
-          <span>Descuento por planilla</span>
-        </div>
-      </div>
-
-      {/* Tarjeta 3: Cargas Familiares y Cobertura (Complementaria) */}
-      <div className="relative overflow-hidden rounded-2xl bg-white p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition md:col-span-2 lg:col-span-1">
-        {/* Decoración de fondo */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-amber-500/10 blur-xl pointer-events-none" />
-
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Grupo Familiar
-          </span>
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-50 text-amber-700 border border-amber-100">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
+          <div className="flex items-baseline gap-2 my-1">
+            <span className="text-xl font-extrabold text-slate-900 tabular-nums">
+              {cargasFamiliares}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">
+              {cargasFamiliares === 1 ? 'carga familiar vigente' : 'cargas familiares vigentes'}
+            </span>
           </div>
-        </div>
-
-        <p className="text-sm font-medium text-slate-600 mb-1">
-          Cargas Familiares Vigentes
-        </p>
-
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {cargasFamiliares}
-          </span>
-          <span className="text-xs text-slate-500 font-medium">
-            beneficiarios registrados
-          </span>
-        </div>
-
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>Cobertura de salud activa</span>
-          <span className="text-emerald-600 font-semibold">100% amparados</span>
+          <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>Habilitadas para reembolsos y escolaridad</span>
+            <Link href="/afiliacion" className="font-semibold text-[#006799] hover:underline">
+              Gestionar cargas →
+            </Link>
+          </div>
         </div>
       </div>
     </div>

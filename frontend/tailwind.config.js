@@ -70,6 +70,14 @@ module.exports = {
           900: '#0c4a6e',
           950: '#082f49',
         },
+        // [ESTUDIANTE INFORMÁTICA] Paleta semántica Data-Dense oficial según INSTRUCCIONES_AGENTE.md
+        municipal: {
+          navy: '#0c2b45',
+          blue: '#006799',
+          green: '#166534',
+          gold: '#b45309',
+          surface: '#f8fafc',
+        },
       },
     },
   },

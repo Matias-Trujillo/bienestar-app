@@ -13,7 +13,7 @@ interface FiltrosAprobacionesProps {
   conteoPendientes: number;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Componente de control para búsqueda y filtrado por estado y tramos de días.
+// [ESTUDIANTE INFORMÁTICA] Barra de filtrado directivo con selector segmentado y control de SLA de revisión.
 export const FiltrosAprobaciones: React.FC<FiltrosAprobacionesProps> = ({
   filtroEstado,
   setFiltroEstado,
@@ -24,37 +24,45 @@ export const FiltrosAprobaciones: React.FC<FiltrosAprobacionesProps> = ({
   conteoPendientes,
 }) => {
   return (
-    <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-50/50">
+    <div className="p-3.5 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-50/70">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200">
+        <div className="inline-flex items-center p-0.5 bg-slate-200/70 rounded-md border border-slate-300/80">
           <button
             onClick={() => setFiltroEstado('en_revision')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
-              filtroEstado === 'en_revision' ? 'bg-amber-500 text-white' : 'text-slate-600 hover:bg-slate-100'
+            className={`px-3 py-1 text-xs font-semibold rounded transition-colors tabular-nums ${
+              filtroEstado === 'en_revision'
+                ? 'bg-[#b45309] text-white font-bold'
+                : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Pendientes ({conteoPendientes})
           </button>
           <button
             onClick={() => setFiltroEstado('aprobado')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
-              filtroEstado === 'aprobado' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+            className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+              filtroEstado === 'aprobado'
+                ? 'bg-[#166534] text-white font-bold'
+                : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Aprobadas
           </button>
           <button
             onClick={() => setFiltroEstado('rechazado')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
-              filtroEstado === 'rechazado' ? 'bg-rose-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+            className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+              filtroEstado === 'rechazado'
+                ? 'bg-rose-700 text-white font-bold'
+                : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Rechazadas
           </button>
           <button
             onClick={() => setFiltroEstado('todos')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
-              filtroEstado === 'todos' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'
+            className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+              filtroEstado === 'todos'
+                ? 'bg-[#0c2b45] text-white font-bold'
+                : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Todas
@@ -64,21 +72,21 @@ export const FiltrosAprobaciones: React.FC<FiltrosAprobacionesProps> = ({
         <select
           value={filtroDias}
           onChange={(e) => setFiltroDias(e.target.value as 'todos' | TramoDias)}
-          className="text-xs font-medium border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700"
+          className="text-xs font-semibold border border-slate-300 rounded-md px-2.5 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#006799]"
         >
-          <option value="todos">Todos los plazos</option>
-          <option value="verde">Menos de 5 días (Verde)</option>
-          <option value="amarillo">5 a 9 días (Amarillo)</option>
-          <option value="rojo">10 o más días (Rojo)</option>
+          <option value="todos">Plazo de revisión: Todos</option>
+          <option value="verde">Al día (&lt; 5 días)</option>
+          <option value="amarillo">Atención (5 a 9 días)</option>
+          <option value="rojo">Prioritario (≥ 10 días)</option>
         </select>
       </div>
 
       <input
         type="text"
-        placeholder="Buscar por RUT, nombre o código RMB..."
+        placeholder="Filtrar por RUN, nombre o folio RMB..."
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
-        className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 w-full lg:w-72 bg-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+        className="text-xs px-3 py-1.5 rounded-md border border-slate-300 w-full lg:w-72 bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]"
       />
     </div>
   );

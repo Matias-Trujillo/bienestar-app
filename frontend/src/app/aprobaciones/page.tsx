@@ -117,23 +117,36 @@ export default function AprobacionesPage() {
   const conteoPendientes = solicitudes.filter((s) => s.estado === 'en_revision').length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Bandeja de Aprobaciones — Reembolsos Médicos</h1>
-          <p className="text-xs text-slate-500">Auditoría, revisión colegiada de comprobantes y resolución directiva.</p>
+    <div className="space-y-5 animate-fade-in">
+      <div className="rounded-lg bg-[#0c2b45] text-white border border-slate-800 overflow-hidden">
+        <div className="h-1 w-full bg-[#b45309]" />
+        <div className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300 block">
+              Módulo 2 • HU-04 • Bandeja Colegiada de Directiva
+            </span>
+            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              Auditoría y Resolución de Reembolsos Médicos
+            </h1>
+            <p className="text-xs text-slate-300">
+              Control de plazo de 30 días, visor de respaldos adjuntos y restitución automática de cupo ante rechazos.
+            </p>
+          </div>
+          <Link
+            href="/reembolsos"
+            className="px-3 py-1.5 text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/15 rounded-md border border-white/15 shrink-0"
+          >
+            ← Cartola Socio
+          </Link>
         </div>
-        <Link href="/reembolsos" className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">
-          ← Portal Reembolsos
-        </Link>
       </div>
 
-      {successMsg && <div className="p-3 text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg font-bold">{successMsg}</div>}
-      {errorMsg && <div className="p-3 text-xs bg-rose-50 text-rose-800 border border-rose-200 rounded-lg font-bold">{errorMsg}</div>}
+      {successMsg && <div className="p-3 text-xs bg-emerald-50 text-[#166534] border border-emerald-300 rounded-md font-bold">{successMsg}</div>}
+      {errorMsg && <div className="p-3 text-xs bg-rose-50 text-rose-800 border border-rose-300 rounded-md font-bold">{errorMsg}</div>}
 
       <AprobacionesStatsCards solicitudes={solicitudes} />
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <FiltrosAprobaciones
           filtroEstado={filtroEstado}
           setFiltroEstado={setFiltroEstado}

@@ -13,73 +13,56 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-// HU-01: el funcionario aún no es socio, por lo que la solicitud de incorporación es pública
+// [ESTUDIANTE INFORMÁTICA] Rutas públicas del portal (login y formulario de postulación HU-01) que operan sin barra lateral.
 const PUBLIC_ROUTES = ['/login', '/afiliacion/solicitud'];
+
+// [ESTUDIANTE INFORMÁTICA] Vista de carga sobria y de alto contraste mientras se valida la sesión JWT del funcionario.
+const LoadingPortalState: React.FC = () => (
+  <div className="min-h-screen bg-[#0c2b45] flex items-center justify-center">
+    <div className="flex items-center gap-3 px-5 py-3.5 rounded-lg bg-white/5 border border-white/15">
+      <div className="w-5 h-5 border-2 border-[#006799] border-t-white rounded-full animate-spin" />
+      <p className="text-xs font-semibold tracking-wide text-slate-200 uppercase">
+        Verificando credenciales • Bienestar Peralillo
+      </p>
+    </div>
+  </div>
+);
+
+// [ESTUDIANTE INFORMÁTICA] Ensamblador estructural Data-Dense: coordina navegación lateral fija, encabezado superior y área operativa.
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
-
-  // Rutas públicas: no requieren sesión ni muestran Sidebar/Header
   const isPublic = PUBLIC_ROUTES.includes(pathname);
 
   useEffect(() => {
-    // Si terminó de cargar y no está autenticado, redirigir a /login
     if (!isLoading && !isAuthenticated && !isPublic) {
       router.push('/login');
     }
   }, [isLoading, isAuthenticated, isPublic, router]);
 
-  if (isPublic) {
-    return <>{children}</>;
-  }
-
-  // Mientras verifica el estado de autenticación en la primera carga
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-[#0077b6] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-sm font-semibold text-slate-300">Cargando Portal de Bienestar Peralillo...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Si no está autenticado y aún no completa la redirección
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (isPublic) return <>{children}</>;
+  if (isLoading) return <LoadingPortalState />;
+  if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex">
-      {/* Experiencia animada de bienvenida post-login */}
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex">
       <WelcomeLoginExperience />
-
-      {/* Modal obligatorio si el Super Admin restableció la contraseña del usuario */}
       <ModalCambioPasswordObligatorio />
-
-      {/* Barra Lateral / Sidebar (Desktop fija, Móvil deslizante) */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Contenedor Principal con espacio inferior en móviles para la barra de navegación */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-72 transition-all pb-16 lg:pb-0">
-        {/* Encabezado Superior / Header */}
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 transition-all pb-16 lg:pb-0">
         <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-
-        {/* Área de Contenido de la Página adaptativa */}
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-7 max-w-[1400px] w-full mx-auto">
           {children}
         </main>
-
-        {/* Footer */}
-        <footer className="py-4 px-6 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white/50 mb-14 lg:mb-0">
-          Comité de Bienestar &copy; {new Date().getFullYear()} • I. Municipalidad de Peralillo
+        <footer className="py-3 px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-500 border-t border-slate-200 bg-white mb-14 lg:mb-0">
+          <span>Comité de Bienestar • I. Municipalidad de Peralillo</span>
+          <span className="font-mono text-slate-400">Marco Normativo Ley N° 19.754</span>
         </footer>
       </div>
 
-      {/* Barra de Navegación Inferior Móvil (Bottom Navigation Bar) */}
       <BottomNav onOpenSidebar={() => setSidebarOpen(true)} />
     </div>
   );

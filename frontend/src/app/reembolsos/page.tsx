@@ -352,85 +352,76 @@ export default function ReembolsosPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Encabezado */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Reembolsos Médicos y Dentales</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Módulo de solicitud, auditoría y liquidación de reembolsos de salud • HU-03
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/"
-            className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition"
-          >
-            ← Dashboard
-          </Link>
-          <button
-            onClick={handleAbrirModal}
-            disabled={!puedeSolicitar}
-            title={!puedeSolicitar ? 'Requiere al menos 6 meses de antigüedad' : undefined}
-            id="btn-nueva-solicitud"
-            className={`px-5 py-2 text-xs font-semibold rounded-xl transition-all ${puedeSolicitar
-                ? 'text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-md shadow-emerald-600/20 hover:shadow-lg active:scale-[0.98]'
-                : 'text-slate-400 bg-slate-200 cursor-not-allowed'
+    <div className="space-y-5 animate-fade-in">
+      {/* Cabecera Ejecutiva del Módulo Reembolsos */}
+      <div className="rounded-lg bg-[#0c2b45] text-white border border-slate-800 overflow-hidden">
+        <div className="h-1 w-full bg-[#166534]" />
+        <div className="p-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-300 block">
+              Módulo 2 • HU-03 • Prestaciones de Salud
+            </span>
+            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              Reembolsos Médicos, Farmacia y Dental
+            </h1>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Plazo reglamentario de 30 días corridos desde la atención • Retención preventiva de cupo en revisión
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/"
+              className="px-3 py-1.5 text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/15 rounded-md border border-white/15 transition-colors"
+            >
+              ← Hoja Socio
+            </Link>
+            <button
+              onClick={handleAbrirModal}
+              disabled={!puedeSolicitar}
+              title={!puedeSolicitar ? 'Requiere al menos 6 meses de antigüedad' : undefined}
+              id="btn-nueva-solicitud"
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                puedeSolicitar
+                  ? 'text-white bg-[#166534] hover:bg-emerald-700 border border-emerald-500/40'
+                  : 'text-slate-400 bg-slate-700 cursor-not-allowed'
               }`}
-          >
-            ✚ Nueva Solicitud
-          </button>
+            >
+              + Ingresar Solicitud
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Alerta de carencia */}
+      {/* Alerta normativa de carencia (6 meses) */}
       {!puedeSolicitar && (
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 animate-fade-in">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-amber-100 text-amber-600">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
+        <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-300 border-l-4 border-l-[#b45309] text-amber-900">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-bold">Período de Carencia Activo</p>
-              <p className="text-xs mt-0.5">{resumen.mensaje_carencia}</p>
-              {resumen.fecha_habilitacion && (
-                <p className="text-xs mt-1 font-semibold text-amber-900">
-                  📅 Fecha de habilitación estimada: {formatDate(resumen.fecha_habilitacion)}
-                </p>
-              )}
+              <p className="text-xs font-bold uppercase tracking-wider text-[#b45309]">
+                Período de Carencia Estatutaria Activo (6 Meses)
+              </p>
+              <p className="text-xs mt-0.5 text-slate-700">{resumen.mensaje_carencia}</p>
             </div>
+            {resumen.fecha_habilitacion && (
+              <span className="px-2.5 py-1 rounded bg-white border border-amber-300 text-xs font-mono font-bold text-[#b45309] tabular-nums shrink-0">
+                Habilitación: {formatDate(resumen.fecha_habilitacion)}
+              </span>
+            )}
           </div>
         </div>
       )}
 
-      {/* Notificaciones */}
       {successMsg && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between shadow-sm animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 text-white flex-shrink-0">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <p className="text-sm font-semibold">{successMsg}</p>
-          </div>
-          <button onClick={() => setSuccessMsg(null)} className="text-emerald-600 hover:text-emerald-800 font-bold text-sm">✕</button>
+        <div className="p-3 rounded-md bg-emerald-50 border border-emerald-300 text-[#166534] flex items-center justify-between text-xs font-bold">
+          <span>✓ {successMsg}</span>
+          <button onClick={() => setSuccessMsg(null)} className="px-2 hover:text-emerald-950">✕</button>
         </div>
       )}
 
       {errorMsg && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between shadow-sm animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-rose-500 text-white flex-shrink-0">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <p className="text-sm font-semibold">{errorMsg}</p>
-          </div>
-          <button onClick={() => setErrorMsg(null)} className="text-rose-600 hover:text-rose-800 font-bold text-sm">✕</button>
+        <div className="p-3 rounded-md bg-rose-50 border border-rose-300 text-rose-800 flex items-center justify-between text-xs font-bold">
+          <span>✕ {errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} className="px-2 hover:text-rose-950">✕</button>
         </div>
       )}
 

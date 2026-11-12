@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
@@ -26,10 +26,67 @@ interface NominaResponse {
   socios: SocioNomina[];
 }
 
+// [ESTUDIANTE INFORMÁTICA] Cabecera y resumen ejecutivo del Módulo 4 (Control Financiero y Retención 4% — HU-07 / HU-08).
+const FinanzasSummarySection: React.FC<{ nomina: NominaResponse | null }> = ({ nomina }) => (
+  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <div className="lg:col-span-7 p-4 bg-white rounded-lg border border-slate-200 border-l-4 border-l-[#006799] flex flex-col justify-between">
+      <div>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[#006799] block">
+          Parámetros de Recaudación Mensual • Ley N° 19.754
+        </span>
+        <h2 className="text-sm font-bold text-slate-900 mt-0.5">
+          Resumen de Cuotas Sociales por Descuento de Planilla
+        </h2>
+      </div>
+
+      <div className="grid grid-cols-3 divide-x divide-slate-200 mt-3 pt-3 border-t border-slate-100 text-xs">
+        <div className="pr-3">
+          <span className="text-[10px] text-slate-500 uppercase font-semibold block">Tasa Estatutaria</span>
+          <span className="text-base font-extrabold text-slate-900 font-mono tabular-nums">4,0% Base</span>
+        </div>
+        <div className="px-3">
+          <span className="text-[10px] text-slate-500 uppercase font-semibold block">Padrón Activo RRHH</span>
+          <span className="text-base font-extrabold text-[#166534] font-mono tabular-nums">
+            {nomina ? `${nomina.totalSociosEnNomina} socios` : '—'}
+          </span>
+        </div>
+        <div className="pl-3">
+          <span className="text-[10px] text-slate-500 uppercase font-semibold block">Período Vigente</span>
+          <span className="text-base font-extrabold text-[#0c2b45] font-mono tabular-nums">
+            {nomina?.periodo || '2026-11'}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div className="lg:col-span-5 p-4 bg-white rounded-lg border border-slate-200 border-l-4 border-l-[#166534] flex flex-col justify-between">
+      <div>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[#166534] block">
+          Conciliación y Rendición a Remuneraciones
+        </span>
+        <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+          Emisión de nómina oficial de descuento del 4% sobre sueldo base para cruce bancario y RRHH.
+        </p>
+      </div>
+      <div className="pt-3 mt-3 border-t border-slate-100">
+        <button
+          onClick={() => alert('Generando y descargando Nómina de Retenciones RRHH en formato oficial...')}
+          className="w-full py-2 px-3 rounded-md bg-[#0c2b45] hover:bg-[#006799] text-white flex items-center justify-between text-xs font-bold transition-colors"
+        >
+          <span>Exportar Planilla Oficial de Retención 4% (RRHH)</span>
+          <span className="font-mono text-[11px] bg-white/15 px-2 py-0.5 rounded">XLS / PDF</span>
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// [ESTUDIANTE INFORMÁTICA] Módulo 4 de Control Financiero: libro mayor Data-Dense con filtro interactivo de socios en nómina.
 export default function FinanzasPage() {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
   const [nomina, setNomina] = useState<NominaResponse | null>(null);
   const [cargandoNomina, setCargandoNomina] = useState(false);
+  const [filtroSocio, setFiltroSocio] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -42,149 +99,116 @@ export default function FinanzasPage() {
       .finally(() => setCargandoNomina(false));
   }, [token]);
 
+  const sociosFiltrados = useMemo(() => {
+    if (!nomina?.socios) return [];
+    if (!filtroSocio.trim()) return nomina.socios;
+    const q = filtroSocio.toLowerCase().trim();
+    return nomina.socios.filter(
+      (s) =>
+        s.nombreCompleto.toLowerCase().includes(q) ||
+        s.run.toLowerCase().includes(q) ||
+        s.folio.toLowerCase().includes(q)
+    );
+  }, [nomina, filtroSocio]);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Control Financiero del Comité</h1>
-          <p className="text-xs text-slate-500">Transparencia, balances e ingresos por cuotas de socios (4% sueldo base)</p>
-        </div>
-        <Link
-          href="/"
-          className="px-4 py-2 text-xs font-semibold text-[#0077b6] bg-sky-50 hover:bg-sky-100 rounded-xl transition"
-        >
-          ← Volver al Dashboard
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-          <h2 className="text-sm font-bold text-slate-700 uppercase">Resumen de Cuotas Sociales</h2>
-          <div className="flex justify-between items-center py-2 border-b border-slate-100 text-xs">
-            <span className="text-slate-600">Porcentaje Descuento Reglamentario:</span>
-            <span className="font-bold text-slate-800">4% Sueldo Base</span>
-          </div>
-          <div className="flex justify-between items-center py-2 border-b border-slate-100 text-xs">
-            <span className="text-slate-600">Socios en Nómina de Retención RRHH:</span>
-            <span className="font-bold text-emerald-700">{nomina ? `${nomina.totalSociosEnNomina} funcionarios` : 'Consultando...'}</span>
-          </div>
-          <div className="flex justify-between items-center py-2 text-xs">
-            <span className="text-slate-600">Período de Aplicación:</span>
-            <span className="font-extrabold text-slate-800 text-sm">{nomina?.periodo || '2026-10'}</span>
-          </div>
-        </div>
-
-        <div className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-          <h2 className="text-sm font-bold text-slate-700 uppercase">Auditoría y Transparencia</h2>
-          <p className="text-xs text-slate-500">
-            Descarga las rendiciones de cuentas trimestrales y nóminas remitidas a Remuneraciones / RRHH.
-          </p>
-          <div className="space-y-2 pt-2">
-            <button
-              onClick={() => alert('Generando y descargando Nómina de Retenciones RRHH en formato oficial...')}
-              className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between text-xs font-medium text-slate-700 transition"
-            >
-              <span>Exportar Nómina de Retención 4% a Planilla RRHH</span>
-              <span className="text-emerald-700 font-bold">XLS / PDF</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Nómina de Retenciones (HU-02) */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+    <div className="space-y-5 animate-fade-in">
+      <div className="rounded-lg bg-[#0c2b45] text-white border border-slate-800 overflow-hidden">
+        <div className="h-1 w-full bg-[#006799]" />
+        <div className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-800">
-              Nómina Activa de Retenciones por Planilla (4% Sueldo Base) — HU-02
-            </h2>
-            <p className="text-xs text-slate-500">
-              Socios aprobados en sesión ordinaria con descuento programado para Recursos Humanos y cómputo de carencia
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-300 block">
+              Módulo 4 • HU-07 & HU-08 • Tesorería y Presupuesto
+            </span>
+            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              Control Financiero y Nómina de Retenciones (4%)
+            </h1>
+            <p className="text-xs text-slate-300">
+              Padrón auditable de descuentos por planilla, actas de aprobación y fechas de término de carencia.
             </p>
           </div>
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            {nomina?.totalSociosEnNomina ?? 0} socios registrados
-          </span>
+          <Link
+            href="/"
+            className="px-3 py-1.5 text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/15 rounded-md border border-white/15 shrink-0"
+          >
+            ← Hoja Socio
+          </Link>
+        </div>
+      </div>
+
+      <FinanzasSummarySection nomina={nomina} />
+
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-bold text-[#0c2b45] uppercase tracking-wider">
+              Nómina Activa de Retenciones por Planilla (4% Sueldo Base) — HU-02
+            </h2>
+            <p className="text-[11px] text-slate-500">
+              Funcionarios admitidos en sesión ordinaria con retención mensual vigente
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={filtroSocio}
+              onChange={(e) => setFiltroSocio(e.target.value)}
+              placeholder="Filtrar por RUN, folio o nombre..."
+              className="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#006799] w-56"
+            />
+            <span className="px-2.5 py-1 rounded text-xs font-mono font-bold bg-emerald-50 text-[#166534] border border-emerald-200 tabular-nums">
+              {sociosFiltrados.length} registros
+            </span>
+          </div>
         </div>
 
         {cargandoNomina && !nomina ? (
-          <p className="text-xs text-slate-400">Cargando nómina...</p>
-        ) : !nomina || nomina.socios.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">No hay socios aprobados en nómina de retenciones aún.</p>
+          <div className="p-8 text-center text-xs text-slate-400">Consultando nómina de retenciones...</div>
+        ) : sociosFiltrados.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400">
+            No existen funcionarios en nómina para el filtro indicado.
+          </div>
         ) : (
-          <>
-            {/* Vista Móvil: Tarjetas de Nómina */}
-            <div className="block md:hidden divide-y divide-slate-100">
-              {nomina.socios.map((s) => (
-                <div key={s.folio} className="py-3.5 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded">
-                      {s.folio}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-[#0077b6] border border-sky-200">
-                      {s.porcentajeRetencion}% sueldo base
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">{s.nombreCompleto}</h4>
-                    <p className="text-xs text-slate-500 font-mono">RUN: {s.run} • Grado {s.grado} ({s.calidadContractual})</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs p-2.5 bg-slate-50 rounded-xl">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">Sesión / Acta</span>
-                      <span className="text-slate-700">{s.fechaSesionAprobacion}</span>
-                      <span className="text-[10px] text-slate-400 block truncate">{s.numeroActa || 'Acta Ordinaria'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">Fin Carencia</span>
-                      <span className="font-semibold text-emerald-700">{s.finCarencia}</span>
-                      <span className="text-[10px] text-slate-400 block">Derecho a beneficios</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Vista Tablet / Desktop: Tabla Tradicional */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase">
-                    <th className="py-3 px-4">Folio Solicitud</th>
-                    <th className="py-3 px-4">RUN</th>
-                    <th className="py-3 px-4">Funcionario</th>
-                    <th className="py-3 px-4">Grado / Contrato</th>
-                    <th className="py-3 px-4">% Retención</th>
-                    <th className="py-3 px-4">Aprobación (Acta)</th>
-                    <th className="py-3 px-4">Término Carencia (6 Meses)</th>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] text-slate-500 font-bold uppercase tracking-wider">
+                  <th className="py-2.5 px-4">Folio</th>
+                  <th className="py-2.5 px-4">RUN</th>
+                  <th className="py-2.5 px-4">Funcionario Municipal</th>
+                  <th className="py-2.5 px-4">Escala / Contrato</th>
+                  <th className="py-2.5 px-4 text-center">Retención</th>
+                  <th className="py-2.5 px-4">Sesión / Acta</th>
+                  <th className="py-2.5 px-4">Fin Carencia (6m)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {sociosFiltrados.map((s) => (
+                  <tr key={s.folio} className="hover:bg-slate-50/90 transition-colors">
+                    <td className="py-3 px-4 font-mono font-bold text-slate-800 tabular-nums">{s.folio}</td>
+                    <td className="py-3 px-4 font-mono text-slate-700 tabular-nums whitespace-nowrap">{s.run}</td>
+                    <td className="py-3 px-4 font-bold text-slate-900">{s.nombreCompleto}</td>
+                    <td className="py-3 px-4 text-slate-600">
+                      Grado {s.grado} • <span className="capitalize">{s.calidadContractual}</span>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-sky-50 text-[#006799] border border-sky-200 tabular-nums">
+                        {s.porcentajeRetencion}% Base
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-slate-700 tabular-nums">
+                      <div className="font-mono font-semibold">{s.fechaSesionAprobacion}</div>
+                      <div className="text-[10px] text-slate-500">{s.numeroActa || 'Acta Ordinaria'}</div>
+                    </td>
+                    <td className="py-3 px-4 tabular-nums">
+                      <div className="font-mono font-bold text-[#166534]">{s.finCarencia}</div>
+                      <div className="text-[10px] text-slate-500">Habilitación salud</div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {nomina.socios.map((s) => (
-                    <tr key={s.folio} className="hover:bg-slate-50/60 transition">
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700">{s.folio}</td>
-                      <td className="py-3.5 px-4 font-mono text-slate-600">{s.run}</td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-800">{s.nombreCompleto}</td>
-                      <td className="py-3.5 px-4 text-slate-600">{s.grado} • {s.calidadContractual}</td>
-                      <td className="py-3.5 px-4">
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 text-[#0077b6] border border-sky-200">
-                          {s.porcentajeRetencion}% sueldo base
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600">
-                        <div>{s.fechaSesionAprobacion}</div>
-                        <div className="text-[10px] text-slate-400">{s.numeroActa || 'Acta Ordinaria'}</div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-emerald-700">{s.finCarencia}</div>
-                        <div className="text-[10px] text-slate-400">Derecho a beneficios</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

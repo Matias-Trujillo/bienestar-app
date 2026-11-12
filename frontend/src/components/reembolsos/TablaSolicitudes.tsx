@@ -3,29 +3,31 @@ import { SolicitudReembolso, EstadoReembolso, TipoPrestacion, TIPO_PRESTACION_LA
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { obtenerAnioSolicitud } from './ResumenSaludCards';
 
+// [ESTUDIANTE INFORMÁTICA] Mapea el estado del reembolso a su variante cromática institucional con alto contraste.
 export function getEstadoBadge(estado: EstadoReembolso) {
   const map: Record<EstadoReembolso, { bg: string; dot: string }> = {
-    borrador: { bg: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
-    en_revision: { bg: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
-    aprobado: { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-    rechazado: { bg: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
-    pagado: { bg: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+    borrador: { bg: 'bg-slate-50 text-slate-600 border-slate-300', dot: 'bg-slate-400' },
+    en_revision: { bg: 'bg-amber-50 text-[#b45309] border-amber-300', dot: 'bg-[#b45309]' },
+    aprobado: { bg: 'bg-emerald-50 text-[#166534] border-emerald-300', dot: 'bg-[#166534]' },
+    rechazado: { bg: 'bg-rose-50 text-rose-700 border-rose-300', dot: 'bg-rose-600' },
+    pagado: { bg: 'bg-sky-50 text-[#006799] border-sky-300', dot: 'bg-[#006799]' },
   };
   return map[estado] || map.borrador;
 }
 
-export function getTipoPrestacionIcon(tipo: TipoPrestacion) {
-  const icons: Record<TipoPrestacion, string> = {
-    farmacia: '💊',
-    consulta: '🩺',
-    dental: '🦷',
-    examenes: '🔬',
-    optica: '👓',
-    hospitalizacion: '🏥',
-    programa_medico: '📑',
-    otros: '📋',
+// [ESTUDIANTE INFORMÁTICA] Retorna la sigla técnica de prestación en lugar de emojis informales.
+export function getTipoPrestacionIcon(tipo: TipoPrestacion): string {
+  const codes: Record<TipoPrestacion, string> = {
+    farmacia: 'FAR',
+    consulta: 'CON',
+    dental: 'DEN',
+    examenes: 'EXA',
+    optica: 'OPT',
+    hospitalizacion: 'HOS',
+    programa_medico: 'PRG',
+    otros: 'OTR',
   };
-  return icons[tipo] || '📋';
+  return codes[tipo] || 'MED';
 }
 
 interface TablaSolicitudesProps {
@@ -36,6 +38,94 @@ interface TablaSolicitudesProps {
   onVerDetalle: (sol: SolicitudReembolso) => void;
 }
 
+const ESTADO_FILTERS = [
+  { key: 'todos', label: 'Todos' },
+  { key: 'en_revision', label: 'En Revisión' },
+  { key: 'aprobado', label: 'Aprobados' },
+  { key: 'pagado', label: 'Pagados' },
+  { key: 'rechazado', label: 'Rechazados' },
+] as const;
+
+interface HeaderFiltrosProps {
+  anioActual: number;
+  aniosDisponibles: number[];
+  filtroAnio: 'todos' | number;
+  setFiltroAnio: (a: 'todos' | number) => void;
+  filtroEstado: string;
+  setFiltroEstado: (e: string) => void;
+}
+
+// [ESTUDIANTE INFORMÁTICA] Barra de filtrado por ejercicio contable y estado de resolución.
+const TablaSolicitudesToolbar: React.FC<HeaderFiltrosProps> = ({
+  anioActual,
+  aniosDisponibles,
+  filtroAnio,
+  setFiltroAnio,
+  filtroEstado,
+  setFiltroEstado,
+}) => (
+  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between px-4 py-3.5 border-b border-slate-200 bg-slate-50/70 gap-3">
+    <div>
+      <div className="flex items-center gap-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-[#0c2b45]">
+          Cartola de Solicitudes de Reembolso
+        </h2>
+        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-white text-slate-600 border border-slate-200 tabular-nums">
+          Tope $150.000 / Año
+        </span>
+      </div>
+      <p className="text-[11px] text-slate-500 mt-0.5">
+        Imputación independiente por año calendario (01 Ene – 31 Dic).
+      </p>
+    </div>
+
+    <div className="flex items-center gap-2 flex-wrap">
+      {aniosDisponibles.length > 1 && (
+        <div className="inline-flex items-center p-0.5 rounded-md bg-slate-200/70 border border-slate-300/80">
+          <button
+            type="button"
+            onClick={() => setFiltroAnio('todos')}
+            className={`px-2.5 py-1 text-[11px] font-semibold rounded transition-colors ${
+              filtroAnio === 'todos' ? 'bg-white text-[#0c2b45] font-bold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Todos
+          </button>
+          {aniosDisponibles.map((anio) => (
+            <button
+              key={anio}
+              type="button"
+              onClick={() => setFiltroAnio(anio)}
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded transition-colors tabular-nums ${
+                filtroAnio === anio ? 'bg-white text-[#166534] font-bold' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {anio} {anio === anioActual ? '(Vigente)' : ''}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="inline-flex p-0.5 bg-slate-200/70 rounded-md border border-slate-300/80">
+        {ESTADO_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFiltroEstado(f.key)}
+            className={`px-2.5 py-1 text-[11px] font-semibold rounded transition-colors ${
+              filtroEstado === f.key
+                ? 'bg-[#0c2b45] text-white'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// [ESTUDIANTE INFORMÁTICA] Tabla de reembolsos del socio con densidad financiera, códigos técnicos y montos tabulares.
 export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
   solicitudes,
   filtroEstado,
@@ -57,160 +147,59 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
   });
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-      {/* Header de la tabla */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-800">Historial de Solicitudes</h2>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
-              Tope $150.000 por Año Calendario (1 Ene – 31 Dic)
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Los reembolsos de años anteriores (ej. diciembre {anioActual - 1}) no descuentan del cupo disponible en {anioActual}.
-          </p>
-        </div>
+    <section className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <TablaSolicitudesToolbar
+        anioActual={anioActual}
+        aniosDisponibles={aniosDisponibles}
+        filtroAnio={filtroAnio}
+        setFiltroAnio={setFiltroAnio}
+        filtroEstado={filtroEstado}
+        setFiltroEstado={setFiltroEstado}
+      />
 
-        {/* Filtros por Año Calendario y Estado */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {aniosDisponibles.length > 1 && (
-            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/70">
-              <button
-                type="button"
-                onClick={() => setFiltroAnio('todos')}
-                className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
-                  filtroAnio === 'todos'
-                    ? 'bg-white text-slate-800 shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                Todos los años
-              </button>
-              {aniosDisponibles.map((anio) => (
-                <button
-                  key={anio}
-                  type="button"
-                  onClick={() => setFiltroAnio(anio)}
-                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
-                    filtroAnio === anio
-                      ? 'bg-white text-emerald-700 shadow-2xs'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Año {anio} {anio === anioActual ? '(Vigente)' : '(Cerrado)'}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {[
-              { key: 'todos', label: 'Todos' },
-              { key: 'en_revision', label: 'En Revisión' },
-              { key: 'aprobado', label: 'Aprobados' },
-              { key: 'pagado', label: 'Pagados' },
-              { key: 'rechazado', label: 'Rechazados' },
-            ].map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFiltroEstado(f.key)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
-                  filtroEstado === f.key
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Contenido de la tabla */}
       {solicitudesFiltradas.length === 0 ? (
-        <div className="p-8 text-center">
-          <p className="text-sm text-slate-400">No hay solicitudes que mostrar con el filtro seleccionado.</p>
+        <div className="p-8 text-center text-xs text-slate-400">
+          No existen solicitudes registradas bajo el criterio seleccionado.
         </div>
       ) : (
         <>
-          {/* Vista Móvil: Tarjetas para Smartphones */}
-          <div className="block md:hidden divide-y divide-slate-100">
+          {/* Vista Móvil Compacta */}
+          <div className="block md:hidden divide-y divide-slate-200">
             {solicitudesFiltradas.map((sol) => {
               const badge = getEstadoBadge(sol.estado);
               const anioSol = obtenerAnioSolicitud(sol);
-              const esAnioAnterior = anioSol < anioActual;
               return (
-                <div key={sol.id} className="p-4 hover:bg-slate-50/60 transition space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{getTipoPrestacionIcon(sol.tipo_prestacion)}</span>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-mono font-bold text-slate-800">{sol.codigo}</span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                              esAnioAnterior
-                                ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
-                            }`}
-                          >
-                            Cupo {anioSol}
-                          </span>
-                        </div>
-                        <p className="text-[11px] font-semibold text-slate-700">
-                          {TIPO_PRESTACION_LABELS[sol.tipo_prestacion]}
-                        </p>
-                      </div>
-                    </div>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badge.bg}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                <div key={sol.id} className="p-3.5 space-y-2 hover:bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
+                      {sol.codigo} • {anioSol}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badge.bg}`}>
                       {sol.estado.replace('_', ' ')}
                     </span>
                   </div>
-
-                  {sol.descripcion && (
-                    <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
-                      {sol.descripcion}
-                    </p>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">Beneficiario</span>
-                      <span className="font-medium text-slate-700">{sol.beneficiario_nombre}</span>
-                      <span className="text-[10px] text-slate-400 block">({sol.beneficiario_parentesco})</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block uppercase">Fecha Atención</span>
-                      <span className="text-slate-700 font-medium">{formatDate(sol.fecha_atencion)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-sky-50/50 border border-sky-100/60">
-                    <div>
-                      <span className="text-[10px] text-slate-500 block">Monto Boleta: {formatCurrency(sol.monto_boleta)}</span>
-                      <span className="text-xs font-bold text-emerald-700">
-                        Reembolso: {formatCurrency(sol.monto_reembolso)}
-                      </span>
-                    </div>
+                  <p className="text-xs font-bold text-slate-800">
+                    {TIPO_PRESTACION_LABELS[sol.tipo_prestacion]} — {sol.beneficiario_nombre}
+                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-xs font-mono font-bold text-[#166534] tabular-nums">
+                      Reembolso: {formatCurrency(sol.monto_reembolso)}
+                    </span>
                     <div className="flex items-center gap-1.5">
                       {sol.comprobante_filename && (
                         <button
                           type="button"
                           onClick={() => onVerComprobante(sol)}
-                          className="px-2.5 py-1 text-xs font-semibold text-[#0077b6] bg-white border border-sky-200 rounded-lg shadow-2xs hover:bg-sky-50 transition"
-                          title="Ver Comprobante"
+                          className="px-2 py-1 text-[11px] font-bold text-[#006799] bg-white border border-slate-300 rounded"
                         >
                           Doc
                         </button>
                       )}
                       <button
                         onClick={() => onVerDetalle(sol)}
-                        className="px-3 py-1 text-xs font-semibold text-white bg-[#0077b6] hover:bg-[#0369a1] rounded-lg shadow-2xs transition"
+                        className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#006799] rounded"
                       >
-                        Ver Ficha
+                        Ficha
                       </button>
                     </div>
                   </div>
@@ -219,128 +208,104 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
             })}
           </div>
 
-          {/* Vista Tablet / Desktop: Tabla Completa */}
+          {/* Vista Desktop Data-Dense */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/60">
-                  <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Código</th>
-                  <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Tipo</th>
-                  <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Beneficiario</th>
-                  <th className="text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Fecha / Año Calendario</th>
-                  <th className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Monto Boleta</th>
-                  <th className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Reembolso</th>
-                  <th className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Estado</th>
-                  <th className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Comprobante</th>
-                  <th className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Detalle</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5">Folio</th>
+                  <th className="px-4 py-2.5">Prestación / Glosa</th>
+                  <th className="px-4 py-2.5">Beneficiario</th>
+                  <th className="px-4 py-2.5">Atención / Ejercicio</th>
+                  <th className="px-4 py-2.5 text-right">Boleta CLP</th>
+                  <th className="px-4 py-2.5 text-right">Reembolso CLP</th>
+                  <th className="px-4 py-2.5 text-center">Estado</th>
+                  <th className="px-4 py-2.5 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-200 text-xs">
                 {solicitudesFiltradas.map((sol) => {
                   const badge = getEstadoBadge(sol.estado);
                   const anioSol = obtenerAnioSolicitud(sol);
                   const esAnioAnterior = anioSol < anioActual;
                   return (
-                    <tr key={sol.id} className="hover:bg-slate-50/60 transition-colors">
-                      {/* Código */}
-                      <td className="px-5 py-3.5">
-                        <span className="text-xs font-mono font-bold text-slate-800">{sol.codigo}</span>
+                    <tr key={sol.id} className="hover:bg-slate-50/90 transition-colors">
+                      <td className="px-4 py-3 font-mono font-bold text-slate-800 tabular-nums whitespace-nowrap">
+                        {sol.codigo}
                       </td>
-
-                      {/* Tipo */}
-                      <td className="px-5 py-3.5">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-base">{getTipoPrestacionIcon(sol.tipo_prestacion)}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 text-[10px] font-mono font-bold text-[#0c2b45]">
+                            {getTipoPrestacionIcon(sol.tipo_prestacion)}
+                          </span>
                           <div>
-                            <p className="text-xs font-semibold text-slate-700">
+                            <p className="font-bold text-slate-900">
                               {TIPO_PRESTACION_LABELS[sol.tipo_prestacion]}
                             </p>
-                            <p className="text-[11px] text-slate-400 truncate max-w-[180px]" title={sol.descripcion}>
-                              {sol.descripcion || 'Sin descripción'}
+                            <p className="text-[11px] text-slate-500 truncate max-w-[200px]" title={sol.descripcion}>
+                              {sol.descripcion || 'Sin observaciones'}
                             </p>
                           </div>
                         </div>
                       </td>
-
-                      {/* Beneficiario */}
-                      <td className="px-5 py-3.5">
-                        <p className="text-xs font-medium text-slate-700">{sol.beneficiario_nombre}</p>
-                        <p className="text-[10px] text-slate-400">{sol.beneficiario_parentesco}</p>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-slate-800">{sol.beneficiario_nombre}</p>
+                        <p className="text-[10px] text-slate-500">{sol.beneficiario_parentesco}</p>
                       </td>
-
-                      {/* Fecha atención y año calendario de imputación */}
-                      <td className="px-5 py-3.5">
-                        <p className="text-xs text-slate-700 font-medium">{formatDate(sol.fecha_atencion)}</p>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="font-mono text-slate-800 font-semibold tabular-nums">
+                          {formatDate(sol.fecha_atencion)}
+                        </p>
                         <span
-                          className={`inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold tabular-nums ${
                             esAnioAnterior
-                              ? 'bg-slate-100 text-slate-600'
-                              : 'bg-emerald-50 text-emerald-700'
+                              ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                              : 'bg-emerald-50 text-[#166534] border border-emerald-200'
                           }`}
-                          title={
-                            esAnioAnterior
-                              ? `Imputado al año calendario ${anioSol}. El cupo de $150.000 se renovó el 1 de enero de ${anioActual}.`
-                              : `Imputado al cupo vigente del año calendario ${anioSol}.`
-                          }
                         >
-                          Cupo {anioSol} {esAnioAnterior ? '• Cerrado' : '• Vigente'}
+                          Cupo {anioSol}
                         </span>
                       </td>
-
-                      {/* Monto boleta */}
-                      <td className="px-5 py-3.5 text-right text-xs font-semibold text-slate-700">
+                      <td className="px-4 py-3 text-right font-mono font-semibold text-slate-700 tabular-nums whitespace-nowrap">
                         {formatCurrency(sol.monto_boleta)}
                       </td>
-
-                      {/* Reembolso calculado */}
-                      <td className="px-5 py-3.5 text-right">
-                        <span className="text-xs font-bold text-emerald-700">
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <span className="font-mono font-bold text-[#166534] tabular-nums">
                           {formatCurrency(sol.monto_reembolso)}
                         </span>
-                        <span className="block text-[10px] text-slate-400">
+                        <span className="block text-[10px] text-slate-400 tabular-nums">
                           {esAnioAnterior
-                            ? `No descuenta en ${anioActual}`
+                            ? `Cerrado ${anioSol}`
                             : sol.monto_copago > 0
                             ? `${Math.round((sol.monto_reembolso / sol.monto_copago) * 100)}% copago`
-                            : 'Reembolso directo'}
+                            : 'Directo'}
                         </span>
                       </td>
-
-                      {/* Estado badge */}
-                      <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${badge.bg}`}>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border ${badge.bg}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
                           {sol.estado.replace('_', ' ')}
                         </span>
                       </td>
-
-                      {/* Comprobante archivo */}
-                      <td className="px-5 py-3.5 text-center">
-                        {sol.comprobante_filename ? (
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
+                          {sol.comprobante_filename && (
+                            <button
+                              type="button"
+                              onClick={() => onVerComprobante(sol)}
+                              className="px-2 py-1 text-[11px] font-bold text-[#006799] bg-white hover:bg-sky-50 border border-slate-300 rounded transition-colors"
+                              title={`Ver ${sol.comprobante_filename}`}
+                            >
+                              Doc
+                            </button>
+                          )}
                           <button
-                            type="button"
-                            onClick={() => onVerComprobante(sol)}
-                            className="inline-flex items-center justify-center p-1.5 text-[#0077b6] hover:text-[#0369a1] hover:bg-sky-50 rounded-lg transition"
-                            title={`Ver ${sol.comprobante_filename}`}
+                            onClick={() => onVerDetalle(sol)}
+                            className="px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded transition-colors"
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
+                            Ficha
                           </button>
-                        ) : (
-                          <span className="text-[11px] text-slate-300">—</span>
-                        )}
-                      </td>
-
-                      {/* Detalle */}
-                      <td className="px-5 py-3.5 text-center">
-                        <button
-                          onClick={() => onVerDetalle(sol)}
-                          className="text-xs font-semibold text-[#0077b6] hover:text-[#0369a1] transition"
-                        >
-                          Ver
-                        </button>
+                        </div>
                       </td>
                     </tr>
                   );

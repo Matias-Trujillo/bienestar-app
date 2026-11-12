@@ -408,3 +408,15 @@ export interface EjecutarNominaResponse {
   monto_total: number;
 }
 
+// [ESTUDIANTE INFORMÁTICA] Tipos estrictos para variantes visuales del sistema Data-Dense municipal (cero 'any')
+export type UIStatusVariant = 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
+
+export interface KpiMetricItem {
+  label: string;
+  value: string;
+  sublabel?: string;
+  variant?: UIStatusVariant;
+  mono?: boolean;
+}
+
+
