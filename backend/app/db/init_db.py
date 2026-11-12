@@ -168,26 +168,79 @@ async def init_db() -> None:
                 AFTER UPDATE ON usuarios
                 FOR EACH ROW EXECUTE FUNCTION fn_usuarios_audit_db();
             """))
+
+            # Diccionario de Datos Explicativo en Español grabado en el catálogo de PostgreSQL
+            comentarios_esquema = [
+                "COMMENT ON TABLE usuarios IS 'Nómina oficial de funcionarios y los 7 roles del Comité (Superusuario, Presidente, Secretario, Tesorero, Admin, Auditor, Socio). Para cambiar una contraseña, edite la columna hashed_password escribiendo la nueva clave (mín. 8 caracteres) y guarde: PostgreSQL la encriptará en Bcrypt Costo 12 automáticamente.';",
+                "COMMENT ON COLUMN usuarios.rut IS 'RUN chileno validado con Módulo 11 (ej. 11.111.111-1). Identificador único de login.';",
+                "COMMENT ON COLUMN usuarios.email IS 'Correo institucional municipal (@mperalillo.cl). También válido para iniciar sesión.';",
+                "COMMENT ON COLUMN usuarios.hashed_password IS 'Hash Bcrypt ($2a$/$2b$ costo 12). Si escribe aquí una clave nueva en texto plano (mín. 8 caracteres) y guarda, el trigger trg_usuarios_auto_bcrypt la encripta en Bcrypt automáticamente y desbloquea la cuenta.';",
+                "COMMENT ON COLUMN usuarios.rol IS 'Rol normativo: superusuario, presidente, secretario, tesorero, admin, auditor o socio.';",
+                "COMMENT ON COLUMN usuarios.is_superuser IS 'true = Control total del sistema y del panel de Superusuario (/admin).';",
+                "COMMENT ON COLUMN usuarios.is_active IS 'true = Cuenta habilitada para ingresar al portal; false = Cuenta suspendida.';",
+                "COMMENT ON COLUMN usuarios.meses_antiguedad IS 'Meses de antigüedad en el Comité. Mínimo 6 meses requeridos para superar el período de carencia (Ley N° 19.754).';",
+                "COMMENT ON COLUMN usuarios.saldo_salud_disponible IS 'Cupo anual remanente de reembolsos médicos en CLP (Tope anual: $150.000 por socio).';",
+                "COMMENT ON TABLE parametros_sistema IS 'Parámetros globales del reglamento (Sueldo Base Grado 15 = $750.000, porcentajes de bonos, configuración SMTP y estados de bloqueo SEC_USR_<id>).';",
+                "COMMENT ON TABLE bonos_catalogo IS 'Catálogo dinámico de los 9 beneficios y bonos sociales del Comité de Bienestar.';",
+                "COMMENT ON TABLE solicitudes_afiliacion IS 'HU-01 y HU-02: Solicitudes digitales de incorporación al Comité con autorización del 4% de descuento y resolución por acta.';",
+                "COMMENT ON TABLE cargas_familiares IS 'HU-01 y HU-02: Cargas familiares legalmente acreditadas asociadas a una solicitud de afiliación.';",
+                "COMMENT ON TABLE solicitudes_cargas_familiares IS 'HU-02: Solicitudes posteriores de socios activos para inscribir nuevas cargas con certificado adjunto.';",
+                "COMMENT ON TABLE solicitudes_reembolso IS 'HU-03 y HU-04: Solicitudes de reembolso médico/dental/óptico con control de plazo de 30 días, tope de $150.000 y semáforo SLA de 20 días hábiles.';",
+                "COMMENT ON TABLE solicitudes_beneficio IS 'HU-05: Postulaciones y asignaciones individuales de bonos (Nacimiento, Escolaridad, Vacaciones, Catástrofe, etc.).';",
+                "COMMENT ON TABLE nominas_masivas IS 'HU-06: Cabecera de nóminas masivas de Bono Invierno y Bono Navidad con filtro automático de carencia.';",
+                "COMMENT ON TABLE detalles_nomina_masiva IS 'HU-06: Detalle individual por socio incluido o excluido en cada nómina masiva.';",
+                "COMMENT ON TABLE audit_logs IS 'Bitácora forense inmutable (Append-Only) para Contraloría y Comisión Revisora de Cuentas.';",
+            ]
+            for sql_comment in comentarios_esquema:
+                await conn.execute(text(sql_comment))
+
+            # Vista 1: Manual Interactivo de las 11 Tablas del Sistema
             await conn.execute(text("""
-                CREATE OR REPLACE VIEW v_auditoria_usuarios_roles AS
+                CREATE OR REPLACE VIEW v_01_guia_tablas_del_sistema AS
                 SELECT
-                    u.id,
-                    u.rol::text AS rol_institucional,
-                    u.rut,
-                    u.email,
-                    u.nombre_completo,
-                    u.departamento,
-                    u.is_active AS cuenta_activa,
-                    u.is_superuser AS privilegio_superusuario,
+                    orden AS "N°",
+                    tabla AS "Nombre de Tabla",
+                    modulo AS "Módulo / Historia de Usuario",
+                    explicacion AS "¿Para qué sirve y cómo se administra?"
+                FROM (
+                    VALUES
+                        (1, 'usuarios', 'Seguridad y 7 Roles', 'Contiene al Superusuario y los socios/directiva. Si edita hashed_password con una clave nueva y guarda, se encripta en Bcrypt automáticamente.'),
+                        (2, 'parametros_sistema', 'Reglamento Ley N° 19.754', 'Guarda el Sueldo Base Grado 15 ($750.000), % de bonos y estados de seguridad SEC_USR_<id>.'),
+                        (3, 'bonos_catalogo', 'HU-05 Catálogo de Bonos', 'Define los 9 bonos oficiales, sus requisitos documentales y porcentajes sobre el Grado 15.'),
+                        (4, 'solicitudes_afiliacion', 'HU-01 / HU-02 Afiliación', 'Postulaciones de funcionarios (descuento 4%) y resoluciones de directiva con N° de Acta.'),
+                        (5, 'cargas_familiares', 'HU-01 Cargas Iniciales', 'Cargas declaradas junto con la solicitud de afiliación inicial.'),
+                        (6, 'solicitudes_cargas_familiares', 'HU-02 Nuevas Cargas', 'Solicitudes de socios activos para agregar cargas familiares con certificado digital.'),
+                        (7, 'solicitudes_reembolso', 'HU-03 / HU-04 Reembolsos', 'Solicitudes médicas sujetas a carencia (6 meses), caducidad (30 días), tope ($150.000) y SLA (20 días hábiles).'),
+                        (8, 'solicitudes_beneficio', 'HU-05 Bonos Individuales', 'Solicitudes de bonos por evento (Nacimiento, Matrimonio, Escolaridad, Vacaciones, Catástrofe).'),
+                        (9, 'nominas_masivas', 'HU-06 Nóminas Masivas', 'Procesos masivos de Bono Invierno y Bono Navidad generados por Tesorería/Directiva.'),
+                        (10, 'detalles_nomina_masiva', 'HU-06 Detalle Nómina', 'Listado de cada socio evaluado en una nómina masiva (habilitado o excluido por carencia).'),
+                        (11, 'audit_logs', 'Auditoría / Contraloría', 'Registro inmutable de todas las acciones críticas (incluye cambios hechos directamente en la BD).')
+                ) AS t(orden, tabla, modulo, explicacion)
+                ORDER BY orden;
+            """))
+
+            # Vista 2: Estado de Seguridad de los 7 Roles e Instrucciones de Administración
+            await conn.execute(text("""
+                CREATE OR REPLACE VIEW v_02_roles_y_estado_seguridad AS
+                SELECT
+                    u.id AS "ID",
+                    UPPER(u.rol::text) AS "Rol Institucional",
+                    u.rut AS "RUN (Login)",
+                    u.email AS "Correo Institucional",
+                    u.nombre_completo AS "Nombre Funcionario",
+                    CASE WHEN u.is_active THEN 'ACTIVO' ELSE 'INACTIVO' END AS "Estado Cuenta",
+                    CASE WHEN u.is_superuser THEN 'SÍ (Control Total)' ELSE 'NO' END AS "Es Superusuario",
                     CASE
                         WHEN u.hashed_password LIKE '$2b$12$%' OR u.hashed_password LIKE '$2a$12$%'
-                        THEN 'BCRYPT_COSTO_12_OK'
-                        ELSE 'VERIFICAR_HASH'
-                    END AS estandar_criptografico,
-                    COALESCE((p.valor::jsonb ->> 'i')::int, 0) AS intentos_fallidos,
-                    COALESCE((p.valor::jsonb ->> 'b')::boolean, false) AS bloqueado_por_intentos,
-                    COALESCE((p.valor::jsonb ->> 'c')::boolean, false) AS cambio_clave_obligatorio,
-                    (p.valor::jsonb ->> 'u') AS ultimo_acceso_utc
+                        THEN 'BCRYPT COSTO 12 (Seguro)'
+                        ELSE 'REVISAR'
+                    END AS "Seguridad Contraseña",
+                    COALESCE((p.valor::jsonb ->> 'i')::int, 0) AS "Intentos Fallidos",
+                    CASE
+                        WHEN COALESCE((p.valor::jsonb ->> 'b')::boolean, false) THEN 'BLOQUEADO'
+                        ELSE 'DESBLOQUEADO'
+                    END AS "Estado Bloqueo",
+                    'Para cambiar clave: abra tabla "usuarios" -> edite hashed_password con la nueva clave -> Guardar (Save)' AS "Instrucción Cambio Clave"
                 FROM usuarios u
                 LEFT JOIN parametros_sistema p ON p.clave = ('SEC_USR_' || u.id::text)
                 ORDER BY
@@ -201,6 +254,20 @@ async def init_db() -> None:
                         ELSE 7
                     END,
                     u.id;
+            """))
+
+            # Vista 3: Resumen Ejecutivo en Tiempo Real de la Base de Datos
+            await conn.execute(text("""
+                CREATE OR REPLACE VIEW v_03_resumen_ejecutivo_bd AS
+                SELECT
+                    (SELECT COUNT(*) FROM usuarios) AS "Total Usuarios Registrados",
+                    (SELECT COUNT(*) FROM usuarios WHERE is_active = true) AS "Usuarios Activos",
+                    (SELECT COUNT(*) FROM usuarios WHERE meses_antiguedad >= 6) AS "Socios con Carencia Cumplida (>=6m)",
+                    (SELECT COUNT(*) FROM solicitudes_afiliacion) AS "Solicitudes de Afiliación (HU-01)",
+                    (SELECT COUNT(*) FROM solicitudes_reembolso) AS "Solicitudes de Reembolso (HU-03)",
+                    (SELECT COUNT(*) FROM solicitudes_reembolso WHERE estado = 'en_revision') AS "Reembolsos Pendientes (HU-04)",
+                    (SELECT COUNT(*) FROM solicitudes_beneficio) AS "Solicitudes de Bonos (HU-05)",
+                    (SELECT COUNT(*) FROM audit_logs) AS "Eventos en Bitácora Auditoría";
             """))
 
     async with AsyncSessionLocal() as db:

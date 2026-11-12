@@ -70,16 +70,21 @@ services:
     networks:
       - bienestar_network
 
-  # Interfaz Gráfica Web de Base de Datos (Adminer)
-  adminer:
-    image: adminer:latest
-    container_name: bienestar_db_admin
+  # Suite Gráfica Oficial de PostgreSQL (pgAdmin 4)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bienestar_pgadmin
     restart: always
     environment:
-      ADMINER_DEFAULT_SERVER: postgres
-      ADMINER_DESIGN: pepa-linha
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-superadmin@mperalillo.cl}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-Super#2026}
+      PGADMIN_CONFIG_DEFAULT_SERVER: "0.0.0.0"
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
     ports:
-      - "8080:8080"
+      - "8080:80"
+    volumes:
+      - ./deploy/pgadmin_servers.json:/pgadmin4/servers.json:ro
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
@@ -90,6 +95,8 @@ volumes:
   postgres_data:
     driver: local
   backend_uploads:
+    driver: local
+  pgadmin_data:
     driver: local
 
 networks:
