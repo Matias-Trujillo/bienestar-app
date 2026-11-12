@@ -90,6 +90,15 @@ RUTS_AUTORIZADOS_CARGA_MASIVA: Set[str] = {
 _TABLA_CARGAS_LISTA = False
 
 
+def _val(x: Any) -> str:
+    """Extrae el valor en string de forma segura tanto para Enum como para str nativo de PostgreSQL."""
+    if x is None:
+        return ""
+    if hasattr(x, "value"):
+        return str(x.value)
+    return str(x)
+
+
 # [ESTUDIANTE INFORMÁTICA] Asegura que la tabla de cargas familiares exista e incluya los campos para certificados digitales.
 async def asegurar_tabla_cargas(db: AsyncSession) -> None:
     global _TABLA_CARGAS_LISTA
@@ -177,11 +186,11 @@ def to_comprobante(
     run_fmt = formatear_run(s.run)
     msg = (
         f"Su solicitud de incorporación N° {s.folio} fue ingresada correctamente y se encuentra "
-        f"en estado \"{s.estado.value}\". Será revisada por la Directiva del Comité de Bienestar."
+        f"en estado \"{_val(s.estado)}\". Será revisada por la Directiva del Comité de Bienestar."
     )
-    if s.estado == EstadoSolicitud.APROBADA:
+    if _val(s.estado) == _val(EstadoSolicitud.APROBADA):
         msg = f"Solicitud N° {s.folio} APROBADA en sesión de Directorio del {s.fecha_sesion}. Socio habilitado como Activo."
-    elif s.estado == EstadoSolicitud.RECHAZADA:
+    elif _val(s.estado) == _val(EstadoSolicitud.RECHAZADA):
         msg = f"Solicitud N° {s.folio} RECHAZADA. Observaciones: {s.observaciones_resolucion or 'Sin observaciones registradas'}."
 
     if notificacion_email is None and ligero:
@@ -191,21 +200,21 @@ def to_comprobante(
             "motivo": s.observaciones_resolucion,
         }
     elif notificacion_email is None:
-        if s.estado == EstadoSolicitud.PENDIENTE:
+        if _val(s.estado) == _val(EstadoSolicitud.PENDIENTE):
             notificacion_email = generar_correo_recepcion_solicitud(
                 folio=s.folio,
                 nombre_completo=s.nombre_completo,
                 run_formateado=run_fmt,
                 email_destino=s.email,
                 grado=s.grado,
-                calidad_contractual=s.calidad_contractual.value,
+                calidad_contractual=_val(s.calidad_contractual),
                 porcentaje_descuento=s.porcentaje_descuento,
                 meses_carencia=settings.AFILIACION_MESES_CARENCIA,
-                cantidad_cargas=len(s.cargas),
+                cantidad_cargas=len(s.cargas) if hasattr(s, "cargas") and s.cargas else 0,
                 fecha_ingreso=s.created_at,
                 enviar_smtp=False,
             )
-        elif s.estado == EstadoSolicitud.APROBADA:
+        elif _val(s.estado) == _val(EstadoSolicitud.APROBADA):
             notificacion_email = generar_correo_resolucion_solicitud(
                 folio=s.folio,
                 nombre_completo=s.nombre_completo,
@@ -220,7 +229,7 @@ def to_comprobante(
                 clave_temporal=generar_clave_temporal_rut(s.run),
                 enviar_smtp=False,
             )
-        elif s.estado == EstadoSolicitud.RECHAZADA:
+        elif _val(s.estado) == _val(EstadoSolicitud.RECHAZADA):
             notificacion_email = generar_correo_resolucion_solicitud(
                 folio=s.folio,
                 nombre_completo=s.nombre_completo,
@@ -240,12 +249,12 @@ def to_comprobante(
 
     return ComprobanteOut(
         folio=s.folio,
-        estado=s.estado.value,
+        estado=_val(s.estado),
         fechaIngreso=s.created_at,
         nombreCompleto=s.nombre_completo,
         run=run_fmt,
         grado=s.grado,
-        calidadContractual=s.calidad_contractual.value,
+        calidadContractual=_val(s.calidad_contractual),
         email=s.email,
         porcentajeDescuento=s.porcentaje_descuento,
         cargas=[
@@ -388,7 +397,7 @@ class AfiliacionService:
             run_formateado=formatear_run(solicitud.run),
             email_destino=solicitud.email,
             grado=solicitud.grado,
-            calidad_contractual=solicitud.calidad_contractual.value,
+            calidad_contractual=_val(solicitud.calidad_contractual),
             porcentaje_descuento=solicitud.porcentaje_descuento,
             meses_carencia=settings.AFILIACION_MESES_CARENCIA,
             cantidad_cargas=len(payload.cargas),
@@ -474,168 +483,179 @@ class AfiliacionService:
         payload: ResolucionSolicitudIn,
         evaluador: User,
     ) -> ComprobanteOut:
-        await sincronizar_smtp_desde_db(db)
-        solicitud = await db.scalar(
-            select(SolicitudAfiliacion)
-            .options(selectinload(SolicitudAfiliacion.cargas))
-            .where(SolicitudAfiliacion.folio == folio)
-        )
-        if not solicitud:
-            raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
-
-        if solicitud.estado != EstadoSolicitud.PENDIENTE:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"La solicitud {folio} ya fue resuelta previamente ({solicitud.estado.value}).",
+        try:
+            await sincronizar_smtp_desde_db(db)
+            solicitud = await db.scalar(
+                select(SolicitudAfiliacion)
+                .options(selectinload(SolicitudAfiliacion.cargas))
+                .where(SolicitudAfiliacion.folio == folio)
             )
+            if not solicitud:
+                raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
 
-        ahora_iso = datetime.now(timezone.utc).isoformat()
-        if payload.accion == "aprobar":
-            if not payload.fechaSesion:
+            if _val(solicitud.estado) != _val(EstadoSolicitud.PENDIENTE):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="La fecha de la sesión de Directorio es obligatoria para aprobar.",
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"La solicitud {folio} ya fue resuelta previamente ({_val(solicitud.estado)}).",
                 )
-            f_sesion = date.fromisoformat(payload.fechaSesion)
-            # Cálculo de término de carencia (+6 meses exactos)
-            fin_carencia_mes = (f_sesion.month + settings.AFILIACION_MESES_CARENCIA - 1) % 12 + 1
-            fin_carencia_anio = f_sesion.year + (f_sesion.month + settings.AFILIACION_MESES_CARENCIA - 1) // 12
-            ultimo_dia = calendar.monthrange(fin_carencia_anio, fin_carencia_mes)[1]
-            fin_carencia = date(fin_carencia_anio, fin_carencia_mes, min(f_sesion.day, ultimo_dia))
 
-            solicitud.estado = EstadoSolicitud.APROBADA
-            solicitud.fecha_sesion = f_sesion.isoformat()
-            solicitud.numero_acta = (payload.numeroActa or "").strip() or "Acta Ordinaria de Directorio"
-            solicitud.fecha_fin_carencia = fin_carencia.isoformat()
-            solicitud.observaciones_resolucion = (payload.observaciones or "").strip() or "Aprobada por Directorio"
-            solicitud.resuelto_por = evaluador.nombre_completo
-            solicitud.resuelto_at = ahora_iso
-
-            # Creación automática de cuenta de usuario con rol socio
-            user_existente = await db.scalar(select(User).where(User.rut == solicitud.run))
-            clave_temp = generar_clave_temporal_rut(solicitud.run)
-            socio_id = None
-            if not user_existente:
-                nuevo_user = User(
-                    rut=solicitud.run,
-                    email=solicitud.email or f"{solicitud.run}@mperalillo.cl",
-                    nombre_completo=solicitud.nombre_completo,
-                    hashed_password=get_password_hash(clave_temp),
-                    rol=UserRole.SOCIO,
-                    departamento=f"{solicitud.calidad_contractual.value} ({solicitud.grado})",
-                    antiguedad="0 Meses (Período Carencia)",
-                    meses_antiguedad=0,
-                    estado_previsional="Al día",
-                    saldo_salud_disponible=150000,
-                    saldo_salud_total_anual=150000,
-                    cargas_registradas=len(solicitud.cargas),
-                )
-                db.add(nuevo_user)
-                await db.flush()
-                socio_id = nuevo_user.id
-            else:
-                socio_id = user_existente.id
-
-            if socio_id:
-                # Marcar cambio obligatorio de contraseña en primer inicio de sesión
-                sec_param = await db.scalar(
-                    select(ParametroSistema).where(ParametroSistema.clave == f"SEC_USR_{socio_id}")
-                )
-                sec_val = json.dumps({"i": 0, "b": False, "c": True, "u": None})
-                if sec_param:
-                    sec_param.valor = sec_val
-                else:
-                    db.add(
-                        ParametroSistema(
-                            clave=f"SEC_USR_{socio_id}",
-                            valor=sec_val,
-                            descripcion=f"Seguridad usuario {solicitud.run}",
-                        )
+            ahora_iso = datetime.now(timezone.utc).isoformat()
+            if payload.accion == "aprobar":
+                if not payload.fechaSesion:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="La fecha de la sesión de Directorio es obligatoria para aprobar.",
                     )
+                f_sesion = date.fromisoformat(payload.fechaSesion)
+                # Cálculo de término de carencia (+6 meses exactos)
+                fin_carencia_mes = (f_sesion.month + settings.AFILIACION_MESES_CARENCIA - 1) % 12 + 1
+                fin_carencia_anio = f_sesion.year + (f_sesion.month + settings.AFILIACION_MESES_CARENCIA - 1) // 12
+                ultimo_dia = calendar.monthrange(fin_carencia_anio, fin_carencia_mes)[1]
+                fin_carencia = date(fin_carencia_anio, fin_carencia_mes, min(f_sesion.day, ultimo_dia))
 
-            # Emitir Correo #2A: Aprobación con credenciales temporales y pasos a seguir
-            correo_resolucion = generar_correo_resolucion_solicitud(
-                folio=solicitud.folio,
-                nombre_completo=solicitud.nombre_completo,
-                run_formateado=formatear_run(solicitud.run),
-                email_destino=solicitud.email,
-                aprobada=True,
-                motivo=solicitud.observaciones_resolucion,
-                fecha_sesion=solicitud.fecha_sesion,
-                numero_acta=solicitud.numero_acta,
-                fecha_fin_carencia=solicitud.fecha_fin_carencia,
-                porcentaje_descuento=solicitud.porcentaje_descuento,
-                clave_temporal=clave_temp,
-                enviar_smtp=True,
-            )
+                solicitud.estado = EstadoSolicitud.APROBADA
+                solicitud.fecha_sesion = f_sesion.isoformat()
+                solicitud.numero_acta = (payload.numeroActa or "").strip() or "Acta Ordinaria de Directorio"
+                solicitud.fecha_fin_carencia = fin_carencia.isoformat()
+                solicitud.observaciones_resolucion = (payload.observaciones or "").strip() or "Aprobada por Directorio"
+                solicitud.resuelto_por = evaluador.nombre_completo
+                solicitud.resuelto_at = ahora_iso
 
-            db.add(
-                AuditLog(
-                    usuario_id=evaluador.id,
-                    usuario_nombre=evaluador.nombre_completo,
-                    usuario_rut=evaluador.rut,
-                    usuario_rol=evaluador.rol.value,
-                    modulo="AFILIACION",
-                    accion="APROBAR_SOLICITUD_DIRECTORIO",
-                    recurso_tipo="SolicitudAfiliacion",
-                    recurso_id=folio,
-                    detalles=(
-                        f"Aprobada en sesión del {f_sesion} ({solicitud.numero_acta}). Carencia hasta {fin_carencia}. "
-                        f"Notificación con clave temporal emitida a {correo_resolucion['destinatario']}."
-                    ),
-                    ip_origen="127.0.0.1",
+                # Creación automática de cuenta de usuario con rol socio
+                user_existente = await db.scalar(select(User).where(User.rut == solicitud.run))
+                clave_temp = generar_clave_temporal_rut(solicitud.run)
+                socio_id = None
+                cargas_count = len(solicitud.cargas) if hasattr(solicitud, "cargas") and solicitud.cargas else 0
+                if not user_existente:
+                    nuevo_user = User(
+                        rut=solicitud.run,
+                        email=solicitud.email or f"{solicitud.run}@mperalillo.cl",
+                        nombre_completo=solicitud.nombre_completo,
+                        hashed_password=get_password_hash(clave_temp),
+                        rol=UserRole.SOCIO,
+                        departamento=f"{_val(solicitud.calidad_contractual)} ({solicitud.grado})",
+                        antiguedad="0 Meses (Período Carencia)",
+                        meses_antiguedad=0,
+                        estado_previsional="Al día",
+                        saldo_salud_disponible=150000,
+                        saldo_salud_total_anual=150000,
+                        cargas_registradas=cargas_count,
+                    )
+                    db.add(nuevo_user)
+                    await db.flush()
+                    socio_id = nuevo_user.id
+                else:
+                    socio_id = user_existente.id
+
+                if socio_id:
+                    # Marcar cambio obligatorio de contraseña en primer inicio de sesión
+                    sec_param = await db.scalar(
+                        select(ParametroSistema).where(ParametroSistema.clave == f"SEC_USR_{socio_id}")
+                    )
+                    sec_val = json.dumps({"i": 0, "b": False, "c": True, "u": None})
+                    if sec_param:
+                        sec_param.valor = sec_val
+                    else:
+                        db.add(
+                            ParametroSistema(
+                                clave=f"SEC_USR_{socio_id}",
+                                valor=sec_val,
+                                descripcion=f"Seguridad usuario {solicitud.run}",
+                            )
+                        )
+
+                # Emitir Correo #2A: Aprobación con credenciales temporales y pasos a seguir
+                correo_resolucion = generar_correo_resolucion_solicitud(
+                    folio=solicitud.folio,
+                    nombre_completo=solicitud.nombre_completo,
+                    run_formateado=formatear_run(solicitud.run),
+                    email_destino=solicitud.email,
+                    aprobada=True,
+                    motivo=solicitud.observaciones_resolucion,
+                    fecha_sesion=solicitud.fecha_sesion,
+                    numero_acta=solicitud.numero_acta,
+                    fecha_fin_carencia=solicitud.fecha_fin_carencia,
+                    porcentaje_descuento=solicitud.porcentaje_descuento,
+                    clave_temporal=clave_temp,
+                    enviar_smtp=True,
                 )
-            )
-        else:
-            if not payload.observaciones or len(payload.observaciones.strip()) < 5:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Debe indicar el motivo de rechazo de forma obligatoria.",
+
+                db.add(
+                    AuditLog(
+                        usuario_id=evaluador.id,
+                        usuario_nombre=evaluador.nombre_completo,
+                        usuario_rut=evaluador.rut,
+                        usuario_rol=_val(evaluador.rol),
+                        modulo="AFILIACION",
+                        accion="APROBAR_SOLICITUD_DIRECTORIO",
+                        recurso_tipo="SolicitudAfiliacion",
+                        recurso_id=folio,
+                        detalles=(
+                            f"Aprobada en sesión del {f_sesion} ({solicitud.numero_acta}). Carencia hasta {fin_carencia}. "
+                            f"Notificación con clave temporal emitida a {correo_resolucion['destinatario']}."
+                        ),
+                        ip_origen="127.0.0.1",
+                    )
                 )
-            solicitud.estado = EstadoSolicitud.RECHAZADA
-            solicitud.observaciones_resolucion = payload.observaciones.strip()
-            solicitud.resuelto_por = evaluador.nombre_completo
-            solicitud.resuelto_at = ahora_iso
+            else:
+                if not payload.observaciones or len(payload.observaciones.strip()) < 5:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Debe indicar el motivo de rechazo de forma obligatoria.",
+                    )
+                solicitud.estado = EstadoSolicitud.RECHAZADA
+                solicitud.observaciones_resolucion = payload.observaciones.strip()
+                solicitud.resuelto_por = evaluador.nombre_completo
+                solicitud.resuelto_at = ahora_iso
 
-            # Emitir Correo #2B: Rechazo con causal y pasos de subsanación
-            correo_resolucion = generar_correo_resolucion_solicitud(
-                folio=solicitud.folio,
-                nombre_completo=solicitud.nombre_completo,
-                run_formateado=formatear_run(solicitud.run),
-                email_destino=solicitud.email,
-                aprobada=False,
-                motivo=solicitud.observaciones_resolucion,
-                fecha_sesion=solicitud.fecha_sesion,
-                numero_acta=solicitud.numero_acta,
-                porcentaje_descuento=solicitud.porcentaje_descuento,
-                enviar_smtp=True,
-            )
-
-            db.add(
-                AuditLog(
-                    usuario_id=evaluador.id,
-                    usuario_nombre=evaluador.nombre_completo,
-                    usuario_rut=evaluador.rut,
-                    usuario_rol=evaluador.rol.value,
-                    modulo="AFILIACION",
-                    accion="RECHAZAR_SOLICITUD_DIRECTORIO",
-                    recurso_tipo="SolicitudAfiliacion",
-                    recurso_id=folio,
-                    detalles=(
-                        f"Rechazada. Motivo: {payload.observaciones.strip()}. "
-                        f"Notificación de resolución emitida a {correo_resolucion['destinatario']}."
-                    ),
-                    ip_origen="127.0.0.1",
+                # Emitir Correo #2B: Rechazo con causal y pasos de subsanación
+                correo_resolucion = generar_correo_resolucion_solicitud(
+                    folio=solicitud.folio,
+                    nombre_completo=solicitud.nombre_completo,
+                    run_formateado=formatear_run(solicitud.run),
+                    email_destino=solicitud.email,
+                    aprobada=False,
+                    motivo=solicitud.observaciones_resolucion,
+                    fecha_sesion=solicitud.fecha_sesion,
+                    numero_acta=solicitud.numero_acta,
+                    porcentaje_descuento=solicitud.porcentaje_descuento,
+                    enviar_smtp=True,
                 )
-            )
 
-        await db.commit()
-        resuelta = await db.scalar(
-            select(SolicitudAfiliacion)
-            .options(selectinload(SolicitudAfiliacion.cargas))
-            .where(SolicitudAfiliacion.id == solicitud.id)
-        )
-        return to_comprobante(resuelta or solicitud, notificacion_email=correo_resolucion)
+                db.add(
+                    AuditLog(
+                        usuario_id=evaluador.id,
+                        usuario_nombre=evaluador.nombre_completo,
+                        usuario_rut=evaluador.rut,
+                        usuario_rol=_val(evaluador.rol),
+                        modulo="AFILIACION",
+                        accion="RECHAZAR_SOLICITUD_DIRECTORIO",
+                        recurso_tipo="SolicitudAfiliacion",
+                        recurso_id=folio,
+                        detalles=(
+                            f"Rechazada. Motivo: {payload.observaciones.strip()}. "
+                            f"Notificación de resolución emitida a {correo_resolucion['destinatario']}."
+                        ),
+                        ip_origen="127.0.0.1",
+                    )
+                )
+
+            await db.commit()
+            resuelta = await db.scalar(
+                select(SolicitudAfiliacion)
+                .options(selectinload(SolicitudAfiliacion.cargas))
+                .where(SolicitudAfiliacion.id == solicitud.id)
+            )
+            return to_comprobante(resuelta or solicitud, notificacion_email=correo_resolucion)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error interno al resolver solicitud: {type(exc).__name__}: {str(exc)}",
+            )
 
     @staticmethod
     async def reenviar_correo(db: AsyncSession, folio: str) -> ComprobanteOut:
@@ -654,21 +674,21 @@ class AfiliacionService:
             cargas_raw = solicitud.__dict__["cargas"] or []
         cantidad_cargas = len(cargas_raw)
 
-        if solicitud.estado == EstadoSolicitud.PENDIENTE:
+        if _val(solicitud.estado) == _val(EstadoSolicitud.PENDIENTE):
             correo = generar_correo_recepcion_solicitud(
                 folio=solicitud.folio,
                 nombre_completo=solicitud.nombre_completo,
                 run_formateado=run_fmt,
                 email_destino=solicitud.email,
                 grado=solicitud.grado,
-                calidad_contractual=solicitud.calidad_contractual.value,
+                calidad_contractual=_val(solicitud.calidad_contractual),
                 porcentaje_descuento=solicitud.porcentaje_descuento,
                 meses_carencia=settings.AFILIACION_MESES_CARENCIA,
                 cantidad_cargas=cantidad_cargas,
                 fecha_ingreso=solicitud.created_at,
                 enviar_smtp=True,
             )
-        elif solicitud.estado == EstadoSolicitud.APROBADA:
+        elif _val(solicitud.estado) == _val(EstadoSolicitud.APROBADA):
             correo = generar_correo_resolucion_solicitud(
                 folio=solicitud.folio,
                 nombre_completo=solicitud.nombre_completo,
@@ -748,10 +768,10 @@ class AfiliacionService:
                 run_formateado=run_fmt,
                 email_destino=s.email,
                 grado=s.grado,
-                calidad_contractual=s.calidad_contractual.value,
+                calidad_contractual=_val(s.calidad_contractual),
                 porcentaje_descuento=s.porcentaje_descuento,
                 meses_carencia=settings.AFILIACION_MESES_CARENCIA,
-                cantidad_cargas=len(s.cargas),
+                cantidad_cargas=len(s.cargas) if hasattr(s, "cargas") and s.cargas else 0,
                 fecha_ingreso=s.created_at,
                 enviar_smtp=False,
             )
@@ -870,7 +890,7 @@ class AfiliacionService:
                 usuario_id=evaluador.id,
                 usuario_nombre=evaluador.nombre_completo,
                 usuario_rut=evaluador.rut,
-                usuario_rol=evaluador.rol.value,
+                usuario_rol=_val(evaluador.rol),
                 modulo="AFILIACION",
                 accion="CARGA_MASIVA_SOCIOS_EXCEL",
                 recurso_tipo="NominaMasiva",
@@ -1056,7 +1076,7 @@ class AfiliacionService:
                 usuario_id=current_user.id,
                 usuario_nombre=current_user.nombre_completo,
                 usuario_rut=current_user.rut,
-                usuario_rol=current_user.rol.value,
+                usuario_rol=_val(current_user.rol),
                 modulo="AFILIACION",
                 accion="SOLICITUD_NUEVA_CARGA_FAMILIAR",
                 recurso_tipo="SolicitudCargaFamiliar",
@@ -1088,10 +1108,10 @@ class AfiliacionService:
         sc = await db.scalar(select(SolicitudCargaFamiliar).where(SolicitudCargaFamiliar.folio == folio))
         if not sc:
             raise HTTPException(status_code=404, detail="Solicitud de carga familiar no encontrada.")
-        if sc.estado != EstadoSolicitud.PENDIENTE:
+        if _val(sc.estado) != _val(EstadoSolicitud.PENDIENTE):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"La solicitud {sc.folio} ya fue resuelta ({sc.estado.value}).",
+                detail=f"La solicitud {sc.folio} ya fue resuelta ({_val(sc.estado)}).",
             )
 
         if body.accion == "aprobar":
@@ -1099,7 +1119,7 @@ class AfiliacionService:
             sc.fecha_sesion = body.fechaSesion or date.today().isoformat()
             sc.numero_acta = (body.numeroActa or "").strip() or None
             sc.observaciones_resolucion = (body.observaciones or "").strip() or "Aprobada por Directorio"
-            sc.resuelto_por = f"{evaluador.nombre_completo} ({evaluador.rol.value})"
+            sc.resuelto_por = f"{evaluador.nombre_completo} ({_val(evaluador.rol)})"
             sc.resuelto_at = datetime.now().isoformat()
 
             socio = await db.scalar(select(User).where(User.id == sc.socio_id))
@@ -1108,7 +1128,7 @@ class AfiliacionService:
         else:
             sc.estado = EstadoSolicitud.RECHAZADA
             sc.observaciones_resolucion = (body.observaciones or "").strip() or "Rechazada por Directorio"
-            sc.resuelto_por = f"{evaluador.nombre_completo} ({evaluador.rol.value})"
+            sc.resuelto_por = f"{evaluador.nombre_completo} ({_val(evaluador.rol)})"
             sc.resuelto_at = datetime.now().isoformat()
 
         db.add(
@@ -1116,12 +1136,12 @@ class AfiliacionService:
                 usuario_id=evaluador.id,
                 usuario_nombre=evaluador.nombre_completo,
                 usuario_rut=evaluador.rut,
-                usuario_rol=evaluador.rol.value,
+                usuario_rol=_val(evaluador.rol),
                 modulo="AFILIACION",
                 accion="RESOLVER_CARGA_FAMILIAR",
                 recurso_tipo="SolicitudCargaFamiliar",
                 recurso_id=sc.folio,
-                detalles=f"Carga {sc.folio} resuelta como {sc.estado.value}.",
+                detalles=f"Carga {sc.folio} resuelta como {_val(sc.estado)}.",
                 ip_origen="127.0.0.1",
             )
         )
