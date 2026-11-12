@@ -398,6 +398,15 @@ class AfiliacionService:
         return [to_comprobante(s, ligero=True) for s in filas]
 
     @staticmethod
+    async def contar_solicitudes_pendientes(db: AsyncSession) -> int:
+        resultado = await db.scalar(
+            select(func.count(SolicitudAfiliacion.id)).where(
+                SolicitudAfiliacion.estado == EstadoSolicitud.PENDIENTE
+            )
+        )
+        return resultado or 0
+
+    @staticmethod
     async def resolver_solicitud(
         db: AsyncSession,
         folio: str,
@@ -848,4 +857,3 @@ class AfiliacionService:
         await db.commit()
         await db.refresh(sc)
         return to_solicitud_carga_out(sc)
-

@@ -95,6 +95,16 @@ async def listar_solicitudes(
 ) -> List[ComprobanteOut]:
     return await AfiliacionService.listar_solicitudes(db, estado)
 
+@router.get(
+    "/conteo-pendientes",
+    summary="Contar solicitudes de incorporación pendientes (Directiva)",
+)
+async def contar_solicitudes_pendientes(
+    _: User = Depends(require_roles(*ROLES_DIRECTIVA)),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, int]:
+    pendientes = await AfiliacionService.contar_solicitudes_pendientes(db)
+    return {"pendientes": pendientes}
 
 # [ESTUDIANTE INFORMÁTICA] Resuelve la postulación en sesión de Directorio con N° de Acta y fecha de inicio de carencia (HU-02).
 @router.post(
