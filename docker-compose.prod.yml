@@ -84,7 +84,7 @@ services:
       - "8080:80"
     volumes:
       - ./deploy/pgadmin_servers.json:/pgadmin4/servers.json:ro
-      - pgadmin_prod_data:/var/lib/pgadmin
+      - pgadmin_v2_prod_data:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
@@ -96,7 +96,7 @@ volumes:
     driver: local
   backend_prod_uploads:
     driver: local
-  pgadmin_prod_data:
+  pgadmin_v2_prod_data:
     driver: local
 
 networks:

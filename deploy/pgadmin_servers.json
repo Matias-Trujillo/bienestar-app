@@ -1,14 +1,13 @@
 {
   "Servers": {
     "1": {
-      "Name": "Comite de Bienestar Peralillo — Produccion (PostgreSQL 15)",
+      "Name": "Comite de Bienestar Peralillo (PostgreSQL 15)",
       "Group": "Servidores Municipales",
       "Host": "postgres",
       "Port": 5432,
       "MaintenanceDB": "bienestar_db_prod",
       "Username": "bienestar_admin",
-      "SSLMode": "prefer",
-      "Comment": "Base de datos relacional oficial del Comité de Bienestar (Ley N° 19.754). Ingrese la contraseña de POSTGRES_PASSWORD (por defecto: PeralilloSeguro2026_Prod)."
+      "SSLMode": "prefer"
     }
   }
 }
