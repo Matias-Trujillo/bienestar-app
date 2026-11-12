@@ -14,9 +14,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.afiliacion import EstadoSolicitud
-from app.models.audit import AuditLog
-from app.models.user import User, UserRole
+from app.models import (
+    AuditLog,
+    EstadoSolicitud,
+    ParametroSistema,
+    User,
+    UserRole,
+)
 from app.schemas.afiliacion import ResolucionSolicitudIn, SolicitudIn
 from app.services.afiliacion_service import AfiliacionService
 
@@ -163,14 +167,172 @@ async def test_resolucion_registra_auditoria_inmutable(
     )
     await AfiliacionService.resolver_solicitud(db_session, comp.folio, resolucion, usuario_admin)
 
-    # Consultar AuditLog
+    # Consultar AuditLog (el más reciente debe corresponder a la resolución)
     audit = await db_session.scalar(
-        select(AuditLog).where(
+        select(AuditLog)
+        .where(
             AuditLog.modulo == "AFILIACION",
             AuditLog.recurso_id == comp.folio,
+            AuditLog.accion == "APROBAR_SOLICITUD_DIRECTORIO",
         )
     )
     assert audit is not None
     assert audit.accion == "APROBAR_SOLICITUD_DIRECTORIO"
     assert audit.usuario_rut == usuario_admin.rut
     assert "2026-04-10" in audit.detalles
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que el ingreso de una postulación digital despache el Correo #1 de recepción con folio y reglas.
+async def test_crear_solicitud_despacha_correo_recepcion_y_registra_buzon(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "AFILIACION_VALIDAR_PERIODO", False)
+    payload = SolicitudIn(
+        nombreCompleto="Héctor Valenzuela Castro",
+        run="14.234.567-6",
+        grado="11",
+        calidadContractual="Planta",
+        email="hvalenzuela@mperalillo.cl",
+        autorizaDescuento=True,
+        aceptaCarencia=True,
+    )
+    comp = await AfiliacionService.crear_solicitud(db_session, payload)
+
+    assert comp.notificacionEmail is not None
+    assert comp.notificacionEmail["tipo"] == "recepcion_solicitud"
+    assert comp.notificacionEmail["destinatario"] == "hvalenzuela@mperalillo.cl"
+    assert comp.notificacionEmail["folio"] == comp.folio
+    assert "4%" in comp.notificacionEmail["resumenEstado"]
+
+    # Verificar que quede constancia en AuditLog
+    audit = await db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.modulo == "AFILIACION",
+            AuditLog.accion == "INGRESO_SOLICITUD_Y_CORREO",
+            AuditLog.recurso_id == comp.folio,
+        )
+    )
+    assert audit is not None
+    assert "hvalenzuela@mperalillo.cl" in audit.detalles
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que al aprobar la solicitud se despache el Correo #2A con la clave temporal y cambio obligatorio.
+async def test_resolver_solicitud_aprobada_despacha_correo_credenciales_temporales(
+    db_session: AsyncSession, usuario_admin: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "AFILIACION_VALIDAR_PERIODO", False)
+    payload = SolicitudIn(
+        nombreCompleto="Camila Andrea Muñoz",
+        run="18.234.567-9",
+        grado="15",
+        calidadContractual="Contrata",
+        email="cmunoz@mperalillo.cl",
+        autorizaDescuento=True,
+        aceptaCarencia=True,
+    )
+    comp = await AfiliacionService.crear_solicitud(db_session, payload)
+
+    resolucion = ResolucionSolicitudIn(
+        accion="aprobar",
+        fechaSesion="2026-05-02",
+        numeroActa="ACTA-ORD-05/2026",
+        observaciones="Aprobada con documentación completa.",
+    )
+    res = await AfiliacionService.resolver_solicitud(db_session, comp.folio, resolucion, usuario_admin)
+
+    assert res.estado == EstadoSolicitud.APROBADA.value
+    assert res.notificacionEmail is not None
+    assert res.notificacionEmail["estadoResolucion"] == "ACEPTADA"
+    assert "Contraseña Temporal inicial: ********" in str(res.notificacionEmail["pasosSeguir"])
+
+    # Verificar parámetro de seguridad SEC_USR_<id> con cambio obligatorio activo
+    user_creado = await db_session.scalar(select(User).where(User.rut == "18234567-9"))
+    assert user_creado is not None
+    from app.core.security import verify_password
+    assert verify_password("Peralillo#1823", user_creado.hashed_password)
+    sec = await db_session.scalar(
+        select(ParametroSistema).where(ParametroSistema.clave == f"SEC_USR_{user_creado.id}")
+    )
+    assert sec is not None
+    assert '"c": true' in sec.valor
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que al rechazar la solicitud se despache el Correo #2B con la causal y sin crear cuenta de socio.
+async def test_resolver_solicitud_rechazada_despacha_correo_motivo(
+    db_session: AsyncSession, usuario_admin: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "AFILIACION_VALIDAR_PERIODO", False)
+    payload = SolicitudIn(
+        nombreCompleto="Patricio Abarca R.",
+        run="19.234.567-7",
+        grado="17",
+        calidadContractual="Contrata",
+        email="pabarca@mperalillo.cl",
+        autorizaDescuento=True,
+        aceptaCarencia=True,
+    )
+    comp = await AfiliacionService.crear_solicitud(db_session, payload)
+
+    motivo = "No adjuntó decreto de nombramiento en contrata vigente."
+    resolucion = ResolucionSolicitudIn(
+        accion="rechazar",
+        observaciones=motivo,
+    )
+    res = await AfiliacionService.resolver_solicitud(db_session, comp.folio, resolucion, usuario_admin)
+
+    assert res.estado == EstadoSolicitud.RECHAZADA.value
+    assert res.notificacionEmail is not None
+    assert res.notificacionEmail["estadoResolucion"] == "RECHAZADA"
+    assert motivo in res.notificacionEmail["motivo"]
+
+    # Comprobar que NO se haya creado usuario en la BD
+    user_no_creado = await db_session.scalar(select(User).where(User.rut == "19234567-7"))
+    assert user_no_creado is None
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que el reenvío de correo regenere y despache la notificación correspondiente al estado.
+async def test_reenviar_correo_solicitud_actualiza_envio(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "AFILIACION_VALIDAR_PERIODO", False)
+    payload = SolicitudIn(
+        nombreCompleto="Gloria Pino Soto",
+        run="12.456.789-0",
+        grado="8",
+        calidadContractual="Planta",
+        email="gpino@mperalillo.cl",
+        autorizaDescuento=True,
+        aceptaCarencia=True,
+    )
+    comp = await AfiliacionService.crear_solicitud(db_session, payload)
+    comp_reenviado = await AfiliacionService.reenviar_correo(db_session, comp.folio)
+
+    assert comp_reenviado.folio == comp.folio
+    assert comp_reenviado.notificacionEmail is not None
+    assert comp_reenviado.notificacionEmail["destinatario"] == "gpino@mperalillo.cl"
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que la bandeja institucional (buzón) recopile y filtre correos por folio y RUN.
+async def test_obtener_buzon_correos_con_filtro(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "AFILIACION_VALIDAR_PERIODO", False)
+    payload = SolicitudIn(
+        nombreCompleto="Daniel Riquelme S.",
+        run="15.489.123-4",
+        grado="10",
+        calidadContractual="Contrata",
+        email="driquelme@mperalillo.cl",
+        autorizaDescuento=True,
+        aceptaCarencia=True,
+    )
+    comp = await AfiliacionService.crear_solicitud(db_session, payload)
+
+    buzon_general = await AfiliacionService.obtener_buzon(db_session)
+    assert "total" in buzon_general
+    assert "correos" in buzon_general
+    assert buzon_general["total"] >= 1
+
+    buzon_filtrado = await AfiliacionService.obtener_buzon(db_session, q=comp.folio)
+    assert buzon_filtrado["total"] >= 1
+    assert any(m["folio"] == comp.folio for m in buzon_filtrado["correos"])

@@ -9,12 +9,14 @@ Implementa las reglas de negocio estatutarias de Bienestar Municipal:
   - Ingestión masiva de socios y cargas mediante nómina digital.
 """
 import calendar
+import json
 import re
 from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Set
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select, text
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -47,6 +49,7 @@ from app.services.email_service import (
     generar_correo_recepcion_solicitud,
     generar_correo_resolucion_carga_familiar,
     generar_correo_resolucion_solicitud,
+    listar_buzon_memoria,
 )
 
 MESES = [
@@ -231,6 +234,10 @@ def to_comprobante(
                 enviar_smtp=False,
             )
 
+    cargas_raw = []
+    if hasattr(s, "__dict__") and "cargas" in s.__dict__:
+        cargas_raw = s.__dict__["cargas"] or []
+
     return ComprobanteOut(
         folio=s.folio,
         estado=s.estado.value,
@@ -247,7 +254,7 @@ def to_comprobante(
                 run=formatear_run(c.run),
                 parentesco=c.parentesco,
             )
-            for c in s.cargas
+            for c in cargas_raw
         ],
         mesesCarencia=settings.AFILIACION_MESES_CARENCIA,
         textoCarencia=texto_carencia(),
@@ -372,15 +379,55 @@ class AfiliacionService:
             )
 
         db.add(solicitud)
+        await db.flush()
+
+        await sincronizar_smtp_desde_db(db)
+        correo_recepcion = generar_correo_recepcion_solicitud(
+            folio=solicitud.folio,
+            nombre_completo=solicitud.nombre_completo,
+            run_formateado=formatear_run(solicitud.run),
+            email_destino=solicitud.email,
+            grado=solicitud.grado,
+            calidad_contractual=solicitud.calidad_contractual.value,
+            porcentaje_descuento=solicitud.porcentaje_descuento,
+            meses_carencia=settings.AFILIACION_MESES_CARENCIA,
+            cantidad_cargas=len(payload.cargas),
+            fecha_ingreso=solicitud.created_at,
+            enviar_smtp=True,
+        )
+
+        db.add(
+            AuditLog(
+                usuario_nombre=solicitud.nombre_completo,
+                usuario_rut=formatear_run(solicitud.run),
+                usuario_rol="postulante",
+                modulo="AFILIACION",
+                accion="INGRESO_SOLICITUD_Y_CORREO",
+                recurso_tipo="SolicitudAfiliacion",
+                recurso_id=folio_nuevo,
+                detalles=(
+                    f"Solicitud {folio_nuevo} ingresada por {solicitud.nombre_completo} (RUN {formatear_run(solicitud.run)}). "
+                    f"Autoriza {settings.AFILIACION_PORCENTAJE_DESCUENTO}% descuento y acepta {settings.AFILIACION_MESES_CARENCIA} meses carencia. "
+                    f"Correo de confirmación enviado a {correo_recepcion['destinatario']}."
+                ),
+                ip_origen="127.0.0.1",
+            )
+        )
         await db.commit()
-        await db.refresh(solicitud)
-        return to_comprobante(solicitud)
+        creada = await db.scalar(
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .where(SolicitudAfiliacion.id == solicitud.id)
+        )
+        return to_comprobante(creada or solicitud, notificacion_email=correo_recepcion)
 
     @staticmethod
     async def consultar_solicitud(db: AsyncSession, folio: str, run: str) -> ComprobanteOut:
         run_norm = normalizar_run(run)
         solicitud = await db.scalar(
-            select(SolicitudAfiliacion).where(
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .where(
                 SolicitudAfiliacion.folio == folio,
                 SolicitudAfiliacion.run == run_norm,
             )
@@ -391,7 +438,11 @@ class AfiliacionService:
 
     @staticmethod
     async def listar_solicitudes(db: AsyncSession, estado: Optional[str] = None) -> List[ComprobanteOut]:
-        query = select(SolicitudAfiliacion).order_by(SolicitudAfiliacion.id.desc())
+        query = (
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .order_by(SolicitudAfiliacion.id.desc())
+        )
         if estado:
             query = query.where(SolicitudAfiliacion.estado == EstadoSolicitud(estado))
         filas = (await db.scalars(query)).all()
@@ -416,7 +467,9 @@ class AfiliacionService:
     ) -> ComprobanteOut:
         await sincronizar_smtp_desde_db(db)
         solicitud = await db.scalar(
-            select(SolicitudAfiliacion).where(SolicitudAfiliacion.folio == folio)
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .where(SolicitudAfiliacion.folio == folio)
         )
         if not solicitud:
             raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
@@ -451,8 +504,9 @@ class AfiliacionService:
 
             # Creación automática de cuenta de usuario con rol socio
             user_existente = await db.scalar(select(User).where(User.rut == solicitud.run))
+            clave_temp = generar_clave_temporal_rut(solicitud.run)
+            socio_id = None
             if not user_existente:
-                clave_temp = generar_clave_temporal_rut(solicitud.run)
                 nuevo_user = User(
                     rut=solicitud.run,
                     email=solicitud.email or f"{solicitud.run}@mperalillo.cl",
@@ -468,6 +522,43 @@ class AfiliacionService:
                     cargas_registradas=len(solicitud.cargas),
                 )
                 db.add(nuevo_user)
+                await db.flush()
+                socio_id = nuevo_user.id
+            else:
+                socio_id = user_existente.id
+
+            if socio_id:
+                # Marcar cambio obligatorio de contraseña en primer inicio de sesión
+                sec_param = await db.scalar(
+                    select(ParametroSistema).where(ParametroSistema.clave == f"SEC_USR_{socio_id}")
+                )
+                sec_val = json.dumps({"i": 0, "b": False, "c": True, "u": None})
+                if sec_param:
+                    sec_param.valor = sec_val
+                else:
+                    db.add(
+                        ParametroSistema(
+                            clave=f"SEC_USR_{socio_id}",
+                            valor=sec_val,
+                            descripcion=f"Seguridad usuario {solicitud.run}",
+                        )
+                    )
+
+            # Emitir Correo #2A: Aprobación con credenciales temporales y pasos a seguir
+            correo_resolucion = generar_correo_resolucion_solicitud(
+                folio=solicitud.folio,
+                nombre_completo=solicitud.nombre_completo,
+                run_formateado=formatear_run(solicitud.run),
+                email_destino=solicitud.email,
+                aprobada=True,
+                motivo=solicitud.observaciones_resolucion,
+                fecha_sesion=solicitud.fecha_sesion,
+                numero_acta=solicitud.numero_acta,
+                fecha_fin_carencia=solicitud.fecha_fin_carencia,
+                porcentaje_descuento=solicitud.porcentaje_descuento,
+                clave_temporal=clave_temp,
+                enviar_smtp=True,
+            )
 
             db.add(
                 AuditLog(
@@ -479,7 +570,10 @@ class AfiliacionService:
                     accion="APROBAR_SOLICITUD_DIRECTORIO",
                     recurso_tipo="SolicitudAfiliacion",
                     recurso_id=folio,
-                    detalles=f"Aprobada en sesión del {f_sesion} ({solicitud.numero_acta}). Carencia hasta {fin_carencia}.",
+                    detalles=(
+                        f"Aprobada en sesión del {f_sesion} ({solicitud.numero_acta}). Carencia hasta {fin_carencia}. "
+                        f"Notificación con clave temporal emitida a {correo_resolucion['destinatario']}."
+                    ),
                     ip_origen="127.0.0.1",
                 )
             )
@@ -494,6 +588,20 @@ class AfiliacionService:
             solicitud.resuelto_por = evaluador.nombre_completo
             solicitud.resuelto_at = ahora_iso
 
+            # Emitir Correo #2B: Rechazo con causal y pasos de subsanación
+            correo_resolucion = generar_correo_resolucion_solicitud(
+                folio=solicitud.folio,
+                nombre_completo=solicitud.nombre_completo,
+                run_formateado=formatear_run(solicitud.run),
+                email_destino=solicitud.email,
+                aprobada=False,
+                motivo=solicitud.observaciones_resolucion,
+                fecha_sesion=solicitud.fecha_sesion,
+                numero_acta=solicitud.numero_acta,
+                porcentaje_descuento=solicitud.porcentaje_descuento,
+                enviar_smtp=True,
+            )
+
             db.add(
                 AuditLog(
                     usuario_id=evaluador.id,
@@ -504,14 +612,167 @@ class AfiliacionService:
                     accion="RECHAZAR_SOLICITUD_DIRECTORIO",
                     recurso_tipo="SolicitudAfiliacion",
                     recurso_id=folio,
-                    detalles=f"Rechazada. Motivo: {payload.observaciones.strip()}",
+                    detalles=(
+                        f"Rechazada. Motivo: {payload.observaciones.strip()}. "
+                        f"Notificación de resolución emitida a {correo_resolucion['destinatario']}."
+                    ),
                     ip_origen="127.0.0.1",
                 )
             )
 
         await db.commit()
-        await db.refresh(solicitud)
-        return to_comprobante(solicitud)
+        resuelta = await db.scalar(
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .where(SolicitudAfiliacion.id == solicitud.id)
+        )
+        return to_comprobante(resuelta or solicitud, notificacion_email=correo_resolucion)
+
+    @staticmethod
+    async def reenviar_correo(db: AsyncSession, folio: str) -> ComprobanteOut:
+        await sincronizar_smtp_desde_db(db)
+        solicitud = await db.scalar(
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .where(SolicitudAfiliacion.folio == folio)
+        )
+        if not solicitud:
+            raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+
+        run_fmt = formatear_run(solicitud.run)
+        cargas_raw = []
+        if hasattr(solicitud, "__dict__") and "cargas" in solicitud.__dict__:
+            cargas_raw = solicitud.__dict__["cargas"] or []
+        cantidad_cargas = len(cargas_raw)
+
+        if solicitud.estado == EstadoSolicitud.PENDIENTE:
+            correo = generar_correo_recepcion_solicitud(
+                folio=solicitud.folio,
+                nombre_completo=solicitud.nombre_completo,
+                run_formateado=run_fmt,
+                email_destino=solicitud.email,
+                grado=solicitud.grado,
+                calidad_contractual=solicitud.calidad_contractual.value,
+                porcentaje_descuento=solicitud.porcentaje_descuento,
+                meses_carencia=settings.AFILIACION_MESES_CARENCIA,
+                cantidad_cargas=cantidad_cargas,
+                fecha_ingreso=solicitud.created_at,
+                enviar_smtp=True,
+            )
+        elif solicitud.estado == EstadoSolicitud.APROBADA:
+            correo = generar_correo_resolucion_solicitud(
+                folio=solicitud.folio,
+                nombre_completo=solicitud.nombre_completo,
+                run_formateado=run_fmt,
+                email_destino=solicitud.email,
+                aprobada=True,
+                motivo=solicitud.observaciones_resolucion,
+                fecha_sesion=solicitud.fecha_sesion,
+                numero_acta=solicitud.numero_acta,
+                fecha_fin_carencia=solicitud.fecha_fin_carencia,
+                porcentaje_descuento=solicitud.porcentaje_descuento,
+                clave_temporal=generar_clave_temporal_rut(solicitud.run),
+                enviar_smtp=True,
+            )
+        else:
+            correo = generar_correo_resolucion_solicitud(
+                folio=solicitud.folio,
+                nombre_completo=solicitud.nombre_completo,
+                run_formateado=run_fmt,
+                email_destino=solicitud.email,
+                aprobada=False,
+                motivo=solicitud.observaciones_resolucion,
+                fecha_sesion=solicitud.fecha_sesion,
+                numero_acta=solicitud.numero_acta,
+                porcentaje_descuento=solicitud.porcentaje_descuento,
+                enviar_smtp=True,
+            )
+        return to_comprobante(solicitud, notificacion_email=correo)
+
+    @staticmethod
+    async def obtener_buzon(db: AsyncSession, q: Optional[str] = None) -> Dict[str, Any]:
+        solicitudes = (
+            await db.scalars(select(SolicitudAfiliacion).order_by(SolicitudAfiliacion.id.desc()))
+        ).all()
+
+        mensajes: List[Dict[str, Any]] = []
+        for s in solicitudes:
+            run_fmt = formatear_run(s.run)
+            if s.estado == EstadoSolicitud.APROBADA:
+                c_res = generar_correo_resolucion_solicitud(
+                    folio=s.folio,
+                    nombre_completo=s.nombre_completo,
+                    run_formateado=run_fmt,
+                    email_destino=s.email,
+                    aprobada=True,
+                    motivo=s.observaciones_resolucion,
+                    fecha_sesion=s.fecha_sesion,
+                    numero_acta=s.numero_acta,
+                    fecha_fin_carencia=s.fecha_fin_carencia,
+                    porcentaje_descuento=s.porcentaje_descuento,
+                    clave_temporal=generar_clave_temporal_rut(s.run),
+                    enviar_smtp=False,
+                )
+                c_res["id"] = f"{s.folio}-resolucion-aprobada"
+                c_res["fechaEmision"] = (s.resuelto_at or (s.created_at.isoformat() if s.created_at else ""))[:16].replace("T", " ")
+                mensajes.append(c_res)
+            elif s.estado == EstadoSolicitud.RECHAZADA:
+                c_rech = generar_correo_resolucion_solicitud(
+                    folio=s.folio,
+                    nombre_completo=s.nombre_completo,
+                    run_formateado=run_fmt,
+                    email_destino=s.email,
+                    aprobada=False,
+                    motivo=s.observaciones_resolucion,
+                    fecha_sesion=s.fecha_sesion,
+                    numero_acta=s.numero_acta,
+                    porcentaje_descuento=s.porcentaje_descuento,
+                    enviar_smtp=False,
+                )
+                c_rech["id"] = f"{s.folio}-resolucion-rechazada"
+                c_rech["fechaEmision"] = (s.resuelto_at or (s.created_at.isoformat() if s.created_at else ""))[:16].replace("T", " ")
+                mensajes.append(c_rech)
+
+            c_rec = generar_correo_recepcion_solicitud(
+                folio=s.folio,
+                nombre_completo=s.nombre_completo,
+                run_formateado=run_fmt,
+                email_destino=s.email,
+                grado=s.grado,
+                calidad_contractual=s.calidad_contractual.value,
+                porcentaje_descuento=s.porcentaje_descuento,
+                meses_carencia=settings.AFILIACION_MESES_CARENCIA,
+                cantidad_cargas=len(s.cargas),
+                fecha_ingreso=s.created_at,
+                enviar_smtp=False,
+            )
+            c_rec["id"] = f"{s.folio}-recepcion"
+            c_rec["fechaEmision"] = s.created_at.strftime("%Y-%m-%d %H:%M") if s.created_at else c_rec.get("fechaEmision", "")
+            mensajes.append(c_rec)
+
+        extra_memoria = listar_buzon_memoria()
+        for em in extra_memoria:
+            if not any(m["id"] == em.get("id") or (m.get("folio") == em.get("folio") and m.get("tipo") == em.get("tipo")) for m in mensajes):
+                mensajes.append(em)
+
+        if q and q.strip():
+            qn = q.strip().lower()
+            q_clean = re.sub(r"[^0-9kKa-zA-Z@]", "", qn)
+            res_filtrada = []
+            for m in mensajes:
+                d = (m.get("destinatario") or "").lower()
+                fol = (m.get("folio") or "").lower()
+                nom = (m.get("nombreDestinatario") or "").lower()
+                cuerpo = (m.get("cuerpoTexto") or "").lower()
+                cuerpo_clean = re.sub(r"[^0-9kKa-zA-Z@]", "", cuerpo)
+                if qn in d or qn in fol or qn in nom or qn in cuerpo or q_clean in cuerpo_clean:
+                    res_filtrada.append(m)
+            mensajes = res_filtrada
+
+        return {
+            "total": len(mensajes),
+            "correos": mensajes,
+        }
 
     @staticmethod
     async def obtener_nomina_retenciones(db: AsyncSession) -> Dict[str, Any]:

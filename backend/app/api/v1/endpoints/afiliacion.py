@@ -125,6 +125,33 @@ async def resolver_solicitud(
     return await AfiliacionService.resolver_solicitud(db, folio, payload, current_user)
 
 
+# [ESTUDIANTE INFORMÁTICA] Reenvía la notificación correspondiente al estado actual de la postulación por correo real.
+@router.post(
+    "/solicitudes/{folio}/reenviar-correo",
+    response_model=ComprobanteOut,
+    summary="Reenviar notificación por correo según el estado actual de la solicitud (Directiva)",
+)
+async def reenviar_correo_solicitud(
+    folio: str,
+    _: User = Depends(require_roles(*ROLES_DIRECTIVA)),
+    db: AsyncSession = Depends(get_db),
+) -> ComprobanteOut:
+    return await AfiliacionService.reenviar_correo(db, folio)
+
+
+# [ESTUDIANTE INFORMÁTICA] Retorna la bandeja de correos transaccionales emitidos (recepción, resolución con credenciales y rechazo).
+@router.get(
+    "/buzon",
+    summary="Buzón de correos emitidos por el sistema (Recepción, Aprobación y Rechazo)",
+)
+async def get_buzon_correos(
+    q: Optional[str] = None,
+    _: User = Depends(require_roles(*ROLES_DIRECTIVA)),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    return await AfiliacionService.obtener_buzon(db, q)
+
+
 # [ESTUDIANTE INFORMÁTICA] Genera la nómina mensual de retenciones del 4% para exportación a Recursos Humanos y Finanzas (HU-02).
 @router.get(
     "/nomina-retenciones",
