@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { BonoCatalogoItem, CatalogoBeneficios } from '@/types';
-import { formatCurrency } from '@/lib/utils';
 import {
   GiftIcon,
   SnowflakeIcon,
@@ -15,8 +14,8 @@ import {
   FlameIcon,
   FileTextIcon,
   SearchIcon,
-  FilterIcon,
 } from './Icons';
+import { BeneficioDetalleModal, getBeneficioEditorial } from './BeneficioDetalleModal';
 
 interface CatalogoBonosProps {
   catalogo: CatalogoBeneficios | null;
@@ -27,7 +26,74 @@ interface CatalogoBonosProps {
   onError: (msg: string) => void;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Asocia cada código de bono estatutario con su ícono vectorial.
+type SeccionId = 'recreacion' | 'familia' | 'salud' | 'solidaridad' | 'todos';
+
+interface SeccionMeta {
+  id: Exclude<SeccionId, 'todos'>;
+  titulo: string;
+  tituloCorto: string;
+  subtitulo: string;
+  badgeText: string;
+  accentBg: string;
+  accentText: string;
+  accentBorder: string;
+  coverImage: string;
+  bonoIds: string[];
+}
+
+// [ESTUDIANTE INFORMÁTICA] Apartados temáticos con portada visual para que el socio explore cada categoría.
+const SECCIONES_BENEFICIOS: SeccionMeta[] = [
+  {
+    id: 'familia',
+    titulo: 'Educación y Vida Familiar',
+    tituloCorto: 'Educación y Familia',
+    subtitulo: 'Bienvenida al recién nacido y apoyo educacional para tus cargas familiares.',
+    badgeText: 'Familia y Estudios',
+    accentBg: 'bg-emerald-50',
+    accentText: 'text-[#166534]',
+    accentBorder: 'border-emerald-200/80',
+    coverImage: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?auto=format&fit=crop&w=600&q=80',
+    bonoIds: ['nacimiento', 'escolaridad'],
+  },
+  {
+    id: 'recreacion',
+    titulo: 'Descanso, Recreación y Celebraciones',
+    tituloCorto: 'Descanso y Recreación',
+    subtitulo: 'Beneficios para feriado legal, temporada de invierno y fiestas de fin de año.',
+    badgeText: 'Tiempo Libre y Fiestas',
+    accentBg: 'bg-sky-50',
+    accentText: 'text-[#006799]',
+    accentBorder: 'border-sky-200/80',
+    coverImage: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
+    bonoIds: ['vacaciones', 'invierno', 'navidad'],
+  },
+  {
+    id: 'salud',
+    titulo: 'Salud y Protección Médica',
+    tituloCorto: 'Salud y Bienestar',
+    subtitulo: 'Respaldo de alta cobertura frente a diagnósticos médicos complejos.',
+    badgeText: 'Cobertura de Salud',
+    accentBg: 'bg-indigo-50',
+    accentText: 'text-indigo-700',
+    accentBorder: 'border-indigo-200/80',
+    coverImage: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=600&q=80',
+    bonoIds: ['enfermedad_catastrofica'],
+  },
+  {
+    id: 'solidaridad',
+    titulo: 'Emergencia y Apoyo Solidario',
+    tituloCorto: 'Apoyo Solidario',
+    subtitulo: 'Auxilio oportuno ante siniestros habitacionales o duelo familiar.',
+    badgeText: 'Protección Solidaria',
+    accentBg: 'bg-amber-50',
+    accentText: 'text-[#b45309]',
+    accentBorder: 'border-amber-200/80',
+    coverImage: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=600&q=80',
+    bonoIds: ['catastrofe_siniestro', 'fallecimiento_familiar', 'fallecimiento_afiliado'],
+  },
+];
+
+// [ESTUDIANTE INFORMÁTICA] Asocia cada código de bono con su ícono vectorial.
 function renderBonoIcon(id: string, className = 'w-5 h-5'): React.ReactNode {
   switch (id) {
     case 'vacaciones':
@@ -53,129 +119,79 @@ function renderBonoIcon(id: string, className = 'w-5 h-5'): React.ReactNode {
   }
 }
 
-interface BonoCardItemProps {
+interface BonoVisualCardProps {
   bono: BonoCatalogoItem;
-  cumpleRequisito6Meses: boolean;
-  esDirectivaOAdmin: boolean;
-  onPostular: (bono: BonoCatalogoItem) => void;
-  onAsignacionDirecta: () => void;
-  onError: (msg: string) => void;
+  seccion: SeccionMeta;
+  onVerMas: (bono: BonoCatalogoItem, seccionTitulo: string) => void;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Tarjeta moderna de bono municipal con badge de ícono estilizado, porcentaje G15 y elevación al pasar el cursor.
-const BonoCatalogoCard: React.FC<BonoCardItemProps> = ({
-  bono,
-  cumpleRequisito6Meses,
-  esDirectivaOAdmin,
-  onPostular,
-  onAsignacionDirecta,
-  onError,
-}) => {
-  const esCalendario = ['invierno', 'navidad'].includes(bono.id);
-  const esVacaciones = bono.id === 'vacaciones';
-  const iconStyle = esCalendario
-    ? 'bg-amber-50 text-[#b45309] border-amber-200/80'
-    : esVacaciones
-    ? 'bg-emerald-50 text-[#166534] border-emerald-200/80'
-    : 'bg-sky-50 text-[#006799] border-sky-200/80';
+// [ESTUDIANTE INFORMÁTICA] Tarjeta visual de beneficio con fotografía temática, texto humano y botón "Ver más".
+const BonoVisualCard: React.FC<BonoVisualCardProps> = ({ bono, seccion, onVerMas }) => {
+  const editorial = getBeneficioEditorial(bono.id);
 
   return (
-    <div className="card-modern-interactive flex flex-col justify-between overflow-hidden group min-w-0">
-      <div className="p-5 space-y-3.5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 ${iconStyle}`}>
-              {renderBonoIcon(bono.id, 'w-5 h-5')}
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-semibold text-slate-900 text-base leading-tight group-hover:text-[#006799] transition-colors truncate">
-                {bono.nombre}
-              </h3>
-              <span className="text-xs text-slate-500 font-normal block truncate">{bono.categoria}</span>
+    <div
+      onClick={() => onVerMas(bono, seccion.titulo)}
+      className="card-modern-interactive flex flex-col justify-between overflow-hidden group cursor-pointer min-w-0"
+    >
+      <div>
+        {/* Imagen Representativa del Beneficio */}
+        <div className="relative h-44 w-full bg-slate-900 overflow-hidden">
+          <img
+            src={editorial.imageUrl}
+            alt={editorial.imageAlt}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-95"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/75 via-slate-900/20 to-transparent" />
+
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+            <span
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border backdrop-blur-xs bg-white/90 ${seccion.accentText} ${seccion.accentBorder}`}
+            >
+              {seccion.badgeText}
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-white/90 backdrop-blur-xs text-slate-800 flex items-center justify-center shadow-xs">
+              {renderBonoIcon(bono.id, 'w-4 h-4')}
             </div>
           </div>
 
-          <div className="flex flex-col items-end shrink-0">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-[#006799] border border-sky-200/80 tabular-nums">
-              {bono.porcentaje}% G15
-            </span>
-            {bono.periodo_devengo && (
-              <span className="text-xs text-slate-400 font-normal mt-0.5">{bono.periodo_devengo}</span>
-            )}
+          <div className="absolute bottom-3 left-4 right-4">
+            <h3 className="text-base font-bold text-white leading-snug drop-shadow-xs">
+              {bono.nombre}
+            </h3>
           </div>
         </div>
 
-        <div className="space-y-2 text-xs">
-          <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200/70">
-            <span className="font-semibold text-slate-700 text-xs block">Requisitos Legales:</span>
-            <p className="text-slate-600 text-xs leading-relaxed mt-0.5 font-normal">{bono.requisitos}</p>
-          </div>
-          <div>
-            <span className="text-slate-500 text-xs font-medium block">
-              Documentación Requerida:
-            </span>
-            <p className="text-slate-700 text-xs font-normal mt-0.5">{bono.documentacion_requerida}</p>
-          </div>
+        {/* Texto Cálido Correspondiente al Beneficio */}
+        <div className="p-5">
+          <p className="text-xs text-slate-600 leading-relaxed font-normal">
+            {editorial.resumenCorto}
+          </p>
         </div>
       </div>
 
+      {/* Pie de Tarjeta con Botón "Ver más" */}
       <div className="px-5 py-3.5 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <span className="text-xs text-slate-500 font-medium block">
-            Monto a Liquidar
-          </span>
-          <span className="text-xl font-bold text-[#166534] tabular-nums">
-            {formatCurrency(bono.monto_calculado)}
-          </span>
-        </div>
-
-        <div className="shrink-0">
-          {esCalendario ? (
-            <span className="text-[11px] font-bold text-[#b45309] bg-amber-50 border border-amber-200/80 px-3 py-1.5 rounded-xl">
-              Nómina (HU-06)
-            </span>
-          ) : esVacaciones && esDirectivaOAdmin ? (
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => onPostular(bono)}
-                className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors"
-              >
-                Postular
-              </button>
-              <button
-                onClick={onAsignacionDirecta}
-                className="px-3 py-1.5 text-xs font-bold text-white bg-[#166534] hover:bg-emerald-800 rounded-xl shadow-2xs transition-colors"
-              >
-                Asignar
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                if (!cumpleRequisito6Meses) {
-                  onError(
-                    'No cumples con el requisito mínimo de 6 meses de permanencia en el Comité de Bienestar para postular a beneficios.'
-                  );
-                  return;
-                }
-                onPostular(bono);
-              }}
-              className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all shadow-2xs ${
-                cumpleRequisito6Meses
-                  ? 'text-white bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95'
-                  : 'text-slate-400 bg-slate-200 cursor-not-allowed'
-              }`}
-            >
-              Postular
-            </button>
-          )}
-        </div>
+        <span className="text-xs text-slate-500 font-normal truncate">
+          Conoce monto, requisitos y respaldos
+        </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onVerMas(bono, seccion.titulo);
+          }}
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-[#006799] bg-sky-50 group-hover:bg-[#006799] group-hover:text-white border border-sky-200/80 transition-all shrink-0"
+        >
+          <span>Ver más</span>
+          <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+        </button>
       </div>
     </div>
   );
 };
 
-// [ESTUDIANTE INFORMÁTICA] Catálogo interactivo de bonos con barra de búsqueda moderna y grilla adaptable.
+// [ESTUDIANTE INFORMÁTICA] Catálogo interactivo: el usuario pincha una sección para ver sus beneficios y pulsa "Ver más" para abrir la ficha completa.
 export const CatalogoBonos: React.FC<CatalogoBonosProps> = ({
   catalogo,
   cumpleRequisito6Meses,
@@ -184,78 +200,181 @@ export const CatalogoBonos: React.FC<CatalogoBonosProps> = ({
   onAsignacionDirecta,
   onError,
 }) => {
-  const [filtroCategoria, setFiltroCategoria] = useState<string>('todos');
+  const [seccionActiva, setSeccionActiva] = useState<SeccionId>('familia');
   const [busqueda, setBusqueda] = useState<string>('');
+  const [bonoSeleccionado, setBonoSeleccionado] = useState<{
+    bono: BonoCatalogoItem;
+    seccionTitulo: string;
+  } | null>(null);
 
-  const bonosFiltrados = useMemo(() => {
+  const todosLosBonos = useMemo(() => {
     if (!catalogo) return [];
-    let list = [...catalogo.bonos_contingencia, ...catalogo.bonos_calendario];
-    if (filtroCategoria === 'contingencia') list = catalogo.bonos_contingencia;
-    if (filtroCategoria === 'calendario') list = catalogo.bonos_calendario;
-    if (busqueda.trim() !== '') {
-      const q = busqueda.toLowerCase();
-      list = list.filter(
-        (b) => b.nombre.toLowerCase().includes(q) || b.requisitos.toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [catalogo, filtroCategoria, busqueda]);
+    return [...catalogo.bonos_contingencia, ...catalogo.bonos_calendario];
+  }, [catalogo]);
+
+  const seccionesConBonos = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return SECCIONES_BENEFICIOS.map((sec) => {
+      const items = todosLosBonos.filter((b) => {
+        if (!sec.bonoIds.includes(b.id)) return false;
+        if (!q) return true;
+        return (
+          b.nombre.toLowerCase().includes(q) ||
+          b.requisitos.toLowerCase().includes(q) ||
+          b.categoria.toLowerCase().includes(q)
+        );
+      });
+      return { ...sec, items };
+    }).filter((sec) => (seccionActiva === 'todos' ? sec.items.length > 0 : sec.id === seccionActiva));
+  }, [todosLosBonos, seccionActiva, busqueda]);
 
   return (
-    <div className="space-y-5 min-w-0">
-      <div className="card-modern p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <div className="absolute left-3 top-2.5 text-slate-400">
-            <SearchIcon className="w-4 h-4" />
+    <div className="space-y-6 min-w-0">
+      {/* 1. Selector Visual de Secciones (Pincha una sección para ver sus beneficios) */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">
+              1. Selecciona un Apartado de Beneficios
+            </h2>
+            <p className="text-xs text-slate-500 font-normal">
+              Pincha cualquiera de las secciones para explorar los beneficios disponibles en esa categoría
+            </p>
           </div>
-          <input
-            type="text"
-            placeholder="Buscar bono o requisito legal..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#006799] focus:outline-none"
-          />
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSeccionActiva('todos')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all shrink-0 ${
+                seccionActiva === 'todos'
+                  ? 'bg-[#0c2b45] text-white border-[#0c2b45] shadow-xs'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Ver Todas las Secciones ({todosLosBonos.length})
+            </button>
+
+            <div className="relative w-full sm:w-60">
+              <div className="absolute left-3 top-2.5 text-slate-400">
+                <SearchIcon className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar beneficio..."
+                value={busqueda}
+                onChange={(e) => {
+                  setBusqueda(e.target.value);
+                  if (e.target.value.trim() !== '') setSeccionActiva('todos');
+                }}
+                className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200/90 rounded-xl focus:ring-2 focus:ring-[#006799] focus:outline-none"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
-            <FilterIcon className="w-3.5 h-3.5" /> Tipo:
-          </span>
-          <div className="inline-flex flex-wrap p-1 bg-slate-100 rounded-xl border border-slate-200/60">
-            {[
-              { id: 'todos', label: 'Todos' },
-              { id: 'contingencia', label: 'Contingencia (HU-05)' },
-              { id: 'calendario', label: 'Calendario (HU-06)' },
-            ].map((tab) => (
+        {/* Grilla de las 4 Secciones Principales */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 min-w-0">
+          {SECCIONES_BENEFICIOS.map((sec) => {
+            const count = todosLosBonos.filter((b) => sec.bonoIds.includes(b.id)).length;
+            const activa = seccionActiva === sec.id;
+            return (
               <button
-                key={tab.id}
-                onClick={() => setFiltroCategoria(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  filtroCategoria === tab.id
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                key={sec.id}
+                type="button"
+                onClick={() => setSeccionActiva(sec.id)}
+                className={`text-left rounded-2xl p-4 border transition-all duration-200 flex items-center gap-3.5 min-w-0 ${
+                  activa
+                    ? 'bg-gradient-to-br from-[#0c2b45] to-[#006799] text-white border-[#0c2b45] shadow-md -translate-y-0.5'
+                    : 'bg-white hover:bg-slate-50/80 text-slate-800 border-slate-200/90 shadow-2xs'
                 }`}
               >
-                {tab.label}
+                <img
+                  src={sec.coverImage}
+                  alt={sec.tituloCorto}
+                  className="w-12 h-12 rounded-xl object-cover shrink-0 border border-white/20"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className={`text-xs font-semibold truncate ${
+                        activa ? 'text-sky-200' : sec.accentText
+                      }`}
+                    >
+                      {sec.badgeText}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums shrink-0 ${
+                        activa ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </div>
+                  <p className={`text-sm font-bold truncate mt-0.5 ${activa ? 'text-white' : 'text-slate-900'}`}>
+                    {sec.tituloCorto}
+                  </p>
+                </div>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 min-w-0">
-        {bonosFiltrados.map((bono) => (
-          <BonoCatalogoCard
-            key={bono.id}
-            bono={bono}
-            cumpleRequisito6Meses={cumpleRequisito6Meses}
-            esDirectivaOAdmin={esDirectivaOAdmin}
-            onPostular={onPostular}
-            onAsignacionDirecta={onAsignacionDirecta}
-            onError={onError}
-          />
-        ))}
-      </div>
+      {/* 2. Listado de Beneficios de la Sección Seleccionada */}
+      {seccionesConBonos.length === 0 ? (
+        <div className="card-modern p-10 text-center text-xs text-slate-400">
+          No se encontraron beneficios en esta sección para la búsqueda realizada.
+        </div>
+      ) : (
+        <div className="space-y-8 min-w-0">
+          {seccionesConBonos.map((seccion) => (
+            <section key={seccion.id} className="space-y-4 min-w-0 animate-fade-in">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${seccion.accentBg} ${seccion.accentText} ${seccion.accentBorder}`}
+                    >
+                      {seccion.badgeText}
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900">{seccion.titulo}</h3>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5 font-normal">{seccion.subtitulo}</p>
+                </div>
+                <span className="text-xs text-slate-500 font-medium tabular-nums">
+                  Pincha &ldquo;Ver más&rdquo; en cualquier tarjeta para revisar montos y postular
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 min-w-0">
+                {seccion.items.map((bono) => (
+                  <BonoVisualCard
+                    key={bono.id}
+                    bono={bono}
+                    seccion={seccion}
+                    onVerMas={(item, secTitle) =>
+                      setBonoSeleccionado({ bono: item, seccionTitulo: secTitle })
+                    }
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {/* 3. Modal "Ver más" con toda la información del beneficio y botón para solicitar */}
+      <BeneficioDetalleModal
+        bono={bonoSeleccionado?.bono || null}
+        seccionTitulo={bonoSeleccionado?.seccionTitulo}
+        cumpleRequisito6Meses={cumpleRequisito6Meses}
+        esDirectivaOAdmin={esDirectivaOAdmin}
+        onClose={() => setBonoSeleccionado(null)}
+        onSolicitar={(bono) => onPostular(bono)}
+        onAsignacionDirecta={onAsignacionDirecta}
+        onError={onError}
+      />
     </div>
   );
 };

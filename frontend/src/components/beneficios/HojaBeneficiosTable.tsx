@@ -158,52 +158,83 @@ export const HojaBeneficiosTable: React.FC<HojaBeneficiosTableProps> = ({
             ))}
           </div>
 
-          {/* Vista Tablet / Desktop: Tabla Tradicional */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          {/* Vista Desktop: 5 Columnas Limpias con table-fixed y Estado al Final (Pinchar folio abre respaldo/detalle) */}
+          <div className="hidden md:block w-full overflow-hidden">
+            <table className="w-full table-fixed text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
-                  <th className="py-3.5 px-4">ID & Fecha</th>
-                  <th className="py-3.5 px-4">Beneficio / Bono</th>
-                  <th className="py-3.5 px-4">Base & %</th>
-                  <th className="py-3.5 px-4">Monto Liquidado</th>
-                  <th className="py-3.5 px-4">Estado</th>
-                  <th className="py-3.5 px-4">Pago / Cheque</th>
-                  <th className="py-3.5 px-4">Documento Respaldo</th>
-                  <th className="py-3.5 px-4 text-right">Detalle</th>
+                <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-600 font-semibold">
+                  <th className="w-[18%] py-3 px-4">Folio y Fecha</th>
+                  <th className="w-[28%] py-3 px-4">Beneficio / Bono</th>
+                  <th className="w-[20%] py-3 px-4">Respaldo y Pago</th>
+                  <th className="w-[16%] py-3 px-4 text-right">Monto Liquidado</th>
+                  <th className="w-[18%] py-3 px-4 text-right">Estado de la Solicitud</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 text-xs">
                 {solicitudes.map((sol) => (
-                  <tr key={sol.id} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3.5 px-4 font-mono font-medium text-slate-700">
-                      <div>BEN-{String(sol.id).padStart(4, '0')}</div>
-                      <span className="text-[10px] text-slate-400">{sol.created_at}</span>
+                  <tr
+                    key={sol.id}
+                    onClick={() =>
+                      onVerDocumento({
+                        titulo: `${sol.titulo_bono} - Socio: ${sol.socio_nombre}`,
+                        tipo: sol.documento_tipo,
+                        num: sol.decreto_numero || undefined,
+                        url: sol.documento_url || undefined,
+                        detalle: `Monto: ${formatCurrency(sol.monto_calculado)} | Estado: ${sol.estado} | Cheque: ${sol.numero_cheque || 'Pendiente'} | Observaciones: ${sol.observaciones_admin || 'Conforme a bases.'}`,
+                      })
+                    }
+                    className="hover:bg-sky-50/40 cursor-pointer transition-colors group"
+                  >
+                    <td className="py-3 px-4 align-middle tabular-nums">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onVerDocumento({
+                            titulo: `${sol.titulo_bono} - Socio: ${sol.socio_nombre}`,
+                            tipo: sol.documento_tipo,
+                            num: sol.decreto_numero || undefined,
+                            url: sol.documento_url || undefined,
+                            detalle: `Monto: ${formatCurrency(sol.monto_calculado)} | Estado: ${sol.estado} | Cheque: ${sol.numero_cheque || 'Pendiente'} | Observaciones: ${sol.observaciones_admin || 'Conforme a bases.'}`,
+                          });
+                        }}
+                        className="inline-flex items-center gap-1.5 font-semibold text-[#006799] group-hover:text-[#0c2b45] group-hover:underline truncate"
+                      >
+                        <span>BEN-{String(sol.id).padStart(4, '0')}</span>
+                        <span className="text-[11px] opacity-75">→</span>
+                      </button>
+                      <span className="text-slate-500 font-normal block truncate mt-0.5">{sol.created_at}</span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-slate-800 block">{sol.titulo_bono}</span>
-                      <span className="text-[11px] text-slate-500">
+                    <td className="py-3 px-4 align-middle">
+                      <span className="font-medium text-slate-900 block truncate" title={sol.titulo_bono}>
+                        {sol.titulo_bono}
+                      </span>
+                      <span className="text-slate-500 font-normal block truncate mt-0.5">
                         {sol.asignacion_directa ? 'Asignación Directa' : sol.motivo || 'Postulación socio'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-slate-700">{sol.porcentaje_base}%</span>
-                      <span className="text-[10px] text-slate-400 block">
-                        (Base {formatCurrency(sol.sueldo_base_referencia)})
+                    <td className="py-3 px-4 align-middle">
+                      <div className="font-medium text-slate-800 truncate">
+                        {sol.numero_cheque
+                          ? `${sol.metodo_pago || 'Cheque'}: ${sol.numero_cheque}`
+                          : sol.decreto_numero || sol.documento_nombre || 'Respaldo adjunto'}
+                      </div>
+                      <span className="text-slate-500 font-normal block truncate mt-0.5">
+                        {sol.porcentaje_base}% Grado 15 ({formatCurrency(sol.sueldo_base_referencia)})
                       </span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className="text-sm font-extrabold text-emerald-700">
+                    <td className="py-3 px-4 text-right align-middle tabular-nums">
+                      <span className="font-semibold text-[#166534]">
                         {formatCurrency(sol.monto_calculado)}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className="py-3 px-4 text-right align-middle">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5 ${
                           sol.estado === 'LIQUIDADO'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : sol.estado === 'APROBADO'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                            ? 'bg-sky-50 text-[#006799] border border-sky-200'
                             : sol.estado === 'PENDIENTE'
                             ? 'bg-amber-50 text-amber-700 border border-amber-200'
                             : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -214,62 +245,14 @@ export const HojaBeneficiosTable: React.FC<HojaBeneficiosTableProps> = ({
                             sol.estado === 'LIQUIDADO'
                               ? 'bg-emerald-500'
                               : sol.estado === 'APROBADO'
-                              ? 'bg-blue-500'
+                              ? 'bg-[#006799]'
                               : sol.estado === 'PENDIENTE'
                               ? 'bg-amber-500'
                               : 'bg-rose-500'
                           }`}
                         />
-                        {sol.estado === 'LIQUIDADO' ? 'Pagado / Liquidado' : sol.estado}
+                        {sol.estado === 'LIQUIDADO' ? 'Pagado' : sol.estado}
                       </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {sol.numero_cheque ? (
-                        <div>
-                          <span className="font-semibold text-slate-800 block">
-                            {sol.metodo_pago || 'Cheque'}: {sol.numero_cheque}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {sol.banco_emisor} • {sol.fecha_liquidacion || 'Emitido'}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 italic">Pendiente emisión</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <button
-                        onClick={() =>
-                          onVerDocumento({
-                            titulo: sol.titulo_bono,
-                            tipo: sol.documento_tipo,
-                            num: sol.decreto_numero || undefined,
-                            url: sol.documento_url || undefined,
-                            detalle: sol.observaciones_admin || sol.motivo || undefined,
-                          })
-                        }
-                        className="inline-flex items-center gap-1 text-[#0077b6] hover:text-[#0369a1] font-semibold text-xs"
-                      >
-                        <FileCheckIcon className="w-3.5 h-3.5" />
-                        {sol.decreto_numero || sol.documento_nombre || 'Ver Documento'}
-                      </button>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() =>
-                          onVerDocumento({
-                            titulo: `${sol.titulo_bono} - Socio: ${sol.socio_nombre}`,
-                            tipo: sol.documento_tipo,
-                            num: sol.decreto_numero || undefined,
-                            url: sol.documento_url || undefined,
-                            detalle: `Monto: ${formatCurrency(sol.monto_calculado)} | Estado: ${sol.estado} | Cheque: ${sol.numero_cheque || 'Pendiente'} | Observaciones: ${sol.observaciones_admin || 'Conforme a bases.'}`,
-                          })
-                        }
-                        className="p-1.5 text-slate-400 hover:text-slate-700 bg-slate-100 rounded-lg transition"
-                        title="Ver antecedentes completos"
-                      >
-                        <EyeIcon className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
                 ))}
