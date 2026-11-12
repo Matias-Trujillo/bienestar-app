@@ -13,6 +13,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-bienestar_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-PeralilloSeguro2026_Prod}
       POSTGRES_DB: ${POSTGRES_DB:-bienestar_db_prod}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
@@ -35,8 +37,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-c9f18a45b73d2e1f6a09c84e27bb140f7d56e3a981c2f40b82e1d75a6c3f09ab}
       ENVIRONMENT: production
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      # HU-01: en producción la validación de período ene-jun se activa por defecto
-      AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-true}
+      # HU-01: en servidor de pruebas se permite postular fuera del período ene-jun
+      AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-false}
       AFILIACION_PORCENTAJE_DESCUENTO: 4
       AFILIACION_MESES_CARENCIA: 6
     ports:
@@ -68,10 +70,33 @@ services:
     networks:
       - bienestar_prod_network
 
+  # 4. Suite Gráfica Oficial de PostgreSQL (pgAdmin 4 — Red Local / VPN Tailscale)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bienestar_pgadmin_prod
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-superadmin@mperalillo.cl}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-Super#2026}
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+    ports:
+      - "8080:80"
+    volumes:
+      - ./deploy/pgadmin_servers.json:/pgadmin4/servers.json:ro
+      - pgadmin_v2_prod_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bienestar_prod_network
+
 volumes:
   postgres_prod_data:
     driver: local
   backend_prod_uploads:
+    driver: local
+  pgadmin_v2_prod_data:
     driver: local
 
 networks:
