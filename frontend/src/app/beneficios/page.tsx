@@ -3,13 +3,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import {
   BonoCatalogoItem,
   CatalogoBeneficios,
   SolicitudBeneficio,
   SimularNominaResponse,
   SimularNominaItem,
+  ExportarTesoreriaData,
+  EjecutarNominaResponse,
+  FormPostulacionBono,
+  FormAsignacionDirecta,
+  FormValidacionBono,
 } from '@/types';
 import { CheckCircleIcon, AlertTriangleIcon } from '@/components/beneficios/Icons';
 import { BeneficiosHeader } from '@/components/beneficios/BeneficiosHeader';
@@ -41,10 +46,10 @@ export default function BeneficiosPage() {
   const [modalConfigBaseG15, setModalConfigBaseG15] = useState<boolean>(false);
   const [modalValidarSolicitud, setModalValidarSolicitud] = useState<SolicitudBeneficio | null>(null);
   const [modalVisorDoc, setModalVisorDoc] = useState<{ titulo: string; tipo: string; num?: string; url?: string; detalle?: string } | null>(null);
-  const [modalExportarTesoreria, setModalExportarTesoreria] = useState<any | null>(null);
+  const [modalExportarTesoreria, setModalExportarTesoreria] = useState<ExportarTesoreriaData | null>(null);
 
   // Formularios
-  const [formPostulacion, setFormPostulacion] = useState({
+  const [formPostulacion, setFormPostulacion] = useState<FormPostulacionBono>({
     motivo: '',
     documento_tipo: '',
     documento_nombre: '',
@@ -58,7 +63,7 @@ export default function BeneficiosPage() {
     edad_estudiante: 10,
   });
 
-  const [formAsigDirecta, setFormAsigDirecta] = useState({
+  const [formAsigDirecta, setFormAsigDirecta] = useState<FormAsignacionDirecta>({
     socio_id: 7,
     decreto_numero: 'DEC-ALC-1042/2026',
     decreto_fecha: '2026-02-01',
@@ -70,7 +75,7 @@ export default function BeneficiosPage() {
     banco: 'BancoEstado',
   });
 
-  const [formValidacion, setFormValidacion] = useState({
+  const [formValidacion, setFormValidacion] = useState<FormValidacionBono>({
     accion: 'APROBAR' as 'APROBAR' | 'RECHAZAR' | 'LIQUIDAR',
     motivo_rechazo: '',
     observaciones: '',
@@ -117,9 +122,9 @@ export default function BeneficiosPage() {
           }
         } catch (_) {}
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error al cargar datos:', err);
-      setErrorMsg(err.message || 'Error al conectar con el servidor.');
+      setErrorMsg(getErrorMessage(err) || 'Error al conectar con el servidor.');
     } finally {
       setIsLoading(false);
     }
@@ -163,8 +168,8 @@ export default function BeneficiosPage() {
       setModalPostularBono(null);
       await cargarDatos();
       setActiveTab('hoja_socio');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al procesar la postulación.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Error al procesar la postulación.');
     }
   };
 
@@ -185,8 +190,8 @@ export default function BeneficiosPage() {
       );
       setModalAsignacionDirecta(false);
       await cargarDatos();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al procesar la asignación directa.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Error al procesar la asignación directa.');
     }
   };
 
@@ -206,8 +211,8 @@ export default function BeneficiosPage() {
       setSuccessMsg(`Solicitud #${resp.id} actualizada a estado "${resp.estado}" correctamente.`);
       setModalValidarSolicitud(null);
       await cargarDatos();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al actualizar la solicitud.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Error al actualizar la solicitud.');
     }
   };
 
@@ -237,8 +242,8 @@ export default function BeneficiosPage() {
       setSuccessMsg(
         `Simulación exitosa: ${resp.total_socios_beneficiados} socios cumplen requisito de permanencia (>= 6 meses). Monto total: ${formatCurrency(resp.monto_total_requerido)}.`
       );
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al simular la nómina masiva.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Error al simular la nómina masiva.');
     } finally {
       setIsSimulando(false);
     }
@@ -262,7 +267,7 @@ export default function BeneficiosPage() {
         detalles: simulacionResult.items,
       };
 
-      const resp = await fetchFromApi<any>('/beneficios/nominas/ejecutar', {
+      const resp = await fetchFromApi<EjecutarNominaResponse>('/beneficios/nominas/ejecutar', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify(payload),
@@ -278,8 +283,8 @@ export default function BeneficiosPage() {
       });
       setSimulacionResult(null);
       await cargarDatos();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al formalizar la nómina masiva.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Error al formalizar la nómina masiva.');
     } finally {
       setIsEjecutando(false);
     }
@@ -328,8 +333,8 @@ export default function BeneficiosPage() {
       });
 
       setSuccessMsg(`Planilla procesada con éxito: ${items.length} filas analizadas, ${beneficiados.length} habilitadas para liquidación.`);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al procesar el archivo CSV.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Error al procesar el archivo CSV.');
     }
   };
 
@@ -348,8 +353,8 @@ export default function BeneficiosPage() {
       setSuccessMsg(`Base Grado 15 actualizada a ${formatCurrency(baseG15Nueva)}. Los montos de todos los bonos se recalcularon automáticamente.`);
       setModalConfigBaseG15(false);
       await cargarDatos();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al actualizar parámetro.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Error al actualizar parámetro.');
     }
   };
 

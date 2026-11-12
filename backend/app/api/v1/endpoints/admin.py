@@ -1,6 +1,6 @@
 """Endpoints para el módulo de Administración, Auditoría Inmutable y Gestión de Usuarios."""
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import func, select, desc
@@ -40,7 +40,7 @@ ROLES_ADMIN = (UserRole.SUPERUSUARIO, UserRole.ADMIN)
 # ---------------------------------------------------------------------------
 class AuditLogOut(BaseModel):
     id: int
-    created_at: Any
+    created_at: Union[datetime, str]
     usuario_nombre: str
     usuario_rut: Optional[str] = None
     usuario_rol: str

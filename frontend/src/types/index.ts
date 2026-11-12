@@ -299,3 +299,112 @@ export interface ReembolsoCreatePayload {
   fecha_atencion: string;
   fecha_boleta: string;
 }
+
+// ---------------------------------------------------------------------------
+// Interfaces para Tipado Estricto de Formularios y Estados (Cero 'any')
+// ---------------------------------------------------------------------------
+
+export interface AdminStatsUsuarios {
+  total: number;
+  socios_total: number;
+  socios_habilitados: number;
+  socios_carencia: number;
+}
+
+export interface AdminStatsPendientes {
+  afiliaciones: number;
+  reembolsos: number;
+  beneficios: number;
+  total: number;
+}
+
+export interface AdminStatsAuditoria {
+  total_eventos: number;
+}
+
+export interface AdminStats {
+  usuarios: AdminStatsUsuarios;
+  pendientes: AdminStatsPendientes;
+  auditoria: AdminStatsAuditoria;
+}
+
+export interface ParametroSistemaItem {
+  id?: number;
+  clave: string;
+  valor: string;
+  descripcion?: string;
+}
+
+export interface FormPostulacionBono {
+  motivo: string;
+  documento_tipo: string;
+  documento_nombre: string;
+  decreto_numero: string;
+  decreto_fecha: string;
+  dias_habiles_feriado: number;
+  nombre_beneficiario: string;
+  rut_beneficiario: string;
+  institucion_educacional: string;
+  nivel_educacional: string;
+  edad_estudiante: number;
+}
+
+export interface FormAsignacionDirecta {
+  socio_id: number;
+  decreto_numero: string;
+  decreto_fecha: string;
+  dias_habiles_feriado: number;
+  documento_nombre: string;
+  observaciones: string;
+  metodo_pago: string;
+  numero_cheque: string;
+  banco: string;
+}
+
+export interface FormValidacionBono {
+  accion: 'APROBAR' | 'RECHAZAR' | 'LIQUIDAR';
+  motivo_rechazo: string;
+  observaciones: string;
+  metodo_pago: string;
+  numero_cheque: string;
+  banco: string;
+}
+
+export interface ExportarTesoreriaData {
+  titulo: string;
+  periodo: string;
+  items: SimularNominaItem[];
+  totalMonto: number;
+  decreto: string;
+}
+
+export interface ModalVisorDocData {
+  titulo: string;
+  tipo: string;
+  num?: string;
+  url?: string;
+  detalle?: string;
+}
+
+export interface BonoFormData {
+  codigo: string;
+  nombre: string;
+  porcentaje: number;
+  categoria: string;
+  requisitos: string;
+  documentacion_requerida: string;
+  regla_asignacion: string;
+  periodo_devengo?: string;
+  permite_postulacion_socio: boolean;
+  es_calendario: boolean;
+  activo: boolean;
+  icono: string;
+}
+
+export interface EjecutarNominaResponse {
+  mensaje: string;
+  nomina_id: number;
+  total_socios_liquidados: number;
+  monto_total: number;
+}
+

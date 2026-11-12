@@ -1,0 +1,79 @@
+# ==============================================================================
+# Orquestación de Producción — Bienestar App (Comité de Bienestar I.M. Peralillo)
+# [ESTUDIANTE INFORMÁTICA] Este archivo levanta la pila completa para el servidor 24/7:
+# PostgreSQL 15, FastAPI con 4 workers y Next.js Standalone, con política restart: always.
+# ==============================================================================
+services:
+  # 1. Base de Datos Relacional PostgreSQL 15
+  postgres:
+    image: postgres:15-alpine
+    container_name: bienestar_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bienestar_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-PeralilloSeguro2026_Prod}
+      POSTGRES_DB: ${POSTGRES_DB:-bienestar_db_prod}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bienestar_admin} -d ${POSTGRES_DB:-bienestar_db_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bienestar_prod_network
+
+  # 2. Backend API FastAPI (Python 3.11 asíncrono con 4 workers)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: bienestar_backend_prod
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bienestar_admin}:${POSTGRES_PASSWORD:-PeralilloSeguro2026_Prod}@postgres:5432/${POSTGRES_DB:-bienestar_db_prod}
+      SECRET_KEY: ${SECRET_KEY:-c9f18a45b73d2e1f6a09c84e27bb140f7d56e3a981c2f40b82e1d75a6c3f09ab}
+      ENVIRONMENT: production
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      # HU-01: en producción la validación de período ene-jun se activa por defecto
+      AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-true}
+      AFILIACION_PORCENTAJE_DESCUENTO: 4
+      AFILIACION_MESES_CARENCIA: 6
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - backend_prod_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bienestar_prod_network
+
+  # 3. Frontend Next.js (App Router con Standalone Output)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: /api/backend
+    container_name: bienestar_frontend_prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - bienestar_prod_network
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  backend_prod_uploads:
+    driver: local
+
+networks:
+  bienestar_prod_network:
+    driver: bridge

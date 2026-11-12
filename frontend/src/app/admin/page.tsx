@@ -4,7 +4,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
-import { User } from '@/types';
+import { getErrorMessage } from '@/lib/utils';
+import { User, AdminStats, ParametroSistemaItem, BonoFormData } from '@/types';
 import { AdminDashboardHeader } from '@/components/admin/AdminDashboardHeader';
 import { GestionUsuariosTable } from '@/components/admin/GestionUsuariosTable';
 import { AuditLogViewer, AuditLogItem } from '@/components/admin/AuditLogViewer';
@@ -26,8 +27,8 @@ export default function AdminPage() {
   const [usuarios, setUsuarios] = useState<User[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
   const [bonos, setBonos] = useState<BonoAdminItem[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [parametros, setParametros] = useState<{ clave: string; valor: string; descripcion?: string }[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [parametros, setParametros] = useState<ParametroSistemaItem[]>([]);
 
   const [loadingUsuarios, setLoadingUsuarios] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -85,7 +86,7 @@ export default function AdminPage() {
   const cargarStats = useCallback(async () => {
     if (!token) return;
     try {
-      const data = await fetchFromApi<any>('/admin/stats', { headers: authHeaders });
+      const data = await fetchFromApi<AdminStats>('/admin/stats', { headers: authHeaders });
       setStats(data);
     } catch {}
   }, [token]);
@@ -106,7 +107,7 @@ export default function AdminPage() {
   const cargarParametros = useCallback(async () => {
     if (!token) return;
     try {
-      const data = await fetchFromApi<any[]>('/admin/parametros', { headers: authHeaders });
+      const data = await fetchFromApi<ParametroSistemaItem[]>('/admin/parametros', { headers: authHeaders });
       setParametros(data);
       const u = data.find((p) => p.clave === 'SMTP_USER')?.valor || '';
       const pwd = data.find((p) => p.clave === 'SMTP_PASSWORD')?.valor || '';
@@ -146,8 +147,8 @@ export default function AdminPage() {
       setSmtpHost(res.smtp_host);
       setResultadoSmtp({ ok: res.enviado, msg: res.mensaje });
       await cargarParametros();
-    } catch (err: any) {
-      setResultadoSmtp({ ok: false, msg: err.message || 'Error al probar conexión SMTP.' });
+    } catch (err: unknown) {
+      setResultadoSmtp({ ok: false, msg: getErrorMessage(err) || 'Error al probar conexión SMTP.' });
     } finally {
       setProbandoSmtp(false);
     }
@@ -209,8 +210,8 @@ export default function AdminPage() {
       await cargarUsuarios();
       await cargarStats();
       await cargarAuditLogs();
-    } catch (err: any) {
-      alert(err.message || 'No se pudo eliminar el usuario.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'No se pudo eliminar el usuario.');
     }
   };
 
@@ -225,12 +226,12 @@ export default function AdminPage() {
       setTimeout(() => setMensajeExito(null), 5000);
       await cargarParametros();
       await cargarBonos();
-    } catch (err: any) {
-      alert(err.message || 'Error al actualizar');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'Error al actualizar');
     }
   };
 
-  const handleCrearEditarBono = async (data: any, isEditing: boolean, bonoId?: number) => {
+  const handleCrearEditarBono = async (data: BonoFormData, isEditing: boolean, bonoId?: number) => {
     if (isEditing && bonoId) {
       await fetchFromApi(`/admin/bonos/${bonoId}`, {
         method: 'PATCH',
@@ -260,8 +261,8 @@ export default function AdminPage() {
       setMensajeExito(`Bono "${b.nombre}" ahora está ${!b.activo ? 'VISIBLE' : 'OCULTO'} en el portal de socios.`);
       setTimeout(() => setMensajeExito(null), 5000);
       await cargarBonos();
-    } catch (err: any) {
-      alert(err.message || 'Error al cambiar estado');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'Error al cambiar estado');
     }
   };
 
@@ -282,8 +283,8 @@ export default function AdminPage() {
       setTimeout(() => setMensajeExito(null), 5000);
       await cargarBonos();
       await cargarAuditLogs();
-    } catch (err: any) {
-      alert(err.message || 'Error al eliminar beneficio');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'Error al eliminar beneficio');
     }
   };
 

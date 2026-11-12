@@ -1,6 +1,6 @@
 """Módulo de seguridad para hashing de contraseñas y gestión de tokens JWT."""
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import bcrypt
 from jose import JWTError, jwt
@@ -24,7 +24,7 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(
-    subject: Union[str, Any],
+    subject: Union[str, int],
     expires_delta: Optional[timedelta] = None,
     extra_claims: Optional[dict] = None,
 ) -> str:

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { fetchFromApi } from '@/lib/api';
-import { formatRun, isValidRun } from '@/lib/utils';
+import { formatRun, isValidRun, getErrorMessage } from '@/lib/utils';
 
 export const CUENTAS_AUTORIZADAS_MUNI_PERALILLO = [
   'superadmin@mperalillo.cl',
@@ -354,8 +354,8 @@ export const ModalCargaMasivaSocios: React.FC<ModalCargaMasivaSociosProps> = ({
 
       setResultadoFinal(res);
       await onSuccess();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al procesar la carga masiva.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Error al procesar la carga masiva.');
     } finally {
       setSubmitting(false);
     }

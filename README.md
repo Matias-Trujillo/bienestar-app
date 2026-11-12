@@ -184,7 +184,7 @@ docker compose up --build         # Reconstruir tras cambios en dependencias
 > Si se ejecutó sin `-d`, detener los servicios con `Ctrl + C` y luego `docker compose down`.
 
 ### URLs de Acceso:
-*   **Frontend (Next.js):** [http://localhost:3000](http://localhost:3000)
+*   **Frontend (Next.js):** [http://localhavaost:3000](http://localhost:3000)
 *   **Backend API (FastAPI):** [http://localhost:8000](http://localhost:8000)
 *   **Documentación Interactiva Swagger UI:** [http://localhost:8000/api/v1/docs](http://localhost:8000/api/v1/docs)
 *   **Documentación ReDoc:** [http://localhost:8000/api/v1/redoc](http://localhost:8000/api/v1/redoc)

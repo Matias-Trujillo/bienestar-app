@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { BonoAdminItem } from './CatalogoBonosAdmin';
+import { BonoFormData } from '@/types';
+import { getErrorMessage } from '@/lib/utils';
 
 interface ModalCrearEditarBonoProps {
   bono: BonoAdminItem | null; // null si es nuevo
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any, isEditing: boolean, bonoId?: number) => Promise<void>;
+  onSubmit: (data: BonoFormData, isEditing: boolean, bonoId?: number) => Promise<void>;
 }
 
 export const ModalCrearEditarBono: React.FC<ModalCrearEditarBonoProps> = ({
@@ -56,8 +58,8 @@ export const ModalCrearEditarBono: React.FC<ModalCrearEditarBonoProps> = ({
 
       await onSubmit(payload, isEditing, bono?.id);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Error al guardar beneficio.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Error al guardar beneficio.');
     } finally {
       setGuardando(false);
     }

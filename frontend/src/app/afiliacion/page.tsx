@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
-import { formatRun, isValidRun } from '@/lib/utils';
+import { formatRun, isValidRun, getErrorMessage } from '@/lib/utils';
 import {
   EvaluacionDirectorioTable,
   SolicitudResumen,
@@ -178,8 +178,8 @@ export default function AfiliacionPage() {
       setMensajeExito(
         `Notificación reenviada correctamente al correo ${res.notificacionEmail?.destinatario || res.email}.`
       );
-    } catch (err: any) {
-      alert(err.message || 'Error al reenviar correo');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'Error al reenviar correo');
     } finally {
       setReenviandoSmtp(false);
     }

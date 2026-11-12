@@ -1,0 +1,61 @@
+# ==============================================================================
+# Dockerfile Multi-Stage de Producción para Next.js (App Router)
+# [ESTUDIANTE INFORMÁTICA] El uso de multi-stage builds permite separar la etapa de
+# compilación de la de ejecución, reduciendo la imagen final de ~1.2 GB a ~150 MB
+# y aprovechando la optimización 'output: standalone' de Next.js.
+# ==============================================================================
+
+# --- Etapa 1: Base común ---
+FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# --- Etapa 2: Instalación de dependencias ---
+FROM base AS deps
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# --- Etapa 3: Compilación de la aplicación ---
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Desactivar telemetría de Next.js durante el build
+ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV production
+
+# Variables de entorno pasadas en tiempo de compilación para el bundle cliente
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/backend}
+
+RUN npm run build
+
+# --- Etapa 4: Imagen final de ejecución ligera (Runner) ---
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+# Crear usuario no privilegiado para mayor seguridad
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copiar archivos públicos estáticos
+COPY --from=builder /app/public ./public
+
+# Configurar permisos para la caché de Next.js
+RUN mkdir .next && chown nextjs:nodejs .next
+
+# Copiar el build standalone generado automáticamente
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

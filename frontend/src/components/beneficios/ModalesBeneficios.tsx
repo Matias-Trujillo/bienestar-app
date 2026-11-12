@@ -1,7 +1,18 @@
 'use client';
 
 import React from 'react';
-import { BonoCatalogoItem, CatalogoBeneficios, SolicitudBeneficio, User } from '@/types';
+import {
+  BonoCatalogoItem,
+  CatalogoBeneficios,
+  SolicitudBeneficio,
+  User,
+  FormPostulacionBono,
+  FormAsignacionDirecta,
+  FormValidacionBono,
+  ExportarTesoreriaData,
+  ModalVisorDocData,
+  SimularNominaItem,
+} from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import {
   FileTextIcon,
@@ -17,24 +28,24 @@ interface ModalesBeneficiosProps {
   catalogo: CatalogoBeneficios | null;
   modalPostularBono: BonoCatalogoItem | null;
   setModalPostularBono: (b: BonoCatalogoItem | null) => void;
-  formPostulacion: any;
-  setFormPostulacion: (f: any) => void;
+  formPostulacion: FormPostulacionBono;
+  setFormPostulacion: React.Dispatch<React.SetStateAction<FormPostulacionBono>>;
   onPostularSubmit: (e: React.FormEvent) => void;
 
   modalAsignacionDirecta: boolean;
   setModalAsignacionDirecta: (open: boolean) => void;
-  formAsigDirecta: any;
-  setFormAsigDirecta: (f: any) => void;
+  formAsigDirecta: FormAsignacionDirecta;
+  setFormAsigDirecta: React.Dispatch<React.SetStateAction<FormAsignacionDirecta>>;
   onAsignacionDirectaSubmit: (e: React.FormEvent) => void;
 
   modalValidarSolicitud: SolicitudBeneficio | null;
   setModalValidarSolicitud: (s: SolicitudBeneficio | null) => void;
-  formValidacion: any;
-  setFormValidacion: (f: any) => void;
+  formValidacion: FormValidacionBono;
+  setFormValidacion: React.Dispatch<React.SetStateAction<FormValidacionBono>>;
   onValidarSubmit: (e: React.FormEvent) => void;
 
-  modalVisorDoc: { titulo: string; tipo: string; num?: string; url?: string; detalle?: string } | null;
-  setModalVisorDoc: (doc: any | null) => void;
+  modalVisorDoc: ModalVisorDocData | null;
+  setModalVisorDoc: (doc: ModalVisorDocData | null) => void;
 
   modalConfigBaseG15: boolean;
   setModalConfigBaseG15: (open: boolean) => void;
@@ -42,8 +53,8 @@ interface ModalesBeneficiosProps {
   setBaseG15Nueva: (val: number) => void;
   onGuardarBaseG15Submit: (e: React.FormEvent) => void;
 
-  modalExportarTesoreria: any | null;
-  setModalExportarTesoreria: (doc: any | null) => void;
+  modalExportarTesoreria: ExportarTesoreriaData | null;
+  setModalExportarTesoreria: (doc: ExportarTesoreriaData | null) => void;
 }
 
 export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
@@ -711,7 +722,7 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-mono">
-                  {modalExportarTesoreria.items.map((item: any, i: number) => (
+                  {modalExportarTesoreria.items.map((item: SimularNominaItem, i: number) => (
                     <tr key={i}>
                       <td className="py-1 px-2 font-bold text-slate-800">{item.numero_cheque_sugerido}</td>
                       <td className="py-1 px-2 font-sans font-medium text-slate-700">{item.nombre_completo}</td>

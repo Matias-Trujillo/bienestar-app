@@ -1,0 +1,35 @@
+# ==============================================================================
+# Dockerfile de Producción para FastAPI (Python 3.11)
+# [ESTUDIANTE INFORMÁTICA] Configurado para producción con 4 workers asíncronos de Uvicorn,
+# sin bandera --reload para máxima estabilidad y rendimiento en el servidor.
+# ==============================================================================
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Instalar librerías de sistema mínimas para PostgreSQL y utilidades
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar dependencias de Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar el código fuente
+COPY . .
+
+# Crear directorio de subidas si no existe y asegurar permisos
+RUN mkdir -p /app/uploads/reembolsos
+
+# Usuario de seguridad no-root
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+# Ejecutar Uvicorn con 4 workers ASGI para atender múltiples peticiones concurrentes
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
