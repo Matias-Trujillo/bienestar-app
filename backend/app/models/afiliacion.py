@@ -52,8 +52,8 @@ class SolicitudAfiliacion(Base, TimestampMixin):
     numero_acta: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     fecha_fin_carencia: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD (+6 meses)
     observaciones_resolucion: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    resuelto_por: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    resuelto_at: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    resuelto_por: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    resuelto_at: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
 
     cargas: Mapped[List["CargaFamiliar"]] = relationship(
         back_populates="solicitud", cascade="all, delete-orphan", lazy="selectin"
@@ -104,5 +104,5 @@ class SolicitudCargaFamiliar(Base, TimestampMixin):
     fecha_sesion: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     numero_acta: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     observaciones_resolucion: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    resuelto_por: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    resuelto_at: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    resuelto_por: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    resuelto_at: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)

@@ -499,7 +499,7 @@ class AfiliacionService:
                     detail=f"La solicitud {folio} ya fue resuelta previamente ({_val(solicitud.estado)}).",
                 )
 
-            ahora_iso = datetime.now(timezone.utc).isoformat()
+            ahora_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             if payload.accion == "aprobar":
                 if not payload.fechaSesion:
                     raise HTTPException(
@@ -1120,7 +1120,7 @@ class AfiliacionService:
             sc.numero_acta = (body.numeroActa or "").strip() or None
             sc.observaciones_resolucion = (body.observaciones or "").strip() or "Aprobada por Directorio"
             sc.resuelto_por = f"{evaluador.nombre_completo} ({_val(evaluador.rol)})"
-            sc.resuelto_at = datetime.now().isoformat()
+            sc.resuelto_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
             socio = await db.scalar(select(User).where(User.id == sc.socio_id))
             if socio:
@@ -1129,7 +1129,7 @@ class AfiliacionService:
             sc.estado = EstadoSolicitud.RECHAZADA
             sc.observaciones_resolucion = (body.observaciones or "").strip() or "Rechazada por Directorio"
             sc.resuelto_por = f"{evaluador.nombre_completo} ({_val(evaluador.rol)})"
-            sc.resuelto_at = datetime.now().isoformat()
+            sc.resuelto_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
         db.add(
             AuditLog(
