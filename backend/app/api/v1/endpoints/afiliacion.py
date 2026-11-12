@@ -44,7 +44,7 @@ async def get_afiliacion() -> Dict[str, Any]:
     return {
         "modulo": "Afiliación y Cargas Familiares",
         "descripcion": "Gestión digital de postulaciones, cuotas y acreditación legal de cargas familiares.",
-        "ley": "Ley N° 19.754 de Bienestar Municipal",
+        "normativa": "Reglamento Interno de Bienestar Municipal",
     }
 
 

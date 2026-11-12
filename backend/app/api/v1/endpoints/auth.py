@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,8 +93,9 @@ async def guardar_seguridad_usuario(
 
 
 class LoginRequest(BaseModel):
-    username: str  # RUT o correo
-    password: str
+    # [ESTUDIANTE INFORMÁTICA] Restricción de longitud para mitigar DoS y payloads desbordados
+    username: str = Field(..., min_length=3, max_length=100, description="RUT chileno o correo electrónico")
+    password: str = Field(..., min_length=1, max_length=200, description="Contraseña del usuario")
 
 
 class CambiarPasswordPropiaIn(BaseModel):
@@ -412,7 +413,8 @@ async def listar_usuarios(
 
 
 class RecuperarPasswordIn(BaseModel):
-    identificador: str  # RUT o correo electrónico
+    # [ESTUDIANTE INFORMÁTICA] Restricción de longitud para mitigar DoS y payloads desbordados
+    identificador: str = Field(..., min_length=3, max_length=100, description="RUT chileno o correo institucional")
 
 
 def _enmascarar_correo(email: str) -> str:

@@ -280,7 +280,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <span className="w-2 h-2 rounded-full bg-[#166534]" />
               Mesa de Ayuda
             </span>
-            <span className="text-xs text-slate-400 tabular-nums">Ley 19.754</span>
+            <span className="text-xs text-slate-400 tabular-nums">Bienestar</span>
           </div>
           <p className="text-xs text-slate-500 leading-snug mb-1.5 font-normal">
             ¿Dudas con tus reembolsos o beneficios?

@@ -1,9 +1,30 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  ArrowRight,
+} from 'lucide-react';
 import { useAuth, LOGOUT_USER_KEY } from '@/context/AuthContext';
+import { PreLoginSplashIntro } from '@/components/ui/PreLoginSplashIntro';
+import { NetworkMeshBackground } from '@/components/ui/NetworkMeshBackground';
 import { fetchFromApi } from '@/lib/api';
-import { formatRun } from '@/lib/utils';
+import {
+  formatRun,
+  validateLoginIdentifier,
+  detectIdentifierMode,
+  MAX_RUN_CLEAN_CHARS,
+  MAX_RUN_FORMATTED_CHARS,
+  MAX_EMAIL_CHARS,
+} from '@/lib/utils';
 
 interface RecuperacionResult {
   ok: boolean;
@@ -16,7 +37,7 @@ interface RecuperacionResult {
   mensaje: string;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Credenciales de desarrollo con etiquetas cromáticas modernas.
+// [ESTUDIANTE INFORMÁTICA] Credenciales de desarrollo con etiquetas cromáticas y roles institucionales.
 const TEST_ACCOUNTS = [
   { label: 'Superusuario', user: 'superadmin@mperalillo.cl', pass: 'Super#2026', roleTag: 'SUP' },
   { label: 'Presidente', user: 'msoto@mperalillo.cl', pass: 'Presi#2026', roleTag: 'PRE' },
@@ -26,6 +47,100 @@ const TEST_ACCOUNTS = [
   { label: 'Auditor', user: 'aibarra@mperalillo.cl', pass: 'Audit#2026', roleTag: 'AUD' },
   { label: 'Socio Activo', user: 'cvalenzuela@mperalillo.cl', pass: 'Socio#2026', roleTag: 'SOC' },
 ] as const;
+
+// [ESTUDIANTE INFORMÁTICA] Sanitiza y restringe la entrada de usuario aplicando topes estrictos:
+// - Modo RUT: máximo 9 dígitos limpios (XX.XXX.XXX-X, máx 12 caracteres)
+// - Modo Correo: máximo 80 caracteres
+function sanitizeIdentifierInput(raw: string): string {
+  const trimmed = raw.trimStart();
+  const mode = detectIdentifierMode(trimmed);
+  if (mode === 'rut') {
+    const cleanDigitsAndDv = trimmed.replace(/[^0-9kK]/g, '').slice(0, MAX_RUN_CLEAN_CHARS);
+    return formatRun(cleanDigitsAndDv);
+  }
+  return trimmed.slice(0, MAX_EMAIL_CHARS);
+}
+
+// [ESTUDIANTE INFORMÁTICA] Campo inteligente de RUN / Correo con iconos táctiles, topes dinámicos y sin alertas prematuras
+interface LoginIdentifierFieldProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+  disabled?: boolean;
+}
+
+const LoginIdentifierField: React.FC<LoginIdentifierFieldProps> = ({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  autoFocus,
+  disabled,
+}) => {
+  const mode = detectIdentifierMode(value);
+  const cleanRutLength = value.replace(/[^0-9kK]/g, '').length;
+  const currentCount = mode === 'rut' ? cleanRutLength : value.length;
+  const maxLimit = mode === 'rut' ? MAX_RUN_CLEAN_CHARS : MAX_EMAIL_CHARS;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(sanitizeIdentifierInput(e.target.value));
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <label htmlFor={id} className="font-bold text-slate-700">
+          {label}
+        </label>
+        {mode !== 'empty' && (
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+            <span className="font-semibold text-slate-500">
+              {mode === 'rut' ? 'RUT' : 'Correo'}
+            </span>
+            <span className="tabular-nums">
+              ({currentCount}/{maxLimit})
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="relative">
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center text-slate-400">
+          {mode === 'email' ? (
+            <Mail className="w-4 h-4 text-slate-400" />
+          ) : (
+            <User className="w-4 h-4 text-slate-400" />
+          )}
+        </div>
+        <input
+          id={id}
+          type="text"
+          autoFocus={autoFocus}
+          disabled={disabled}
+          value={value}
+          maxLength={mode === 'rut' ? MAX_RUN_FORMATTED_CHARS : MAX_EMAIL_CHARS}
+          onChange={handleChange}
+          placeholder={placeholder || 'Ej: 12.345.678-9 o usuario@mperalillo.cl'}
+          className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] focus:border-[#006799] transition-all"
+        />
+        {value && !disabled && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            aria-label="Limpiar campo"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 text-xs transition-colors"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface RecoveryModalProps {
   recoveryInput: string;
@@ -37,7 +152,7 @@ interface RecoveryModalProps {
   onClose: () => void;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Modal moderno de recuperación de contraseña con esquinas suaves (rounded-2xl).
+// [ESTUDIANTE INFORMÁTICA] Modal moderno de recuperación de contraseña con esquinas suaves y seguridad SSL.
 const PasswordRecoveryModal: React.FC<RecoveryModalProps> = ({
   recoveryInput,
   recoverySubmitting,
@@ -47,7 +162,7 @@ const PasswordRecoveryModal: React.FC<RecoveryModalProps> = ({
   onSubmit,
   onClose,
 }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/65 backdrop-blur-xs animate-fade-in">
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm animate-fade-in">
     <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200/90 shadow-2xl overflow-hidden animate-scale-in">
       <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
       <div className="p-6 space-y-4">
@@ -71,16 +186,13 @@ const PasswordRecoveryModal: React.FC<RecoveryModalProps> = ({
         {!recoverySuccess ? (
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                RUN o Correo Electrónico Registrado *
-              </label>
-              <input
-                type="text"
-                autoFocus
+              <LoginIdentifierField
+                id="recovery-identifier"
+                label="RUN o Correo Electrónico Registrado *"
                 value={recoveryInput}
-                onChange={(e) => onChangeInput(e.target.value)}
-                placeholder="Ej: 12.345.678-9 o usuario@mperalillo.cl"
-                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]"
+                onChange={onChangeInput}
+                disabled={recoverySubmitting}
+                autoFocus
               />
               <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
                 Enviaremos una <strong>Contraseña Temporal</strong> de un solo uso a su correo institucional registrado.
@@ -145,91 +257,17 @@ const PasswordRecoveryModal: React.FC<RecoveryModalProps> = ({
   </div>
 );
 
-// [ESTUDIANTE INFORMÁTICA] Panel institucional izquierdo con degradado elegante, escudo oficial y selector de cuentas de prueba.
-const InstitutionalLeftPanel: React.FC<{
-  onSelectAccount: (user: string, pass: string) => void;
-}> = ({ onSelectAccount }) => (
-  <div className="lg:col-span-6 bg-gradient-to-br from-[#091e32] via-[#0c2b45] to-[#113628] text-white p-7 sm:p-9 flex flex-col justify-between">
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold uppercase tracking-wider text-amber-200">
-          <span className="w-2 h-2 rounded-full bg-[#78a200]" />
-          Ley N° 19.754 • Bienestar Municipal
-        </div>
-        <span className="text-[11px] font-medium text-sky-200/80">Peralillo • Sexta Región</span>
-      </div>
-
-      <div className="bg-white rounded-2xl p-4 border border-white/20 shadow-lg max-w-xs">
-        <img
-          src="/logo-peralillo.png"
-          alt="Ilustre Municipalidad de Peralillo"
-          className="h-14 w-auto object-contain mx-auto"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
-          Servicio de Bienestar Municipal
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-          Plataforma digital de atención al funcionario: reembolsos médicos, beneficios indexados al Grado 15 y gestión previsional transparente.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2.5 text-xs">
-        <div className="p-3 rounded-xl bg-white/[0.08] border border-white/15">
-          <span className="text-[10px] text-slate-300 uppercase font-bold block">Tope Salud</span>
-          <span className="font-mono font-extrabold text-white tabular-nums mt-0.5 block">$150.000</span>
-        </div>
-        <div className="p-3 rounded-xl bg-white/[0.08] border border-white/15">
-          <span className="text-[10px] text-slate-300 uppercase font-bold block">Plazo Boletas</span>
-          <span className="font-mono font-extrabold text-amber-200 tabular-nums mt-0.5 block">30 días</span>
-        </div>
-        <div className="p-3 rounded-xl bg-white/[0.08] border border-white/15">
-          <span className="text-[10px] text-slate-300 uppercase font-bold block">Cuota Social</span>
-          <span className="font-mono font-extrabold text-lime-300 tabular-nums mt-0.5 block">4% Base</span>
-        </div>
-      </div>
-    </div>
-
-    {process.env.NODE_ENV !== 'production' && (
-      <div className="mt-7 pt-5 border-t border-white/15">
-        <div className="flex items-center justify-between mb-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-sky-200">
-            Cuentas de Prueba (Clic para rellenar)
-          </span>
-          <span className="text-[10px] text-slate-400">Desarrollo</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {TEST_ACCOUNTS.map((acc) => (
-            <button
-              key={acc.user}
-              id={`test-account-${acc.label.split(' ')[0].toLowerCase()}`}
-              type="button"
-              onClick={() => onSelectAccount(acc.user, acc.pass)}
-              className="px-3 py-2 text-left rounded-xl bg-white/[0.07] hover:bg-white/15 border border-white/15 transition-all"
-            >
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[11px] font-bold text-white truncate">{acc.label}</span>
-                <span className="text-[9px] font-mono font-bold text-amber-200 shrink-0">{acc.roleTag}</span>
-              </div>
-              <span className="block text-[10px] font-mono text-slate-300 truncate">{acc.user}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    )}
-  </div>
-);
-
-// [ESTUDIANTE INFORMÁTICA] Pantalla de Login Split-Screen moderna con tarjeta rounded-3xl suave y sombra equilibrada.
+// [ESTUDIANTE INFORMÁTICA] Pantalla de Login Vertical moderna, ejecutiva y cinemática.
 export default function LoginPage() {
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showDevAccounts, setShowDevAccounts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [farewellUser, setFarewellUser] = useState<string | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [recoveryInput, setRecoveryInput] = useState('');
@@ -249,13 +287,13 @@ export default function LoginPage() {
     }
   }, []);
 
+  const handleFinishSplash = () => {
+    setShowSplash(false);
+  };
+
   const handleRecoveryChange = (val: string) => {
     setRecoveryError(null);
-    if (val && !val.includes('@') && /^[0-9kK.\-\s]+$/.test(val)) {
-      setRecoveryInput(formatRun(val));
-    } else {
-      setRecoveryInput(val);
-    }
+    setRecoveryInput(val);
   };
 
   const handleRecoverySubmit = async (e: React.FormEvent) => {
@@ -264,6 +302,11 @@ export default function LoginPage() {
     const clean = recoveryInput.trim();
     if (!clean) {
       setRecoveryError('Ingrese su RUN o Correo Electrónico registrado.');
+      return;
+    }
+    const valCheck = validateLoginIdentifier(clean);
+    if (!valCheck.isValid) {
+      setRecoveryError(valCheck.error || 'Identificador no válido.');
       return;
     }
     setRecoverySubmitting(true);
@@ -285,13 +328,19 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!username || !password) {
-      setError('Ingresa tu RUN/correo y contraseña.');
+    const cleanUser = username.trim();
+    if (!cleanUser || !password) {
+      setError('Ingresa tu RUN o correo institucional y contraseña.');
+      return;
+    }
+    const valCheck = validateLoginIdentifier(cleanUser);
+    if (!valCheck.isValid) {
+      setError(valCheck.error || 'Identificador no válido.');
       return;
     }
     setSubmitting(true);
     try {
-      await login(username, password);
+      await login(cleanUser, password);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'No se pudo conectar con el servidor.');
     } finally {
@@ -300,34 +349,79 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7fa] flex flex-col justify-center items-center p-4 sm:p-6">
-      <div className="w-full max-w-5xl bg-white rounded-3xl border border-slate-200/90 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.12)] overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-        <InstitutionalLeftPanel
-          onSelectAccount={(u, p) => {
-            setUsername(u);
-            setPassword(p);
-            setError(null);
+    <div className="min-h-screen bg-[#061523] flex flex-col justify-center items-center p-4 sm:p-6 relative select-none overflow-x-hidden">
+      {/* Fondo cinemático moderno con red dinámica interactiva y auras ambientales */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Red interactiva tipo constelación/malla en movimiento continuo con figuras ampliadas */}
+        <NetworkMeshBackground />
+
+        {/* Retícula sutil en desplazamiento suave */}
+        <div
+          className="absolute inset-0 opacity-[0.12] animate-grid-drift"
+          style={{
+            backgroundImage:
+              'radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
           }}
         />
 
-        <div className="lg:col-span-6 p-7 sm:p-10 flex flex-col justify-between bg-white">
-          <div className="space-y-6">
-            <div>
-              <span className="inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-50 text-[#006799] border border-sky-200/80 mb-2">
-                Acceso de Funcionarios y Socios
-              </span>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                Iniciar Sesión en el Portal
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Ingresa con tu RUN institucional o correo electrónico municipal
-              </p>
+        {/* Orbe luminoso flotante superior */}
+        <div className="absolute top-[8%] left-[10%] w-[420px] h-[420px] rounded-full bg-[#004e75]/30 blur-[130px] animate-orb-slow" />
+
+        {/* Orbe luminoso flotante inferior */}
+        <div
+          className="absolute bottom-[8%] right-[10%] w-[460px] h-[460px] rounded-full bg-[#113628]/30 blur-[140px] animate-orb-slow"
+          style={{ animationDelay: '-7s' }}
+        />
+      </div>
+
+      {showSplash && <PreLoginSplashIntro onFinish={handleFinishSplash} />}
+
+      <div className="relative z-10 w-full max-w-[430px] space-y-4 animate-reveal-card">
+        {/* Cabecera institucional vertical centrada con Escudo Oficial */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center p-3.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/50 transition-transform hover:scale-105">
+            <img
+              src="/escudo-peralillo.png"
+              alt="Escudo Oficial de la I. Municipalidad de Peralillo"
+              className="h-20 sm:h-24 w-auto object-contain mx-auto drop-shadow-md"
+            />
+          </div>
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 text-sky-200 border border-white/20 backdrop-blur-md mb-1.5 shadow-sm">
+              <Sparkles className="w-3 h-3 text-amber-300" /> Comité de Bienestar • Peralillo
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-sm">
+              Comité de Bienestar
+            </h1>
+            <p className="text-xs text-slate-300 font-medium">
+              Portal Oficial de Socios y Funcionarios • Peralillo
+            </p>
+          </div>
+        </div>
+
+        {/* Tarjeta principal de Login Vertical Glassmorphic */}
+        <div className="bg-white/95 backdrop-blur-2xl rounded-3xl border border-white/60 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.15)] overflow-hidden">
+          {/* Filete multicolor corporativo de Peralillo */}
+          <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
+
+          <div className="p-6 sm:p-7 space-y-4">
+            {/* Subcabecera interior de la tarjeta */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div>
+                <h2 className="text-sm font-extrabold text-[#0c2b45]">Acceso al Portal</h2>
+                <p className="text-[11px] text-slate-500">Credenciales institucionales</p>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Sistema Seguro
+              </div>
             </div>
 
             {farewellUser && (
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
                 <span className="font-semibold text-[#166534]">
-                  ✓ Sesión de <strong>{farewellUser}</strong> cerrada de forma segura.
+                  ✓ Sesión de <strong>{farewellUser}</strong> cerrada correctamente.
                 </span>
                 <button
                   type="button"
@@ -339,21 +433,17 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="login-username" className="block text-xs font-bold text-slate-700 mb-1.5">
-                  RUN o Correo Electrónico Institucional
-                </label>
-                <input
-                  id="login-username"
-                  type="text"
-                  autoComplete="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ej: 12.345.678-9 o usuario@mperalillo.cl"
-                  className="w-full px-4 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] transition-all"
-                />
-              </div>
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              <LoginIdentifierField
+                id="login-username"
+                label="RUN o Correo Institucional"
+                value={username}
+                onChange={(val) => {
+                  setUsername(val);
+                  setError(null);
+                }}
+                disabled={submitting}
+              />
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -373,15 +463,29 @@ export default function LoginPage() {
                     ¿Olvidaste tu clave?
                   </button>
                 </div>
-                <input
-                  id="login-password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full px-4 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] transition-all"
-                />
+
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center text-slate-400">
+                    <Lock className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] focus:border-[#006799] transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               {error && (
@@ -397,26 +501,106 @@ export default function LoginPage() {
                 id="login-submit"
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-gradient-to-r from-[#0c2b45] via-[#006799] to-[#166534] hover:opacity-95 shadow-md shadow-[#006799]/20 transition-all disabled:opacity-60"
+                className="group w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-gradient-to-r from-[#0c2b45] via-[#006799] to-[#166534] hover:opacity-95 shadow-md shadow-[#006799]/25 hover:shadow-lg hover:shadow-[#006799]/35 active:scale-[0.99] transition-all disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
               >
-                {submitting ? 'Verificando credenciales…' : 'Ingresar al Portal'}
+                {submitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    <span>Verificando credenciales…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Ingresar al Portal</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  </>
+                )}
               </button>
             </form>
-          </div>
 
-          <div className="pt-5 mt-6 border-t border-slate-100 space-y-3">
-            <a
-              id="login-solicitar-incorporacion"
-              href="/afiliacion/solicitud"
-              className="flex items-center justify-between w-full py-3 px-4 rounded-xl font-bold text-xs text-[#166534] bg-emerald-50/80 border border-emerald-200 hover:bg-emerald-100/80 transition-colors"
-            >
-              <span>¿Aún no eres socio? Solicitar Incorporación al Comité</span>
-              <span>→</span>
-            </a>
-            <p className="text-[11px] text-slate-400 text-center">
-              Comité de Bienestar • Ilustre Municipalidad de Peralillo &copy; {new Date().getFullYear()}
-            </p>
+            <div className="pt-2 border-t border-slate-100">
+              <a
+                id="login-solicitar-incorporacion"
+                href="/afiliacion/solicitud"
+                className="group flex items-center justify-between w-full py-2.5 px-3.5 rounded-xl font-bold text-xs text-[#166534] bg-emerald-50/80 border border-emerald-200/80 hover:bg-emerald-100/90 hover:border-emerald-300 transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  ¿Aún no eres socio? Solicitar Incorporación
+                </span>
+                <span className="group-hover:translate-x-0.5 transition-transform font-bold">→</span>
+              </a>
+            </div>
           </div>
+        </div>
+
+        {/* Cuentas de desarrollo colapsables para mantener la presentación ejecutiva limpia */}
+        {process.env.NODE_ENV !== 'production' && (
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/10 shadow-lg overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setShowDevAccounts((prev) => !prev)}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <span className="text-amber-400">⚡</span>
+                <span>Cuentas de Prueba para Desarrollo (7 roles)</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+                <span>{showDevAccounts ? 'Ocultar' : 'Ver'}</span>
+                {showDevAccounts ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </span>
+            </button>
+            {showDevAccounts && (
+              <div className="p-3 pt-1 border-t border-white/10 grid grid-cols-2 sm:grid-cols-3 gap-1.5 animate-fade-in">
+                {TEST_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.user}
+                    id={`test-account-${acc.label.split(' ')[0].toLowerCase()}`}
+                    type="button"
+                    onClick={() => {
+                      setUsername(acc.user);
+                      setPassword(acc.pass);
+                      setError(null);
+                    }}
+                    className="px-2.5 py-1.5 text-left rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/20 transition-all text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11px] font-bold text-white truncate">{acc.label}</span>
+                      <span className="text-[9px] font-mono font-bold text-sky-400 shrink-0">{acc.roleTag}</span>
+                    </div>
+                    <span className="block text-[10px] font-mono text-slate-400 truncate">{acc.user}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Distintivo de Seguridad y Encriptación */}
+        <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 pt-1">
+          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>Conexión Cifrada SSL 256-bit • Portal Oficial</span>
+        </div>
+
+        {/* Footer institucional */}
+        <div className="flex flex-col items-center gap-1 text-center">
+          <p className="text-[11px] text-slate-400">
+            Comité de Bienestar • Ilustre Municipalidad de Peralillo &copy; {new Date().getFullYear()}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowSplash(true)}
+            className="text-[11px] text-slate-400 hover:text-sky-300 transition inline-flex items-center gap-1"
+          >
+            <span>↺</span> Ver presentación institucional
+          </button>
         </div>
       </div>
 

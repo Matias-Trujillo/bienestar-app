@@ -1,6 +1,6 @@
 """Servicio de lógica de negocio para el módulo de Afiliación y Cargas Familiares (HU-01 y HU-02).
 
-Implementa las reglas de negocio de la Ley N° 19.754:
+Implementa las reglas de negocio estatutarias de Bienestar Municipal:
   - Validación del período de postulaciones (enero a junio).
   - Autorización obligatoria del 4% de retención sobre sueldo base.
   - Resolución colegiada en sesión de Directorio con N° de Acta (HU-02).

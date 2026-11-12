@@ -45,7 +45,7 @@ export default function DashboardPage() {
                 Ficha de Filiación N° #{String(user?.id || '1').padStart(4, '0')}
               </span>
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/25 tabular-nums">
-                Ley N° 19.754 • Bienestar Municipal
+                Bienestar Municipal • Peralillo
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">

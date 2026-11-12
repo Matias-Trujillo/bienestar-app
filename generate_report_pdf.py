@@ -83,7 +83,7 @@ class NumberedCanvas(canvas.Canvas):
 
             self.setFont("Helvetica", 7.5)
             self.setFillColor(SLATE_MUTED)
-            self.drawString(40, 31, "Bienestar App — Sistema de Gestión Operativa y Financiera (Ley N° 19.754)")
+            self.drawString(40, 31, "Bienestar App — Sistema de Gestión Operativa y Financiera • I. Municipalidad de Peralillo")
             self.setFont("Helvetica-Bold", 7.5)
             self.setFillColor(BLUE_ACCENT)
             page_text = f"Página {self._pageNumber} de {page_count}"
