@@ -9,6 +9,7 @@ Implementa:
 """
 import mimetypes
 import os
+import re
 import shutil
 import uuid
 from datetime import date
@@ -28,6 +29,7 @@ from app.db.session import get_db
 from app.models import User, UserRole
 from app.models.reembolso import SolicitudReembolso
 from app.schemas.reembolso import (
+    BeneficiarioReembolso,
     ReembolsoCreateRequest,
     ResolverReembolsoRequest,
     ReembolsoOut,
@@ -41,6 +43,7 @@ from app.services.reembolso_service import (
     listar_todas_solicitudes_admin,
     contar_solicitudes_pendientes_admin,
     resolver_solicitud_reembolso,
+    obtener_beneficiarios_socio,
     obtener_resumen_socio,
     solicitud_to_out,
     validar_carencia,
@@ -89,10 +92,54 @@ async def get_reembolsos(
 )
 async def get_resumen_socio(
     anio: Optional[int] = Query(None, description="Año calendario a consultar (por defecto año actual)"),
+    socio_id: Optional[int] = Query(None, description="ID del socio titular asistido en oficina"),
+    socio_rut: Optional[str] = Query(None, description="RUN del socio titular asistido en oficina"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await obtener_resumen_socio(user, db, anio=anio)
+    target_user = user
+    if user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS:
+        if socio_id and socio_id != user.id:
+            s = await db.get(User, socio_id)
+            if s:
+                target_user = s
+        elif socio_rut:
+            clean_rut = re.sub(r"[^0-9kK]", "", socio_rut).upper()
+            all_u = (await db.scalars(select(User))).all()
+            s = next((u for u in all_u if re.sub(r"[^0-9kK]", "", u.rut or "").upper() == clean_rut), None)
+            if s:
+                target_user = s
+
+    return await obtener_resumen_socio(target_user, db, anio=anio)
+
+
+# ---------- GET /reembolsos/beneficiarios ----------
+
+@router.get(
+    "/beneficiarios",
+    response_model=List[BeneficiarioReembolso],
+    summary="Obtener beneficiarios válidos (titular + cargas vigentes)",
+)
+async def get_beneficiarios(
+    socio_id: Optional[int] = Query(None, description="ID del socio titular asistido"),
+    socio_rut: Optional[str] = Query(None, description="RUN del socio titular asistido"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    target_user = user
+    if user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS:
+        if socio_id and socio_id != user.id:
+            s = await db.get(User, socio_id)
+            if s:
+                target_user = s
+        elif socio_rut:
+            clean_rut = re.sub(r"[^0-9kK]", "", socio_rut).upper()
+            all_u = (await db.scalars(select(User))).all()
+            s = next((u for u in all_u if re.sub(r"[^0-9kK]", "", u.rut or "").upper() == clean_rut), None)
+            if s:
+                target_user = s
+
+    return await obtener_beneficiarios_socio(target_user, db)
 
 
 # ---------- POST /reembolsos/validar-fecha ----------
@@ -116,7 +163,7 @@ async def post_validar_fecha(
 
 # ---------- POST /reembolsos/solicitud ----------
 
-# [ESTUDIANTE INFORMÁTICA] Este endpoint es el núcleo de HU-03 (Crear Solicitud); ejecuta 4 validaciones estrictas (carencia 6 meses, plazo 30 días, copago <= boleta y copago <= saldo disponible) y permite guardar la solicitud en estado 'en_revision'.
+# [ESTUDIANTE INFORMÁTICA] Este endpoint es el núcleo de HU-03 (Crear Solicitud); ejecuta validaciones estrictas (carencia 6 meses, plazo 30 días, copago <= boleta, cargas vigentes y copago <= saldo disponible) y guarda la solicitud en estado 'en_revision'.
 @router.post(
     "/solicitud",
     response_model=ReembolsoOut,
@@ -128,53 +175,19 @@ async def post_crear_solicitud(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # 1. Validar carencia de 6 meses
-    puede, _, msg = validar_carencia(user)
-    if not puede:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=msg or "No cumple con la antigüedad mínima de 6 meses.",
+    try:
+        solicitud = await crear_solicitud(
+            user, body, db, comprobante_filename=body.comprobante_filename
         )
-
-    # 2. Validar plazo de 30 días corridos (prestación médica y compra/boleta)
-    hoy = date.today()
-    if body.fecha_atencion > hoy or body.fecha_boleta > hoy:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Las fechas de atención y de boleta no pueden ser futuras.",
+        return solicitud_to_out(solicitud)
+    except ValueError as ve:
+        err_msg = str(ve)
+        status_code = (
+            status.HTTP_403_FORBIDDEN
+            if "carencia" in err_msg.lower() or "antigüedad" in err_msg.lower()
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
         )
-    for etiqueta, fecha in (("atención", body.fecha_atencion), ("boleta/compra", body.fecha_boleta)):
-        resultado_plazo = validar_plazo_30_dias(fecha)
-        if not resultado_plazo.dentro_de_plazo:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Fecha de {etiqueta}: {resultado_plazo.mensaje}",
-            )
-
-    # 3. Validar que el monto de copago no supere el monto de la boleta
-    if body.monto_copago > body.monto_boleta:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="El copago a reembolsar no puede ser superior al monto total de la boleta.",
-        )
-
-    # 4. Verificar saldo disponible contra el saldo real del año calendario vigente ($150.000 anual Ene-Dic)
-    resumen_socio = await obtener_resumen_socio(user, db)
-    if body.monto_copago > resumen_socio.saldo_salud_disponible:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"El monto de copago solicitado (${body.monto_copago:,.0f}) "
-                f"supera su saldo disponible del año calendario {resumen_socio.anio_calendario} "
-                f"(${resumen_socio.saldo_salud_disponible:,.0f} de $150.000 anuales)."
-            ),
-        )
-
-    # 4. Crear la solicitud
-    solicitud = await crear_solicitud(
-        user, body, db, comprobante_filename=body.comprobante_filename
-    )
-    return solicitud_to_out(solicitud)
+        raise HTTPException(status_code=status_code, detail=err_msg)
 
 
 # ---------- GET /reembolsos/solicitud/{solicitud_id} ----------

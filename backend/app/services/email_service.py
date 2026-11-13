@@ -1135,3 +1135,275 @@ def generar_correo_resolucion_carga_familiar(
     }
     registrar_en_buzon(payload)
     return payload
+
+
+def generar_correo_recepcion_reembolso(
+    codigo: str,
+    socio_nombre: str,
+    socio_rut: str,
+    email_destino: str,
+    tipo_prestacion_label: str,
+    beneficiario_nombre: str,
+    beneficiario_parentesco: str,
+    monto_boleta: float,
+    monto_copago: float,
+    saldo_restante: float,
+    fecha_atencion: str = "",
+    enviar_smtp: bool = True,
+) -> Dict[str, Any]:
+    """Genera y notifica al socio el ingreso de su solicitud de reembolso de salud con retención preventiva."""
+    destinatario = (email_destino or "").strip()
+    fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    asunto = f"[Bienestar Peralillo] Solicitud de Reembolso {codigo} Recepcionada y en Gestión"
+
+    monto_bol_fmt = f"${monto_boleta:,.0f}".replace(",", ".")
+    monto_cop_fmt = f"${monto_copago:,.0f}".replace(",", ".")
+    saldo_rest_fmt = f"${saldo_restante:,.0f}".replace(",", ".")
+
+    alerta_html = f"""
+    <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;">
+      <p style="margin: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; color: #15803d; letter-spacing: 0.5px;">
+        Comprobante Oficial de Ingreso de Reembolso ({codigo})
+      </p>
+      <p style="margin: 4px 0 0 0; font-size: 13.5px; color: #166534;">
+        Su solicitud por <strong>{monto_cop_fmt}</strong> ha sido ingresada en estado <strong>Pendiente de Revisión</strong>. 
+        Se ha aplicado la retención preventiva de su cupo anual (saldo disponible restante: <strong>{saldo_rest_fmt}</strong>).
+      </p>
+    </div>
+    """
+
+    pasos = [
+        "<strong>Revisión por la Directiva de Bienestar:</strong> Los antecedentes médicos y boletas adjuntas serán verificados conforme al reglamento municipal y la regla de 30 días corridos.",
+        "<strong>Liquidación y Pago:</strong> Una vez aprobada, el monto será liquidado y depositado a su cuenta bancaria registrada para remuneraciones.",
+        "<strong>Resguardo del Saldo:</strong> En caso de requerirse alguna subsanación o rechazo, el saldo retenido será reintegrado automáticamente a su cupo anual disponible.",
+    ]
+
+    cuerpo_texto = (
+        f"Estimado(a) {socio_nombre}:\n\n"
+        f"Le informamos que su solicitud de reembolso médico {codigo} ha sido recepcionada exitosamente.\n\n"
+        f"DETALLE DE LA SOLICITUD:\n"
+        f"- N° Solicitud: {codigo}\n"
+        f"- Prestación: {tipo_prestacion_label}\n"
+        f"- Beneficiario: {beneficiario_nombre} ({beneficiario_parentesco})\n"
+        f"- Monto Boleta: {monto_bol_fmt}\n"
+        f"- Monto Reembolso Solicitado: {monto_cop_fmt}\n"
+        f"- Saldo Salud Restante Proyectado: {saldo_rest_fmt}\n"
+        f"- Fecha de Atención: {fecha_atencion}\n\n"
+        f"Su solicitud se encuentra en revisión reglamentaria. Se notificará la resolución oficial por esta misma vía.\n\n"
+        f"Atentamente,\nComité de Bienestar • I. Municipalidad de Peralillo"
+    )
+
+    cuerpo_html = _envolver_html_institucional(
+        folio=codigo,
+        fecha_emision=fecha_emision,
+        badge_texto="EN REVISIÓN DIRECTIVA",
+        badge_bg="#dcfce7",
+        badge_color="#15803d",
+        banner_bg="#0f5132",
+        banner_subtitulo="REEMBOLSOS MÉDICOS Y DENTALES • BIENESTAR MUNICIPAL",
+        banner_titulo=f"Solicitud de Reembolso {codigo} Ingresada",
+        saludo_nombre=socio_nombre,
+        intro_html=(
+            "Confirmamos la recepción de su solicitud de reembolso por prestaciones médicas. "
+            "A continuación se detalla la ficha de respaldo y el estado de sus fondos anuales de salud:"
+        ),
+        alerta_estado_html=alerta_html,
+        filas_tabla=[
+            ("N° de Solicitud (Folio)", codigo),
+            ("Socio(a) Titular", f"{socio_nombre} (RUN {socio_rut})"),
+            ("Beneficiario", f"{beneficiario_nombre} ({beneficiario_parentesco})"),
+            ("Tipo de Prestación", tipo_prestacion_label),
+            ("Monto Total de Boleta", monto_bol_fmt),
+            ("Monto Reembolso Solicitado", monto_cop_fmt),
+            ("Saldo Anual Restante Disponible", saldo_rest_fmt),
+            ("Fecha de Atención Declarada", str(fecha_atencion)),
+            ("Estado", "Pendiente de Revisión (Retención Preventiva)"),
+        ],
+        titulo_pasos="Etapas de tramitación y pago",
+        pasos=pasos,
+    )
+
+    enviado_smtp, error_smtp = (
+        _enviar_smtp_real(destinatario, asunto, cuerpo_texto, cuerpo_html)
+        if enviar_smtp and destinatario
+        else (False, None)
+    )
+
+    payload = {
+        "tipo": "recepcion_reembolso",
+        "destinatario": destinatario,
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto,
+        "fechaEmision": fecha_emision,
+        "folio": codigo,
+        "nombreDestinatario": socio_nombre,
+        "runDestinatario": socio_rut,
+        "estadoSolicitud": "Pendiente de Revisión",
+        "estadoResolucion": "PENDIENTE",
+        "resumenEstado": f"Reembolso {codigo} recepcionado por {monto_cop_fmt} para {beneficiario_nombre} ({tipo_prestacion_label}).",
+        "motivo": f"Prestación: {tipo_prestacion_label} - Copago: {monto_cop_fmt}",
+        "cuerpoTexto": cuerpo_texto,
+        "cuerpoHtml": cuerpo_html,
+        "enviadoSmtp": enviado_smtp,
+        "errorSmtp": error_smtp,
+        "modoEnvio": "smtp_real" if enviado_smtp else "buzon_institucional",
+    }
+    registrar_en_buzon(payload)
+    return payload
+
+
+def generar_correo_resolucion_reembolso(
+    codigo: str,
+    socio_nombre: str,
+    socio_rut: str,
+    email_destino: str,
+    aprobada: bool,
+    tipo_prestacion_label: str,
+    beneficiario_nombre: str,
+    beneficiario_parentesco: str,
+    monto_reembolso: float,
+    saldo_disponible_actual: float,
+    motivo_rechazo: str = "",
+    enviar_smtp: bool = True,
+) -> Dict[str, Any]:
+    """Genera y despacha el correo de resolución (APROBADO con liquidación o RECHAZADO con restitución de saldo)."""
+    destinatario = (email_destino or "").strip()
+    fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    monto_rem_fmt = f"${monto_reembolso:,.0f}".replace(",", ".")
+    saldo_disp_fmt = f"${saldo_disponible_actual:,.0f}".replace(",", ".")
+
+    if aprobada:
+        asunto = f"[Bienestar Peralillo] Reembolso Médico {codigo} APROBADO ({monto_rem_fmt})"
+        alerta_html = f"""
+        <div style="background-color: #ecfdf5; border-left: 4px solid #059669; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;">
+          <p style="margin: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; color: #065f46; letter-spacing: 0.5px;">
+            ✔ Solicitud de Reembolso APROBADA ({codigo})
+          </p>
+          <p style="margin: 5px 0 0 0; font-size: 13.5px; color: #064e3b;">
+            Se ha aprobado el reembolso por un total de <strong>{monto_rem_fmt}</strong> para el beneficiario <strong>{beneficiario_nombre}</strong>.
+          </p>
+        </div>
+        """
+        pasos = [
+            f"El importe de <strong>{monto_rem_fmt}</strong> ha sido transferido o imputado a nómina de pago de bienestar.",
+            f"Su saldo disponible de salud para el resto del año calendario es de <strong>{saldo_disp_fmt}</strong>.",
+            "Puede descargar o consultar el comprobante en cualquier momento en el módulo Reembolsos del Portal.",
+        ]
+        cuerpo_texto = (
+            f"Estimado(a) {socio_nombre}:\n\n"
+            f"Su solicitud de reembolso {codigo} por un monto de {monto_rem_fmt} "
+            f"para {beneficiario_nombre} ({beneficiario_parentesco}) ha sido APROBADA.\n"
+            f"El depósito correspondiente se efectuará en la liquidación de beneficios de Bienestar.\n"
+            f"Saldo restante disponible: {saldo_disp_fmt}.\n\n"
+            f"Atentamente,\nDirectiva del Comité de Bienestar • I. Municipalidad de Peralillo"
+        )
+        cuerpo_html = _envolver_html_institucional(
+            folio=codigo,
+            fecha_emision=fecha_emision,
+            badge_texto="REEMBOLSO APROBADO",
+            badge_bg="#dcfce7",
+            badge_color="#166534",
+            banner_bg="#064e3b",
+            banner_subtitulo="RESOLUCIÓN OFICIAL DE BENEFICIOS • BIENESTAR MUNICIPAL",
+            banner_titulo=f"✔ Reembolso {codigo} APROBADO ({monto_rem_fmt})",
+            saludo_nombre=socio_nombre,
+            intro_html=(
+                "Nos complace informarle que la Directiva del <strong>Comité de Bienestar de la Ilustre Municipalidad de Peralillo</strong> "
+                "ha aprobado su solicitud de reembolso de salud:"
+            ),
+            alerta_estado_html=alerta_html,
+            filas_tabla=[
+                ("N° Solicitud de Reembolso", f"{codigo} — APROBADO"),
+                ("Socio(a) Titular", f"{socio_nombre} (RUN {socio_rut})"),
+                ("Beneficiario(a)", f"{beneficiario_nombre} ({beneficiario_parentesco})"),
+                ("Prestación Médica", tipo_prestacion_label),
+                ("Monto Liquidado a Pagar", monto_rem_fmt),
+                ("Saldo Salud Disponible Actual", saldo_disp_fmt),
+                ("Estado de Pago", "Aprobado / En proceso de liquidación"),
+            ],
+            titulo_pasos="Detalle de pago y saldo restante",
+            pasos=pasos,
+        )
+        resumen_estado = f"Reembolso {codigo} APROBADO por {monto_rem_fmt} para {beneficiario_nombre}."
+    else:
+        asunto = f"[Bienestar Peralillo] Solicitud de Reembolso {codigo} RECHAZADA"
+        motivo_texto = motivo_rechazo or "Documentación no cumple requisitos reglamentarios."
+        alerta_html = f"""
+        <div style="background-color: #fff1f2; border-left: 4px solid #e11d48; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;">
+          <p style="margin: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; color: #9f1239; letter-spacing: 0.5px;">
+            ✕ Solicitud de Reembolso RECHAZADA ({codigo})
+          </p>
+          <p style="margin: 5px 0 0 0; font-size: 13.5px; color: #881337;">
+            <strong>Causal informada:</strong> {motivo_texto}
+          </p>
+        </div>
+        """
+        pasos = [
+            f"El monto de <strong>{monto_rem_fmt}</strong> retenido preventivamente ha sido <strong>restituido íntegramente (100%)</strong> a su cupo disponible de salud (Saldo actual: <strong>{saldo_disp_fmt}</strong>).",
+            "Si el gasto se encuentra aún dentro del plazo reglamentario de 30 días corridos, puede reingresar una nueva solicitud subsanando los reparos indicados.",
+        ]
+        cuerpo_texto = (
+            f"Estimado(a) {socio_nombre}:\n\n"
+            f"Su solicitud de reembolso {codigo} por {monto_rem_fmt} ha sido RECHAZADA.\n"
+            f"Causal: {motivo_texto}\n\n"
+            f"IMPORTANTE: El saldo de {monto_rem_fmt} ha sido reintegrado automáticamente al 100% "
+            f"a su saldo disponible de salud (Saldo disponible: {saldo_disp_fmt}).\n\n"
+            f"Atentamente,\nDirectiva del Comité de Bienestar • I. Municipalidad de Peralillo"
+        )
+        cuerpo_html = _envolver_html_institucional(
+            folio=codigo,
+            fecha_emision=fecha_emision,
+            badge_texto="REEMBOLSO RECHAZADO",
+            badge_bg="#ffe4e6",
+            badge_color="#9f1239",
+            banner_bg="#881337",
+            banner_subtitulo="RESOLUCIÓN OFICIAL DE BENEFICIOS • BIENESTAR MUNICIPAL",
+            banner_titulo=f"✕ Reembolso {codigo} Rechazado",
+            saludo_nombre=socio_nombre,
+            intro_html=(
+                "Cumplimos con informar a usted el resultado de la revisión de su solicitud de reembolso "
+                "en el <strong>Comité de Bienestar de la Ilustre Municipalidad de Peralillo</strong>:"
+            ),
+            alerta_estado_html=alerta_html,
+            filas_tabla=[
+                ("N° Solicitud", f"{codigo} — RECHAZADO"),
+                ("Socio(a) Titular", f"{socio_nombre} (RUN {socio_rut})"),
+                ("Beneficiario", f"{beneficiario_nombre} ({beneficiario_parentesco})"),
+                ("Prestación", tipo_prestacion_label),
+                ("Monto Solicitado", monto_rem_fmt),
+                ("Causal del Rechazo", motivo_texto),
+                ("Restitución de Saldo", f"100% Restituido ({monto_rem_fmt})"),
+                ("Saldo Salud Disponible Actual", saldo_disp_fmt),
+            ],
+            titulo_pasos="Efectos reglamentarios y saldo restituido",
+            pasos=pasos,
+        )
+        resumen_estado = f"Reembolso {codigo} RECHAZADO: {motivo_texto}. Saldo {monto_rem_fmt} restituido al 100%."
+
+    enviado_smtp, error_smtp = (
+        _enviar_smtp_real(destinatario, asunto, cuerpo_texto, cuerpo_html)
+        if enviar_smtp and destinatario
+        else (False, None)
+    )
+
+    payload = {
+        "tipo": "resolucion_reembolso",
+        "destinatario": destinatario,
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto,
+        "fechaEmision": fecha_emision,
+        "folio": codigo,
+        "nombreDestinatario": socio_nombre,
+        "runDestinatario": socio_rut,
+        "estadoSolicitud": "APROBADO" if aprobada else "RECHAZADO",
+        "estadoResolucion": "ACEPTADA" if aprobada else "RECHAZADA",
+        "resumenEstado": resumen_estado,
+        "motivo": motivo_rechazo if not aprobada else f"Aprobado por {monto_rem_fmt}",
+        "cuerpoTexto": cuerpo_texto,
+        "cuerpoHtml": cuerpo_html,
+        "enviadoSmtp": enviado_smtp,
+        "errorSmtp": error_smtp,
+        "modoEnvio": "smtp_real" if enviado_smtp else "buzon_institucional",
+    }
+    registrar_en_buzon(payload)
+    return payload

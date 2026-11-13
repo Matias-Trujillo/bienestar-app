@@ -1,5 +1,6 @@
 """Modelo ORM de solicitudes de reembolso de prestaciones de salud."""
 import enum
+from typing import Optional
 
 from sqlalchemy import (
     Boolean, Date, Enum, Float, ForeignKey, Integer, String, Text,
@@ -98,6 +99,9 @@ class SolicitudReembolso(Base, TimestampMixin):
     beneficiario_nombre: Mapped[str] = mapped_column(String(120))
     beneficiario_parentesco: Mapped[str] = mapped_column(
         String(30), default="Titular"
+    )
+    beneficiario_run: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, default=""
     )
 
     # [ESTUDIANTE INFORMÁTICA] Estos campos guardan los valores financieros del gasto y permiten calcular la cobertura y descontar del saldo disponible del socio.
