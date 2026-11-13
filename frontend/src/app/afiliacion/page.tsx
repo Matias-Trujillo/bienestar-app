@@ -273,6 +273,13 @@ export default function AfiliacionPage() {
       cargarSolicitudesCargas();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({ type: 'SOLICITUD_CREADA', folio: creada.folio });
+            bc.close();
+          }
+        } catch {}
       }
     } catch (err: unknown) {
       setErrorNuevaCarga(err instanceof Error ? err.message : 'No fue posible registrar la solicitud.');
@@ -353,6 +360,13 @@ export default function AfiliacionPage() {
       cargarSolicitudes();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({ type: 'SOLICITUD_ACTUALIZADA' });
+            bc.close();
+          }
+        } catch {}
       }
     } catch (err: unknown) {
       setErrorResolucionCarga(err instanceof Error ? err.message : 'Error al resolver solicitud de carga.');
@@ -417,6 +431,13 @@ export default function AfiliacionPage() {
       cargarSolicitudes();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({ type: 'SOLICITUD_ACTUALIZADA' });
+            bc.close();
+          }
+        } catch {}
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al registrar resolución.';
@@ -456,6 +477,13 @@ export default function AfiliacionPage() {
       cargarSolicitudes();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({ type: 'SOLICITUD_ACTUALIZADA' });
+            bc.close();
+          }
+        } catch {}
       }
     } catch (err: unknown) {
       alert(getErrorMessage(err) || 'Error al registrar la resolución.');

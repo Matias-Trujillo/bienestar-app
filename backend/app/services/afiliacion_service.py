@@ -468,24 +468,28 @@ class AfiliacionService:
         filas = (await db.scalars(query)).all()
         return [to_comprobante(s, ligero=True) for s in filas]
 
-    # [ESTUDIANTE INFORMÁTICA] Cuenta las incorporaciones pendientes de resolución colegiada para los badges del menú.
+    # [ESTUDIANTE INFORMÁTICA] Cuenta las incorporaciones y cargas pendientes de resolución para los badges y alertas en vivo.
     @staticmethod
     async def contar_pendientes(db: AsyncSession) -> int:
-        count = await db.scalar(
+        count_afiliaciones = await db.scalar(
             select(func.count(SolicitudAfiliacion.id)).where(
                 SolicitudAfiliacion.estado == EstadoSolicitud.PENDIENTE
             )
-        )
-        return int(count or 0)
+        ) or 0
+        try:
+            await asegurar_tabla_cargas(db)
+            count_cargas = await db.scalar(
+                select(func.count(SolicitudCargaFamiliar.id)).where(
+                    SolicitudCargaFamiliar.estado == EstadoSolicitud.PENDIENTE
+                )
+            ) or 0
+        except Exception:
+            count_cargas = 0
+        return int(count_afiliaciones + count_cargas)
 
     @staticmethod
     async def contar_solicitudes_pendientes(db: AsyncSession) -> int:
-        resultado = await db.scalar(
-            select(func.count(SolicitudAfiliacion.id)).where(
-                SolicitudAfiliacion.estado == EstadoSolicitud.PENDIENTE
-            )
-        )
-        return resultado or 0
+        return await AfiliacionService.contar_pendientes(db)
 
     @staticmethod
     async def resolver_solicitud(

@@ -260,6 +260,17 @@ export default function SolicitudAfiliacionPage() {
       });
       setComprobante(res);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // [ESTUDIANTE INFORMÁTICA] Notifica en tiempo real a las directivas en pestañas abiertas
+      try {
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('bienestar_alertas_channel');
+          bc.postMessage({ type: 'SOLICITUD_CREADA', folio: res.folio });
+          bc.close();
+        }
+      } catch {
+        // Silencioso
+      }
     } catch (err) {
       setApiError(parseApiError(err));
     } finally {

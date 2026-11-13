@@ -7,6 +7,11 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
 import { User } from '@/types';
+import {
+  playNotificationChime,
+  isSoundEnabled,
+  toggleSoundEnabled,
+} from '@/lib/notificationSound';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -97,27 +102,122 @@ const LogoutConfirmModal: React.FC<LogoutModalProps> = ({ user, onCancel, onConf
     document.body
   );
 
+interface ToastData {
+  id: string;
+  titulo: string;
+  mensaje: string;
+  href: string;
+}
+
+// [ESTUDIANTE INFORMÁTICA] Banner flotante Toast en la esquina superior derecha con botón de acción rápida y autocierre.
+const NotificationToast: React.FC<{
+  toast: ToastData | null;
+  onClose: () => void;
+}> = ({ toast, onClose }) => {
+  if (!toast || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed top-20 right-4 sm:right-6 z-[100] max-w-sm w-full animate-toast-in pointer-events-auto">
+      <div className="relative overflow-hidden bg-white/95 backdrop-blur-md rounded-2xl border border-amber-300 shadow-2xl p-4 ring-1 ring-black/5">
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-[#006799] to-[#166534]" />
+        <div className="flex items-start gap-3 pt-1">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-sm shrink-0">
+            <svg className="w-5 h-5 animate-bell-ring" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                Alerta de Bandeja • Peralillo
+              </span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-slate-400 hover:text-slate-600 p-0.5 rounded-md hover:bg-slate-100 transition-colors"
+                aria-label="Cerrar notificación"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <h4 className="text-xs font-bold text-slate-900 mt-0.5 leading-snug">
+              {toast.titulo}
+            </h4>
+            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+              {toast.mensaje}
+            </p>
+            <div className="mt-2.5 flex items-center justify-end gap-2">
+              <Link
+                href={toast.href}
+                onClick={onClose}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95 rounded-xl shadow-xs transition-all"
+              >
+                <span>Revisar Solicitud</span>
+                <span aria-hidden="true">&rarr;</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 interface NotificationsDropdownProps {
   esDirectiva: boolean;
   esAdminOSuper: boolean;
   afiliacionPendientes: number;
   reembolsosPendientes: number;
   totalAlertas: number;
+  sonidoHabilitado: boolean;
+  onToggleSonido: () => void;
   onClose: () => void;
 }
 
-// [ESTUDIANTE INFORMÁTICA] Menú flotante de notificaciones con diseño limpio y contadores en píldoras.
+// [ESTUDIANTE INFORMÁTICA] Menú flotante de notificaciones con control de silencio y contadores en píldoras.
 const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   esDirectiva,
   esAdminOSuper,
   afiliacionPendientes,
   reembolsosPendientes,
   totalAlertas,
+  sonidoHabilitado,
+  onToggleSonido,
   onClose,
 }) => (
   <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden z-50 animate-scale-in">
     <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
-      <span className="text-xs font-bold text-[#0c2b45]">Bandeja de Pendientes</span>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold text-[#0c2b45]">Bandeja de Pendientes</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSonido();
+          }}
+          className={`p-1 rounded-lg border text-xs transition-colors cursor-pointer ${
+            sonidoHabilitado
+              ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+              : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+          }`}
+          title={sonidoHabilitado ? 'Silenciar alertas sonoras' : 'Activar alertas sonoras'}
+          aria-label={sonidoHabilitado ? 'Silenciar alertas sonoras' : 'Activar alertas sonoras'}
+        >
+          {sonidoHabilitado ? (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+          )}
+        </button>
+      </div>
       <span className="text-[11px] font-semibold text-slate-500 tabular-nums">
         {totalAlertas} {totalAlertas === 1 ? 'pendiente' : 'pendientes'}
       </span>
@@ -182,7 +282,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   </div>
 );
 
-// [ESTUDIANTE INFORMÁTICA] Header institucional con efecto cristal (backdrop-blur) y controles adaptables sin desborde.
+// [ESTUDIANTE INFORMÁTICA] Header institucional con alerta animada en tiempo real, sonido Web Audio API y sincronización.
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { user, token, logout } = useAuth();
   const pathname = usePathname();
@@ -190,46 +290,172 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [reembolsosPendientes, setReembolsosPendientes] = useState(0);
   const [afiliacionPendientes, setAfiliacionPendientes] = useState(0);
+  const [animandoCampana, setAnimandoCampana] = useState(false);
+  const [campanaNuevaAlerta, setCampanaNuevaAlerta] = useState(false);
+  const [toastActivo, setToastActivo] = useState<ToastData | null>(null);
+  const [sonidoHabilitado, setSonidoHabilitado] = useState(true);
+
   const notifRef = useRef<HTMLDivElement>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const bellAnimTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevTotalAlertasRef = useRef<number | null>(null);
+  const prevAfiliacionRef = useRef<number | null>(null);
+  const prevReembolsosRef = useRef<number | null>(null);
 
   const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
   const esDirectiva = Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
 
+  // Inicializa la preferencia de sonido desde localStorage
+  useEffect(() => {
+    setSonidoHabilitado(isSoundEnabled());
+  }, []);
+
+  const dispararAlertaEnVivo = useCallback(
+    (nuevoTotal: number, prevTotal: number, nuevoAfiliacion: number, prevAfiliacion: number) => {
+      // 1. Activar animación oscilatoria de campana
+      setAnimandoCampana(true);
+      setCampanaNuevaAlerta(true);
+      if (bellAnimTimeoutRef.current) clearTimeout(bellAnimTimeoutRef.current);
+      bellAnimTimeoutRef.current = setTimeout(() => {
+        setAnimandoCampana(false);
+      }, 2600);
+
+      // 2. Reproducir chime institucional mediante Web Audio API
+      playNotificationChime();
+
+      // 3. Determinar módulo causante del incremento y armar Toast
+      const diff = nuevoTotal - prevTotal;
+      const incrementoAfiliacion = nuevoAfiliacion > prevAfiliacion;
+      const href = incrementoAfiliacion ? '/afiliacion' : '/aprobaciones';
+      const titulo = incrementoAfiliacion
+        ? '¡Nueva Solicitud de Afiliación / Carga!'
+        : '¡Nuevo Reembolso Médico por Revisar!';
+      const mensaje =
+        diff === 1
+          ? 'Se ha recibido una nueva solicitud pendiente de resolución directiva.'
+          : `Se han recibido ${diff} nuevas solicitudes pendientes de revisión.`;
+
+      setToastActivo({
+        id: String(Date.now()),
+        titulo,
+        mensaje,
+        href,
+      });
+
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = setTimeout(() => {
+        setToastActivo(null);
+      }, 6500);
+    },
+    []
+  );
+
   const cargarNotificaciones = useCallback(async () => {
     if (!token) return;
+
+    let nuevoReembolsos = 0;
+    let nuevoAfiliacion = 0;
+
     if (esAdminOSuper) {
       try {
         const r = await fetchFromApi<{ pendientes: number }>('/reembolsos/admin/conteo-pendientes', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (typeof r?.pendientes === 'number') setReembolsosPendientes(r.pendientes);
+        if (typeof r?.pendientes === 'number') nuevoReembolsos = r.pendientes;
       } catch {
-        // Ignorar
+        // Ignorar error de red puntual
       }
     }
+
     if (esDirectiva) {
       try {
         const a = await fetchFromApi<{ pendientes: number }>('/afiliacion/conteo-pendientes', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (typeof a?.pendientes === 'number') setAfiliacionPendientes(a.pendientes);
+        if (typeof a?.pendientes === 'number') nuevoAfiliacion = a.pendientes;
       } catch {
-        // Ignorar
+        // Ignorar error de red puntual
       }
     }
-  }, [esAdminOSuper, esDirectiva, token]);
 
+    setReembolsosPendientes(nuevoReembolsos);
+    setAfiliacionPendientes(nuevoAfiliacion);
+
+    const nuevoTotal = (esDirectiva ? nuevoAfiliacion : 0) + (esAdminOSuper ? nuevoReembolsos : 0);
+
+    // Comparar con el conteo previo para detectar llegadas en caliente
+    if (prevTotalAlertasRef.current !== null && nuevoTotal > prevTotalAlertasRef.current) {
+      dispararAlertaEnVivo(
+        nuevoTotal,
+        prevTotalAlertasRef.current,
+        nuevoAfiliacion,
+        prevAfiliacionRef.current ?? 0
+      );
+    }
+
+    prevTotalAlertasRef.current = nuevoTotal;
+    prevAfiliacionRef.current = nuevoAfiliacion;
+    prevReembolsosRef.current = nuevoReembolsos;
+  }, [dispararAlertaEnVivo, esAdminOSuper, esDirectiva, token]);
+
+  // Sondeo inteligente cada 4 segundos para roles resolutivos con pausa si la pestaña está oculta
   useEffect(() => {
     cargarNotificaciones();
-    const interval = setInterval(cargarNotificaciones, 15000);
-    const handleUpdate = () => cargarNotificaciones();
-    window.addEventListener('solicitudes-updated', handleUpdate);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('solicitudes-updated', handleUpdate);
-    };
-  }, [cargarNotificaciones, pathname]);
 
+    const intervalMs = esDirectiva || esAdminOSuper ? 4000 : 25000;
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const startInterval = () => {
+      if (!intervalId) {
+        intervalId = setInterval(() => {
+          if (typeof document !== 'undefined' && document.hidden) return;
+          cargarNotificaciones();
+        }, intervalMs);
+      }
+    };
+
+    const stopInterval = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    startInterval();
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        cargarNotificaciones();
+      }
+    };
+
+    const handleUpdate = () => cargarNotificaciones();
+
+    // Sincronización entre pestañas mediante BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('bienestar_alertas_channel');
+      bc.onmessage = (ev) => {
+        if (ev.data?.type === 'SOLICITUD_CREADA' || ev.data?.type === 'SOLICITUD_ACTUALIZADA') {
+          cargarNotificaciones();
+        }
+      };
+    }
+
+    window.addEventListener('solicitudes-updated', handleUpdate);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      stopInterval();
+      window.removeEventListener('solicitudes-updated', handleUpdate);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (bc) bc.close();
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      if (bellAnimTimeoutRef.current) clearTimeout(bellAnimTimeoutRef.current);
+    };
+  }, [cargarNotificaciones, esAdminOSuper, esDirectiva, pathname]);
+
+  // Cierre de menús contextuales al hacer clic fuera o presionar escape
   useEffect(() => {
     if (!notifOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -245,6 +471,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [confirmOpen]);
+
+  const handleToggleSonido = () => {
+    const nuevo = toggleSoundEnabled();
+    setSonidoHabilitado(nuevo);
+  };
 
   const totalAlertas = (esDirectiva ? afiliacionPendientes : 0) + (esAdminOSuper ? reembolsosPendientes : 0);
 
@@ -286,15 +517,39 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         <div className="relative" ref={notifRef}>
           <button
             type="button"
-            onClick={() => setNotifOpen((prev) => !prev)}
-            className="relative p-2.5 text-slate-600 rounded-xl hover:bg-slate-100 border border-slate-200/70 transition-colors cursor-pointer"
+            onClick={() => {
+              setNotifOpen((prev) => !prev);
+              setCampanaNuevaAlerta(false);
+            }}
+            className={`relative p-2.5 rounded-xl border transition-all duration-300 cursor-pointer ${
+              animandoCampana || campanaNuevaAlerta
+                ? 'bg-amber-50/90 text-amber-600 border-amber-300 shadow-md ring-4 ring-amber-400/30'
+                : totalAlertas > 0
+                ? 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100'
+                : 'text-slate-600 rounded-xl hover:bg-slate-100 border border-slate-200/70'
+            }`}
             aria-label="Notificaciones"
+            title={totalAlertas > 0 ? `${totalAlertas} solicitudes pendientes de atención` : 'Notificaciones'}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            <svg
+              className={`w-4 h-4 transition-transform ${animandoCampana ? 'animate-bell-ring text-amber-600' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
             </svg>
             {totalAlertas > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-xs font-semibold tabular-nums flex items-center justify-center ring-2 ring-white">
+              <span
+                className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[11px] font-bold tabular-nums flex items-center justify-center ring-2 ring-white shadow-xs transition-transform ${
+                  animandoCampana ? 'bg-amber-600 scale-110' : 'bg-amber-500'
+                }`}
+              >
                 {totalAlertas > 99 ? '99+' : totalAlertas}
               </span>
             )}
@@ -307,6 +562,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               afiliacionPendientes={afiliacionPendientes}
               reembolsosPendientes={reembolsosPendientes}
               totalAlertas={totalAlertas}
+              sonidoHabilitado={sonidoHabilitado}
+              onToggleSonido={handleToggleSonido}
               onClose={() => setNotifOpen(false)}
             />
           )}
@@ -359,6 +616,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           }}
         />
       )}
+
+      {/* Banner flotante de notificación en vivo */}
+      <NotificationToast
+        toast={toastActivo}
+        onClose={() => setToastActivo(null)}
+      />
     </header>
   );
 };

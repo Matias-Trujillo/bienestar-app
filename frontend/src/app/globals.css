@@ -262,3 +262,55 @@ table td {
 .animate-grid-drift {
   animation: gridDrift 30s linear infinite;
 }
+
+/* [ESTUDIANTE INFORMÁTICA] Animación oscilatoria de campana y resplandor para notificaciones en vivo */
+@keyframes bellRing {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  10%, 30%, 50%, 70% {
+    transform: rotate(14deg);
+  }
+  20%, 40%, 60%, 80% {
+    transform: rotate(-14deg);
+  }
+  88% {
+    transform: rotate(6deg);
+  }
+  94% {
+    transform: rotate(-3deg);
+  }
+}
+
+@keyframes bellGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+
+@keyframes toastSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(30px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-bell-ring {
+  animation: bellRing 1.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform-origin: top center;
+}
+
+.animate-bell-glow {
+  animation: bellGlowPulse 1.8s infinite;
+}
+
+.animate-toast-in {
+  animation: toastSlideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
