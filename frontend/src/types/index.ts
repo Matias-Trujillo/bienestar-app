@@ -221,6 +221,13 @@ export type EstadoReembolso =
   | 'rechazado'
   | 'pagado';
 
+export interface BeneficiarioReembolso {
+  nombre: string;
+  rut: string;
+  parentesco: string;
+  es_titular: boolean;
+}
+
 // [ESTUDIANTE INFORMÁTICA] Interfaz TypeScript que refleja una Solicitud de Reembolso completa; permite el autocompletado y validación de tipos al manipular solicitudes en React.
 export interface SolicitudReembolso {
   id: number;
@@ -235,6 +242,7 @@ export interface SolicitudReembolso {
   descripcion: string;
   beneficiario_nombre: string;
   beneficiario_parentesco: string;
+  beneficiario_run?: string;
   monto_boleta: number;
   monto_copago: number;
   monto_reembolso: number;

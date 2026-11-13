@@ -9,10 +9,13 @@ from datetime import date, datetime
 # [ESTUDIANTE INFORMÁTICA] Esto valida el payload que envía el socio al crear una solicitud (HU-03) y permite asegurar tipos correctos, campos obligatorios y montos mayores a cero.
 class ReembolsoCreateRequest(BaseModel):
     """Datos que el socio envía al crear una solicitud de reembolso."""
+    socio_id: Optional[int] = Field(None, description="ID del socio titular asistido en oficina")
+    socio_rut: Optional[str] = Field(None, description="RUN del socio titular asistido en oficina")
     tipo_prestacion: str = Field(..., description="Clave del tipo de prestación médica")
     descripcion: str = Field("", description="Descripción libre del gasto")
     beneficiario_nombre: str = Field(..., description="Nombre del beneficiario")
     beneficiario_parentesco: str = Field("Titular", description="Parentesco con el socio")
+    beneficiario_run: Optional[str] = Field(None, description="RUN del beneficiario (carga o titular)")
     monto_boleta: float = Field(..., gt=0, description="Monto total de la boleta en CLP")
     monto_copago: float = Field(0, ge=0, description="Copago a solicitar reembolso")
     fecha_atencion: date = Field(..., description="Fecha de la atención médica")
@@ -70,6 +73,14 @@ class ResolverReembolsoRequest(BaseModel):
     motivo_rechazo: Optional[str] = Field("", description="Motivo en caso de rechazo")
 
 
+class BeneficiarioReembolso(BaseModel):
+    """Beneficiario habilitado para recibir reembolso (titular o carga aprobada)."""
+    nombre: str
+    rut: str
+    parentesco: str
+    es_titular: bool
+
+
 # [ESTUDIANTE INFORMÁTICA] Este DTO define el formato con el que el backend envía la solicitud al frontend; permite transformar los campos internos de la base de datos a un formato JSON limpio y estructurado con etiquetas amigables.
 class ReembolsoOut(BaseModel):
     """Representación de una solicitud de reembolso para el frontend."""
@@ -84,6 +95,7 @@ class ReembolsoOut(BaseModel):
     descripcion: str
     beneficiario_nombre: str
     beneficiario_parentesco: str
+    beneficiario_run: Optional[str] = ""
     monto_boleta: float
     monto_copago: float
     monto_reembolso: float

@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { TipoPrestacion, TIPO_PRESTACION_LABELS, TIPOS_PRESTACION_SOLICITABLES, ResumenSaludSocio } from '@/types';
+import {
+  TipoPrestacion,
+  TIPO_PRESTACION_LABELS,
+  TIPOS_PRESTACION_SOLICITABLES,
+  ResumenSaludSocio,
+  BeneficiarioReembolso,
+} from '@/types';
 import { formatCurrency } from '@/lib/utils';
 
 export const TIPOS_DOCUMENTO: Record<string, string> = {
@@ -11,11 +17,14 @@ export const TIPOS_DOCUMENTO: Record<string, string> = {
   timbre_no_reembolsable: "Timbre 'no reembolsable'",
 };
 
-interface FormReembolsoState {
+export interface FormReembolsoState {
   tipo_prestacion: TipoPrestacion | '';
   descripcion: string;
   beneficiario_nombre: string;
   beneficiario_parentesco: string;
+  beneficiario_run?: string;
+  socio_id?: number;
+  socio_rut?: string;
   monto_boleta: string;
   monto_copago: string;
   fecha_atencion: string;
@@ -33,6 +42,9 @@ interface ModalNuevaSolicitudProps {
   uploadedFile: File | null;
   enviando: boolean;
   usuarioNombre?: string;
+  beneficiarios?: BeneficiarioReembolso[];
+  esDirectiva?: boolean;
+  onBuscarSocioAsistido?: (rut: string) => Promise<void>;
   onClose: () => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -47,17 +59,46 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
   uploadedFile,
   enviando,
   usuarioNombre,
+  beneficiarios = [],
+  esDirectiva = false,
+  onBuscarSocioAsistido,
   onClose,
   onFileChange,
   onSubmit,
 }) => {
   const [mounted, setMounted] = useState(false);
+  const [modoAsistido, setModoAsistido] = useState(false);
+  const [rutAsistidoInput, setRutAsistidoInput] = useState('');
+  const [buscandoSocio, setBuscandoSocio] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   if (!show || !mounted) return null;
+
+  const listaBeneficiarios =
+    beneficiarios && beneficiarios.length > 0
+      ? beneficiarios
+      : [
+          {
+            nombre: usuarioNombre || resumen.socio_nombre || 'Socio Titular',
+            rut: resumen.rut || '',
+            parentesco: 'Titular',
+            es_titular: true,
+          },
+        ];
+
+  const handleBuscarSocio = async () => {
+    if (!rutAsistidoInput.trim() || !onBuscarSocioAsistido) return;
+    setBuscandoSocio(true);
+    try {
+      await onBuscarSocioAsistido(rutAsistidoInput.trim());
+      setFormData((p) => ({ ...p, socio_rut: rutAsistidoInput.trim() }));
+    } finally {
+      setBuscandoSocio(false);
+    }
+  };
 
   // Cálculos reactivos de saldo y montos
   const boletaNum = parseFloat(formData.monto_boleta) || 0;
@@ -203,6 +244,55 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
 
           {/* Formulario Secuencial Vertical hacia Abajo */}
           <form id="form-reembolso" onSubmit={onSubmit} className="space-y-2.5">
+            {/* Barra de Atención Asistida para Directiva */}
+            {esDirectiva && (
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold text-slate-700">
+                    Atención Asistida en Oficina (Directiva)
+                  </span>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={modoAsistido}
+                      onChange={(e) => {
+                        setModoAsistido(e.target.checked);
+                        if (!e.target.checked) {
+                          setFormData((p) => ({
+                            ...p,
+                            socio_id: undefined,
+                            socio_rut: undefined,
+                          }));
+                          setRutAsistidoInput('');
+                        }
+                      }}
+                      className="rounded accent-emerald-600 w-3.5 h-3.5"
+                    />
+                    Asistir a un socio presencial
+                  </label>
+                </div>
+                {modoAsistido && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="text"
+                      placeholder="RUN del Socio (ej: 19.234.567-7)"
+                      value={rutAsistidoInput}
+                      onChange={(e) => setRutAsistidoInput(e.target.value)}
+                      className="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleBuscarSocio}
+                      disabled={buscandoSocio || !rutAsistidoInput.trim()}
+                      className="px-3 py-1 bg-[#006799] text-white font-bold rounded-lg hover:opacity-90 disabled:opacity-50 text-xs shrink-0"
+                    >
+                      {buscandoSocio ? 'Buscando...' : 'Cargar Socio'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 1. Tipo de prestación médica */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
@@ -224,33 +314,42 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               </select>
             </div>
 
-            {/* 2. Beneficiario */}
+            {/* 2. Beneficiario Dinámico (Titular + Cargas Familiares Aprobadas) */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
-                Beneficiario <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="block text-[11px] font-semibold text-slate-700">
+                  Beneficiario <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {listaBeneficiarios.length > 1
+                    ? `${listaBeneficiarios.length - 1} carga(s) vigente(s)`
+                    : 'Sin cargas adicionales'}
+                </span>
+              </div>
               <select
-                value={formData.beneficiario_parentesco}
+                value={`${formData.beneficiario_nombre}:::${formData.beneficiario_parentesco}`}
                 onChange={(e) => {
-                  const sel = e.target.value;
-                  const titular = usuarioNombre || 'Socio Titular';
-                  const nombres: Record<string, string> = {
-                    Titular: titular,
-                    Hija: 'Valentina Valenzuela',
-                    Hijo: 'Matías Valenzuela',
-                  };
+                  const [nom, par, run] = e.target.value.split(':::');
                   setFormData((p) => ({
                     ...p,
-                    beneficiario_parentesco: sel,
-                    beneficiario_nombre: nombres[sel] || p.beneficiario_nombre,
+                    beneficiario_nombre: nom,
+                    beneficiario_parentesco: par,
+                    beneficiario_run: run || '',
                   }));
                 }}
                 className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
                 id="select-beneficiario"
               >
-                <option value="Titular">{usuarioNombre || 'Socio Titular'} (Titular)</option>
-                <option value="Hija">Valentina Valenzuela (Hija / Carga)</option>
-                <option value="Hijo">Matías Valenzuela (Hijo / Carga)</option>
+                {listaBeneficiarios.map((b) => (
+                  <option
+                    key={`${b.nombre}-${b.rut}-${b.parentesco}`}
+                    value={`${b.nombre}:::${b.parentesco}:::${b.rut}`}
+                  >
+                    {b.es_titular
+                      ? `${b.nombre} (Socio Titular)`
+                      : `${b.nombre} (${b.parentesco} · RUN ${b.rut})`}
+                  </option>
+                ))}
               </select>
             </div>
 

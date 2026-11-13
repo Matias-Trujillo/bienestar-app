@@ -485,16 +485,20 @@ class AfiliacionService:
     # [ESTUDIANTE INFORMÁTICA] Cuenta las incorporaciones y cargas pendientes de resolución para los badges y alertas en vivo.
     @staticmethod
     async def contar_pendientes(db: AsyncSession) -> int:
-        count_afiliaciones = await db.scalar(
-            select(func.count(SolicitudAfiliacion.id)).where(
-                SolicitudAfiliacion.estado == EstadoSolicitud.PENDIENTE
+        count_afiliaciones = (
+            await db.scalar(
+                select(func.count(SolicitudAfiliacion.id)).where(
+                    SolicitudAfiliacion.estado == EstadoSolicitud.PENDIENTE
+                )
             )
         ) or 0
         try:
             await asegurar_tabla_cargas(db)
-            count_cargas = await db.scalar(
-                select(func.count(SolicitudCargaFamiliar.id)).where(
-                    SolicitudCargaFamiliar.estado == EstadoSolicitud.PENDIENTE
+            count_cargas = (
+                await db.scalar(
+                    select(func.count(SolicitudCargaFamiliar.id)).where(
+                        SolicitudCargaFamiliar.estado == EstadoSolicitud.PENDIENTE
+                    )
                 )
             ) or 0
         except Exception:
@@ -888,6 +892,81 @@ class AfiliacionService:
                 c_carga["id"] = f"{sc.folio}-resolucion-{'aprobada' if aprob else 'rechazada'}"
                 c_carga["fechaEmision"] = (sc.resuelto_at or (sc.created_at.isoformat() if sc.created_at else ""))[:16].replace("T", " ")
                 mensajes.append(c_carga)
+
+        # Reconstruir correos de SolicitudReembolso
+        try:
+            from app.models.reembolso import SolicitudReembolso, EstadoReembolso, TIPO_PRESTACION_LABELS
+            from app.services.email_service import (
+                generar_correo_recepcion_reembolso,
+                generar_correo_resolucion_reembolso,
+            )
+
+            solicitudes_reembolso = (
+                await db.scalars(
+                    select(SolicitudReembolso)
+                    .options(selectinload(SolicitudReembolso.socio))
+                    .order_by(SolicitudReembolso.id.desc())
+                )
+            ).all()
+            for rmb in solicitudes_reembolso:
+                if not rmb.socio:
+                    continue
+                prestacion_lbl = TIPO_PRESTACION_LABELS.get(
+                    rmb.tipo_prestacion, str(rmb.tipo_prestacion)
+                )
+                socio_rut_fmt = formatear_run(rmb.socio.rut)
+
+                if rmb.estado in (
+                    EstadoReembolso.APROBADO,
+                    EstadoReembolso.PAGADO,
+                    EstadoReembolso.RECHAZADO,
+                ):
+                    es_aprob = rmb.estado in (EstadoReembolso.APROBADO, EstadoReembolso.PAGADO)
+                    c_rmb_res = generar_correo_resolucion_reembolso(
+                        codigo=rmb.codigo,
+                        socio_nombre=rmb.socio.nombre_completo,
+                        socio_rut=socio_rut_fmt,
+                        email_destino=rmb.socio.email or "",
+                        aprobada=es_aprob,
+                        tipo_prestacion_label=prestacion_lbl,
+                        beneficiario_nombre=rmb.beneficiario_nombre,
+                        beneficiario_parentesco=rmb.beneficiario_parentesco,
+                        monto_reembolso=rmb.monto_copago,
+                        saldo_disponible_actual=float(rmb.socio.saldo_salud_disponible or 0),
+                        motivo_rechazo=rmb.motivo_rechazo or "",
+                        enviar_smtp=False,
+                    )
+                    c_rmb_res["id"] = (
+                        f"{rmb.codigo}-resolucion-{'aprobada' if es_aprob else 'rechazada'}"
+                    )
+                    c_rmb_res["fechaEmision"] = (
+                        rmb.updated_at.isoformat()
+                        if rmb.updated_at
+                        else (rmb.created_at.isoformat() if rmb.created_at else "")
+                    )[:16].replace("T", " ")
+                    mensajes.append(c_rmb_res)
+
+                c_rmb_rec = generar_correo_recepcion_reembolso(
+                    codigo=rmb.codigo,
+                    socio_nombre=rmb.socio.nombre_completo,
+                    socio_rut=socio_rut_fmt,
+                    email_destino=rmb.socio.email or "",
+                    tipo_prestacion_label=prestacion_lbl,
+                    beneficiario_nombre=rmb.beneficiario_nombre,
+                    beneficiario_parentesco=rmb.beneficiario_parentesco,
+                    monto_boleta=rmb.monto_boleta,
+                    monto_copago=rmb.monto_copago,
+                    saldo_restante=float(rmb.socio.saldo_salud_disponible or 0),
+                    fecha_atencion=str(rmb.fecha_atencion),
+                    enviar_smtp=False,
+                )
+                c_rmb_rec["id"] = f"{rmb.codigo}-recepcion"
+                c_rmb_rec["fechaEmision"] = (
+                    rmb.created_at.isoformat() if rmb.created_at else ""
+                )[:16].replace("T", " ")
+                mensajes.append(c_rmb_rec)
+        except Exception as exc_rmb:
+            logger.warning("Error reconstruyendo correos de reembolsos para buzon: %s", exc_rmb)
 
         extra_memoria = listar_buzon_memoria()
         for em in extra_memoria:

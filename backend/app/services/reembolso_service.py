@@ -7,13 +7,20 @@ Implementa las reglas de negocio indicadas en los criterios de aceptación:
   - Cálculo de resumen de saldo anual y porcentaje utilizado.
 """
 import logging
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.afiliacion import (
+    CargaFamiliar,
+    EstadoSolicitud,
+    SolicitudAfiliacion,
+    SolicitudCargaFamiliar,
+)
 from app.models.audit import AuditLog
 from app.models.reembolso import (
     EstadoReembolso,
@@ -23,12 +30,17 @@ from app.models.reembolso import (
     TIPO_PRESTACION_LABELS,
     TIPOS_DOCUMENTO,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.reembolso import (
+    BeneficiarioReembolso,
     ReembolsoCreateRequest,
     ReembolsoOut,
     ResumenSaludSocio,
     ValidacionFechaResponse,
+)
+from app.services.email_service import (
+    generar_correo_recepcion_reembolso,
+    generar_correo_resolucion_reembolso,
 )
 
 logger = logging.getLogger("uvicorn.error")
@@ -192,6 +204,7 @@ def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
         descripcion=sol.descripcion or "",
         beneficiario_nombre=sol.beneficiario_nombre,
         beneficiario_parentesco=sol.beneficiario_parentesco,
+        beneficiario_run=getattr(sol, "beneficiario_run", "") or "",
         monto_boleta=sol.monto_boleta,
         monto_copago=sol.monto_copago,
         monto_reembolso=sol.monto_reembolso,
@@ -210,6 +223,106 @@ def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
         created_at=sol.created_at.isoformat() if sol.created_at else "",
         anio_imputacion=_obtener_anio_imputacion(sol),
     )
+
+
+_COLUMNAS_REEMBOLSO_LISTAS = False
+
+
+async def asegurar_columnas_reembolso(db: AsyncSession) -> None:
+    """Asegura de forma idempotente que las columnas opcionales existan en PostgreSQL."""
+    global _COLUMNAS_REEMBOLSO_LISTAS
+    if _COLUMNAS_REEMBOLSO_LISTAS:
+        return
+    try:
+        bind = db.get_bind()
+        if bind and "sqlite" in getattr(bind.dialect, "name", ""):
+            _COLUMNAS_REEMBOLSO_LISTAS = True
+            return
+    except Exception:
+        pass
+    try:
+        await db.execute(
+            text(
+                "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS beneficiario_run VARCHAR(20) DEFAULT ''"
+            )
+        )
+        await db.commit()
+        _COLUMNAS_REEMBOLSO_LISTAS = True
+    except Exception:
+        await db.rollback()
+
+
+async def obtener_beneficiarios_socio(user: User, db: AsyncSession) -> List[BeneficiarioReembolso]:
+    """Retorna la lista de beneficiarios válidos para un socio (Titular + Cargas Familiares Aprobadas)."""
+    beneficiarios: List[BeneficiarioReembolso] = [
+        BeneficiarioReembolso(
+            nombre=user.nombre_completo,
+            rut=user.rut,
+            parentesco="Titular",
+            es_titular=True,
+        )
+    ]
+    runs_vistos = {re.sub(r"[^0-9kK]", "", user.rut or "").upper()}
+
+    # 1. Cargas aprobadas en SolicitudCargaFamiliar
+    try:
+        cargas_solicitudes = (
+            await db.scalars(
+                select(SolicitudCargaFamiliar)
+                .where(
+                    SolicitudCargaFamiliar.socio_id == user.id,
+                    SolicitudCargaFamiliar.estado == EstadoSolicitud.APROBADA,
+                )
+                .order_by(SolicitudCargaFamiliar.id.asc())
+            )
+        ).all()
+        for cs in cargas_solicitudes:
+            norm_r = re.sub(r"[^0-9kK]", "", cs.run or "").upper()
+            if norm_r and norm_r not in runs_vistos:
+                runs_vistos.add(norm_r)
+                beneficiarios.append(
+                    BeneficiarioReembolso(
+                        nombre=cs.nombre_completo,
+                        rut=cs.run,
+                        parentesco=cs.parentesco or "Carga Familiar",
+                        es_titular=False,
+                    )
+                )
+    except Exception as e:
+        logger.warning("Error consultando SolicitudCargaFamiliar para beneficiarios: %s", e)
+
+    # 2. Cargas aprobadas en SolicitudAfiliacion inicial
+    try:
+        user_clean_rut = re.sub(r"[^0-9kK]", "", user.rut or "").upper()
+        solicitud_af = await db.scalar(
+            select(SolicitudAfiliacion).where(
+                func.replace(func.replace(func.upper(SolicitudAfiliacion.run), ".", ""), "-", "")
+                == user_clean_rut,
+                SolicitudAfiliacion.estado == EstadoSolicitud.APROBADA,
+            )
+        )
+        if solicitud_af:
+            cargas_af = (
+                await db.scalars(
+                    select(CargaFamiliar).where(CargaFamiliar.solicitud_id == solicitud_af.id)
+                )
+            ).all()
+            for ca in cargas_af:
+                norm_r = re.sub(r"[^0-9kK]", "", ca.run or "").upper()
+                if norm_r and norm_r not in runs_vistos:
+                    runs_vistos.add(norm_r)
+                    beneficiarios.append(
+                        BeneficiarioReembolso(
+                            nombre=ca.nombre_completo,
+                            rut=ca.run,
+                            parentesco=ca.parentesco or "Carga Familiar",
+                            es_titular=False,
+                        )
+                    )
+    except Exception as e:
+        logger.warning("Error consultando CargaFamiliar inicial para beneficiarios: %s", e)
+
+    return beneficiarios
 
 
 async def _asegurar_semilla_diciembre_anterior(user: User, db: AsyncSession) -> None:
@@ -334,15 +447,111 @@ async def crear_solicitud(
     comprobante_url: str = "",
 ) -> SolicitudReembolso:
     """Crea y persiste una nueva solicitud de reembolso tras validar reglas de negocio."""
+    await asegurar_columnas_reembolso(db)
+
+    # Cargar usuario fresco en la sesión activa
+    socio_actual = (await db.get(User, user.id)) or user
+
+    # 1. Determinar el socio titular a evaluar (atención presencial asistida o autogestión)
+    es_admin_o_directiva = bool(
+        getattr(socio_actual, "is_superuser", False)
+        or (
+            hasattr(socio_actual, "rol")
+            and (
+                socio_actual.rol
+                in (
+                    UserRole.ADMIN,
+                    UserRole.SUPERUSUARIO,
+                    UserRole.PRESIDENTE,
+                    UserRole.TESORERO,
+                    UserRole.SECRETARIO,
+                )
+                or getattr(socio_actual.rol, "value", "")
+                in ("ADMIN", "SUPERUSUARIO", "PRESIDENTE", "TESORERO", "SECRETARIO")
+            )
+        )
+    )
+
+    socio_a_evaluar = socio_actual
+    if es_admin_o_directiva and payload.socio_id and payload.socio_id != socio_actual.id:
+        target = await db.get(User, payload.socio_id)
+        if not target:
+            raise ValueError(f"Socio titular con ID {payload.socio_id} no encontrado.")
+        socio_a_evaluar = target
+    elif es_admin_o_directiva and payload.socio_rut:
+        clean_rut = re.sub(r"[^0-9kK]", "", payload.socio_rut).upper()
+        todos_usuarios = (await db.scalars(select(User))).all()
+        target = next(
+            (u for u in todos_usuarios if re.sub(r"[^0-9kK]", "", u.rut or "").upper() == clean_rut),
+            None,
+        )
+        if not target:
+            raise ValueError(f"Socio titular con RUN {payload.socio_rut} no encontrado.")
+        socio_a_evaluar = target
+
+    # 2. Validación de carencia de 6 meses sobre el socio titular a evaluar (Art. 14)
+    puede, _, msg_carencia = validar_carencia(socio_a_evaluar)
+    if not puede:
+        raise ValueError(msg_carencia or "El socio titular no cumple con el período de carencia de 6 meses.")
+
+    # 3. Validación de plazo de 30 días corridos
+    hoy = date.today()
+    if payload.fecha_atencion > hoy or payload.fecha_boleta > hoy:
+        raise ValueError("Las fechas de atención y de boleta no pueden ser futuras.")
+    res_atencion = validar_plazo_30_dias(payload.fecha_atencion)
+    if not res_atencion.dentro_de_plazo:
+        raise ValueError(f"Fecha de atención: {res_atencion.mensaje}")
+    res_boleta = validar_plazo_30_dias(payload.fecha_boleta)
+    if not res_boleta.dentro_de_plazo:
+        raise ValueError(f"Fecha de boleta/compra: {res_boleta.mensaje}")
+
+    # 4. Validación de montos
+    if payload.monto_copago > payload.monto_boleta:
+        raise ValueError("El monto a reembolsar no puede ser superior al total de la boleta.")
+
+    resumen = await obtener_resumen_socio(socio_a_evaluar, db)
+    if payload.monto_copago > resumen.saldo_salud_disponible:
+        raise ValueError(
+            f"El copago solicitado (${payload.monto_copago:,.0f}) supera el saldo disponible "
+            f"(${resumen.saldo_salud_disponible:,.0f} de $150.000 anuales)."
+        )
+
+    # 5. Validación de beneficiario (Titular o Carga Familiar aprobada)
+    beneficiario_run = (payload.beneficiario_run or "").strip()
+    if (payload.beneficiario_parentesco or "").strip().lower() != "titular":
+        beneficiarios_validos = await obtener_beneficiarios_socio(socio_a_evaluar, db)
+        nom_buscado = payload.beneficiario_nombre.strip().lower()
+        run_buscado = re.sub(r"[^0-9kK]", "", beneficiario_run).upper() if beneficiario_run else ""
+
+        carga_encontrada = next(
+            (
+                b for b in beneficiarios_validos
+                if not b.es_titular
+                and (
+                    b.nombre.strip().lower() == nom_buscado
+                    or (run_buscado and re.sub(r"[^0-9kK]", "", b.rut or "").upper() == run_buscado)
+                )
+            ),
+            None,
+        )
+        if not carga_encontrada:
+            raise ValueError(
+                f"El beneficiario '{payload.beneficiario_nombre}' ({payload.beneficiario_parentesco}) "
+                f"no figura como carga familiar vigente y aprobada del socio {socio_a_evaluar.nombre_completo}."
+            )
+        if not beneficiario_run and carga_encontrada.rut:
+            beneficiario_run = carga_encontrada.rut
+
     codigo = await generar_codigo(db)
 
     solicitud = SolicitudReembolso(
         codigo=codigo,
-        socio_id=user.id,
+        socio_id=socio_a_evaluar.id,
         tipo_prestacion=TipoPrestacion(payload.tipo_prestacion),
         descripcion=payload.descripcion,
         beneficiario_nombre=payload.beneficiario_nombre,
         beneficiario_parentesco=payload.beneficiario_parentesco,
+        beneficiario_run=beneficiario_run,
         monto_boleta=payload.monto_boleta,
         monto_copago=payload.monto_copago,
         monto_reembolso=payload.monto_copago,
@@ -360,8 +569,33 @@ async def crear_solicitud(
     await db.refresh(solicitud)
 
     # Recalcular y sincronizar el saldo disponible del año calendario vigente
-    await obtener_resumen_socio(user, db)
+    resumen_post = await obtener_resumen_socio(socio_a_evaluar, db)
     await db.refresh(solicitud)
+
+    # Emitir y registrar correo oficial de confirmación de recepción
+    try:
+        prestacion_lbl = TIPO_PRESTACION_LABELS.get(
+            solicitud.tipo_prestacion, solicitud.tipo_prestacion.value
+        )
+        generar_correo_recepcion_reembolso(
+            codigo=solicitud.codigo,
+            socio_nombre=socio_a_evaluar.nombre_completo,
+            socio_rut=socio_a_evaluar.rut,
+            email_destino=socio_a_evaluar.email or "",
+            tipo_prestacion_label=prestacion_lbl,
+            beneficiario_nombre=solicitud.beneficiario_nombre,
+            beneficiario_parentesco=solicitud.beneficiario_parentesco,
+            monto_boleta=solicitud.monto_boleta,
+            monto_copago=solicitud.monto_copago,
+            saldo_restante=resumen_post.saldo_salud_disponible,
+            fecha_atencion=str(solicitud.fecha_atencion),
+            enviar_smtp=True,
+        )
+    except Exception as exc:
+        logger.warning(
+            "No se pudo emitir correo de recepción de reembolso %s: %s", solicitud.codigo, exc
+        )
+
     return solicitud
 
 
@@ -554,8 +788,35 @@ async def resolver_solicitud_reembolso(
     db.add(solicitud)
     await db.commit()
 
+    resumen_post = None
     if socio:
-        await obtener_resumen_socio(socio, db)
+        resumen_post = await obtener_resumen_socio(socio, db)
 
     await db.refresh(solicitud)
+
+    # Emitir y registrar correo transaccional de resolución oficial
+    if socio:
+        try:
+            prestacion_lbl = TIPO_PRESTACION_LABELS.get(
+                solicitud.tipo_prestacion, solicitud.tipo_prestacion.value
+            )
+            generar_correo_resolucion_reembolso(
+                codigo=solicitud.codigo,
+                socio_nombre=socio.nombre_completo,
+                socio_rut=socio.rut,
+                email_destino=socio.email or "",
+                aprobada=(accion_upper == "APROBAR"),
+                tipo_prestacion_label=prestacion_lbl,
+                beneficiario_nombre=solicitud.beneficiario_nombre,
+                beneficiario_parentesco=solicitud.beneficiario_parentesco,
+                monto_reembolso=solicitud.monto_copago,
+                saldo_disponible_actual=resumen_post.saldo_salud_disponible if resumen_post else 150000.0,
+                motivo_rechazo=solicitud.motivo_rechazo,
+                enviar_smtp=True,
+            )
+        except Exception as exc:
+            logger.warning(
+                "No se pudo emitir correo de resolución de reembolso %s: %s", solicitud.codigo, exc
+            )
+
     return solicitud

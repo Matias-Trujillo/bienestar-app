@@ -11,10 +11,11 @@ import {
   ResumenSaludSocio,
   ReembolsoHistorialResponse,
   ValidacionFechaResponse,
+  BeneficiarioReembolso,
 } from '@/types';
 import { ResumenSaludCards } from '@/components/reembolsos/ResumenSaludCards';
 import { TablaSolicitudes } from '@/components/reembolsos/TablaSolicitudes';
-import { ModalNuevaSolicitud } from '@/components/reembolsos/ModalNuevaSolicitud';
+import { ModalNuevaSolicitud, FormReembolsoState } from '@/components/reembolsos/ModalNuevaSolicitud';
 import { DetalleSolicitudModal } from '@/components/reembolsos/DetalleSolicitudModal';
 import { VisorComprobanteModal } from '@/components/reembolsos/VisorComprobanteModal';
 
@@ -44,6 +45,7 @@ export default function ReembolsosPage() {
   // [ESTUDIANTE INFORMÁTICA] Estados de React: guardan la información reactiva traída desde la API (resumen financiero y lista de solicitudes) y controlan la visibilidad de los modales.
   const [resumen, setResumen] = useState<ResumenSaludSocio>(EMPTY_RESUMEN);
   const [solicitudes, setSolicitudes] = useState<SolicitudReembolso[]>([]);
+  const [beneficiarios, setBeneficiarios] = useState<BeneficiarioReembolso[]>([]);
   const [, setCargando] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showDetalle, setShowDetalle] = useState<SolicitudReembolso | null>(null);
@@ -66,11 +68,14 @@ export default function ReembolsosPage() {
   const [subiendoArchivoDirecto, setSubiendoArchivoDirecto] = useState<boolean>(false);
 
   // [ESTUDIANTE INFORMÁTICA] Estado del formulario controlado: almacena los valores tipeados por el socio para enviarlos luego al backend.
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormReembolsoState>({
     tipo_prestacion: '' as TipoPrestacion | '',
     descripcion: '',
     beneficiario_nombre: user?.nombreCompleto || 'Carlos Valenzuela M.',
     beneficiario_parentesco: 'Titular',
+    beneficiario_run: user?.rut || '',
+    socio_id: undefined,
+    socio_rut: '',
     monto_boleta: '',
     monto_copago: '',
     fecha_atencion: '',
@@ -90,11 +95,25 @@ export default function ReembolsosPage() {
   const cargarReembolsos = useCallback(async () => {
     if (!token) return;
     try {
-      const data = await fetchFromApi<ReembolsoHistorialResponse>('/reembolsos', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [data, bens] = await Promise.all([
+        fetchFromApi<ReembolsoHistorialResponse>('/reembolsos', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetchFromApi<BeneficiarioReembolso[]>('/reembolsos/beneficiarios', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => [] as BeneficiarioReembolso[]),
+      ]);
       setResumen(data.resumen);
       setSolicitudes(data.solicitudes);
+      setBeneficiarios(bens);
+      if (bens && bens.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          beneficiario_nombre: prev.beneficiario_nombre || bens[0].nombre,
+          beneficiario_parentesco: prev.beneficiario_parentesco || bens[0].parentesco,
+          beneficiario_run: prev.beneficiario_run || bens[0].rut,
+        }));
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'No se pudo cargar el historial de reembolsos.');
     } finally {
@@ -242,6 +261,37 @@ export default function ReembolsosPage() {
     }
   };
 
+  const handleBuscarSocioAsistido = async (rutBuscado: string) => {
+    if (!token) return;
+    try {
+      const [resumenAsistido, bensAsistido] = await Promise.all([
+        fetchFromApi<ResumenSaludSocio>(
+          `/reembolsos/resumen-socio?socio_rut=${encodeURIComponent(rutBuscado)}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        ),
+        fetchFromApi<BeneficiarioReembolso[]>(
+          `/reembolsos/beneficiarios?socio_rut=${encodeURIComponent(rutBuscado)}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        ),
+      ]);
+      setResumen(resumenAsistido);
+      setBeneficiarios(bensAsistido);
+      if (bensAsistido && bensAsistido.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          socio_rut: rutBuscado,
+          beneficiario_nombre: bensAsistido[0].nombre,
+          beneficiario_parentesco: bensAsistido[0].parentesco,
+          beneficiario_run: bensAsistido[0].rut,
+        }));
+      }
+      setSuccessMsg(`Socio titular "${resumenAsistido.socio_nombre}" cargado para atención asistida.`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'No se pudo cargar al socio asistido.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -298,6 +348,9 @@ export default function ReembolsosPage() {
           descripcion: formData.descripcion,
           beneficiario_nombre: formData.beneficiario_nombre,
           beneficiario_parentesco: formData.beneficiario_parentesco,
+          beneficiario_run: formData.beneficiario_run || undefined,
+          socio_id: formData.socio_id,
+          socio_rut: formData.socio_rut || undefined,
           monto_boleta: parseFloat(formData.monto_boleta) || 0,
           monto_copago: copago,
           fecha_atencion: formData.fecha_atencion,
@@ -334,6 +387,9 @@ export default function ReembolsosPage() {
         descripcion: '',
         beneficiario_nombre: user?.nombreCompleto || '',
         beneficiario_parentesco: 'Titular',
+        beneficiario_run: user?.rut || '',
+        socio_id: undefined,
+        socio_rut: '',
         monto_boleta: '',
         monto_copago: '',
         fecha_atencion: '',
@@ -448,6 +504,12 @@ export default function ReembolsosPage() {
         uploadedFile={uploadedFile}
         enviando={enviando}
         usuarioNombre={user?.nombreCompleto}
+        beneficiarios={beneficiarios}
+        esDirectiva={Boolean(
+          user?.isSuperuser ||
+          ['ADMIN', 'SUPERUSUARIO', 'PRESIDENTE', 'TESORERO'].includes((user?.rol || '').toUpperCase())
+        )}
+        onBuscarSocioAsistido={handleBuscarSocioAsistido}
         onClose={() => {
           setShowModal(false);
           setUploadedFile(null);
