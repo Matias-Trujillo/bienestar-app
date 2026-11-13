@@ -18,10 +18,11 @@ from app.models import (
     AuditLog,
     EstadoSolicitud,
     ParametroSistema,
+    SolicitudCargaFamiliar,
     User,
     UserRole,
 )
-from app.schemas.afiliacion import NuevaCargaIn, ResolucionSolicitudIn, SolicitudIn
+from app.schemas.afiliacion import CargaIn, NuevaCargaIn, ResolucionSolicitudIn, SolicitudIn
 from app.services.afiliacion_service import AfiliacionService
 
 
@@ -595,4 +596,128 @@ async def test_resolucion_carga_rechazada_registra_motivo_para_subsanacion(
     buzon = await AfiliacionService.obtener_buzon(db_session, q=solicitud.folio)
     assert buzon["total"] >= 1
     assert any("RECHAZADA" in m.get("asunto", "") for m in buzon["correos"])
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que la postulación con carga familiar y foto de cédula frontal persista fielmente.
+async def test_postulacion_con_cargas_y_foto_carnet_persiste_correctamente(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "AFILIACION_VALIDAR_PERIODO", False)
+    payload = SolicitudIn(
+        nombreCompleto="Mariela Fuentes Gómez",
+        run="16.543.210-K",
+        grado="12",
+        calidadContractual="Planta",
+        email="mfuentes@mperalillo.cl",
+        autorizaDescuento=True,
+        aceptaCarencia=True,
+        cargas=[
+            CargaIn(
+                nombreCompleto="Joaquín Fuentes Gómez",
+                run="26.111.222-1",
+                parentesco="Hijo/a",
+                certificadoNombre="cedula_joaquin.jpg",
+                certificadoTipo="Cédula de Identidad (Frontal)",
+                certificadoData="data:image/jpeg;base64,ZmFrZV9pbWFnZV9kYXRh",
+            )
+        ],
+    )
+    comp = await AfiliacionService.crear_solicitud(db_session, payload)
+
+    assert len(comp.cargas) == 1
+    c_out = comp.cargas[0]
+    assert c_out.nombreCompleto == "Joaquín Fuentes Gómez"
+    assert c_out.certificadoNombre == "cedula_joaquin.jpg"
+    assert c_out.certificadoData == "data:image/jpeg;base64,ZmFrZV9pbWFnZV9kYXRh"
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que al aprobar la solicitud, las cargas declaradas se deriven automáticamente a la bandeja de pendientes.
+async def test_aprobacion_solicitud_deriva_automaticamente_cargas_a_bandeja_directiva(
+    db_session: AsyncSession, usuario_admin: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "AFILIACION_VALIDAR_PERIODO", False)
+    payload = SolicitudIn(
+        nombreCompleto="Renato Poblete Arriagada",
+        run="15.876.543-8",
+        grado="10",
+        calidadContractual="Contrata",
+        email="rpoblete@mperalillo.cl",
+        autorizaDescuento=True,
+        aceptaCarencia=True,
+        cargas=[
+            CargaIn(
+                nombreCompleto="Sofía Poblete Díaz",
+                run="27.333.444-0",
+                parentesco="Hijo/a",
+                certificadoNombre="cedula_sofia.png",
+                certificadoTipo="Cédula de Identidad (Frontal)",
+                certificadoData="data:image/png;base64,c29maWFfcG5n",
+            )
+        ],
+    )
+    comp = await AfiliacionService.crear_solicitud(db_session, payload)
+
+    resolucion = ResolucionSolicitudIn(
+        accion="aprobar",
+        fechaSesion="2026-05-15",
+        numeroActa="ACTA-ORD-06/2026",
+        observaciones="Aprobado en sesión ordinaria.",
+    )
+    await AfiliacionService.resolver_solicitud(db_session, comp.folio, resolucion, usuario_admin)
+
+    # Verificar que Sofía Poblete llegó automáticamente a solicitudes_cargas_familiares en PENDIENTE
+    sol_carga = await db_session.scalar(
+        select(SolicitudCargaFamiliar).where(SolicitudCargaFamiliar.run == "27333444-0")
+    )
+    assert sol_carga is not None
+    assert sol_carga.folio.startswith("CF-")
+    assert sol_carga.estado == EstadoSolicitud.PENDIENTE
+    assert sol_carga.certificado_nombre == "cedula_sofia.png"
+    assert sol_carga.certificado_data == "data:image/png;base64,c29maWFfcG5n"
+    assert "AF-" in sol_carga.observacion_socio
+
+
+# [ESTUDIANTE INFORMÁTICA] Valida que la carga derivada esté correctamente vinculada al socio y sea visible en Mis Cargas.
+async def test_carga_derivada_conserva_vinculo_socio_id(
+    db_session: AsyncSession, usuario_admin: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "AFILIACION_VALIDAR_PERIODO", False)
+    payload = SolicitudIn(
+        nombreCompleto="Beatriz Silva Donoso",
+        run="17.654.321-3",
+        grado="8",
+        calidadContractual="Planta",
+        email="bsilva@mperalillo.cl",
+        autorizaDescuento=True,
+        aceptaCarencia=True,
+        cargas=[
+            CargaIn(
+                nombreCompleto="Lucas Silva Donoso",
+                run="28.444.555-4",
+                parentesco="Hijo/a",
+                certificadoNombre="cedula_lucas.jpg",
+                certificadoData="data:image/jpeg;base64,bHVjYXNfamVu",
+            )
+        ],
+    )
+    comp = await AfiliacionService.crear_solicitud(db_session, payload)
+
+    resolucion = ResolucionSolicitudIn(
+        accion="aprobar",
+        fechaSesion="2026-05-18",
+        numeroActa="ACTA-ORD-07/2026",
+        observaciones="Aprobada y habilitada.",
+    )
+    await AfiliacionService.resolver_solicitud(db_session, comp.folio, resolucion, usuario_admin)
+
+    socio = await db_session.scalar(select(User).where(User.rut == "17654321-3"))
+    assert socio is not None
+
+    mis_cargas = await AfiliacionService.obtener_mis_cargas(db_session, socio)
+    assert len(mis_cargas["cargas"]) == 1
+    carga_socio = mis_cargas["cargas"][0]
+    assert carga_socio["nombre"] == "Lucas Silva Donoso"
+    assert carga_socio["estado"] == "Pendiente de Revisión"
+    assert carga_socio["certificadoNombre"] == "cedula_lucas.jpg"
+
 

@@ -24,6 +24,8 @@ interface CargaForm {
   nombreCompleto: string;
   run: string;
   parentesco: string;
+  certificadoNombre?: string;
+  certificadoData?: string;
 }
 
 export interface NotificacionEmail {
@@ -174,10 +176,52 @@ export default function SolicitudAfiliacionPage() {
   const pct = periodo?.porcentajeDescuento ?? 4;
 
   const addCarga = () =>
-    setCargas((c) => [...c, { key: Date.now(), nombreCompleto: '', run: '', parentesco: '' }]);
+    setCargas((c) => [
+      ...c,
+      {
+        key: Date.now(),
+        nombreCompleto: '',
+        run: '',
+        parentesco: '',
+        certificadoNombre: '',
+        certificadoData: '',
+      },
+    ]);
   const updateCarga = (key: number, field: keyof CargaForm, value: string) =>
     setCargas((c) => c.map((x) => (x.key === key ? { ...x, [field]: value } : x)));
   const removeCarga = (key: number) => setCargas((c) => c.filter((x) => x.key !== key));
+
+  const handleCargaFileChange = (key: number, file: File | null) => {
+    if (!file) {
+      setCargas((c) =>
+        c.map((x) =>
+          x.key === key ? { ...x, certificadoNombre: '', certificadoData: '' } : x
+        )
+      );
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setApiError('La fotografía de la cédula no debe superar los 5 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setCargas((c) =>
+          c.map((x) =>
+            x.key === key
+              ? {
+                  ...x,
+                  certificadoNombre: file.name,
+                  certificadoData: reader.result as string,
+                }
+              : x
+          )
+        );
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Validaciones dinámicas en tiempo real (en cada tecla)
   const nombreCheck = validateNombreLive(nombre);
@@ -217,10 +261,16 @@ export default function SolicitudAfiliacionPage() {
     const parentescoValid = Boolean(c.parentesco);
     const parentescoError = parentescoValid ? null : 'Seleccione parentesco.';
 
+    const fotoValid = Boolean(c.certificadoData && c.certificadoNombre);
+    const fotoError = fotoValid
+      ? null
+      : 'Debe adjuntar la fotografía frontal de la cédula de identidad.';
+
     return {
       nombre: cNombre,
       run: { isValid: runValid, error: runError },
       parentesco: { isValid: parentescoValid, error: parentescoError },
+      foto: { isValid: fotoValid, error: fotoError },
     };
   });
 
@@ -230,7 +280,9 @@ export default function SolicitudAfiliacionPage() {
     gradoCheck.isValid &&
     calidadCheck.isValid &&
     emailCheck.isValid &&
-    cargasValidation.every((cv) => cv.nombre.isValid && cv.run.isValid && cv.parentesco.isValid) &&
+    cargasValidation.every(
+      (cv) => cv.nombre.isValid && cv.run.isValid && cv.parentesco.isValid && cv.foto.isValid
+    ) &&
     aceptaCarencia &&
     autorizaDescuento;
 
@@ -249,11 +301,16 @@ export default function SolicitudAfiliacionPage() {
           grado: grado.trim(),
           calidadContractual: calidad,
           email: email.trim() || null,
-          cargas: cargas.map(({ nombreCompleto, run: cRun, parentesco }) => ({
-            nombreCompleto: nombreCompleto.trim(),
-            run: formatRun(cRun),
-            parentesco: parentesco || null,
-          })),
+          cargas: cargas.map(
+            ({ nombreCompleto, run: cRun, parentesco, certificadoNombre, certificadoData }) => ({
+              nombreCompleto: nombreCompleto.trim(),
+              run: formatRun(cRun),
+              parentesco: parentesco || null,
+              certificadoNombre: certificadoNombre || null,
+              certificadoTipo: 'Cédula de Identidad (Frontal)',
+              certificadoData: certificadoData || null,
+            })
+          ),
           autorizaDescuento,
           aceptaCarencia,
         }),
@@ -528,91 +585,133 @@ export default function SolicitudAfiliacionPage() {
                       return (
                         <div
                           key={c.key}
-                          className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50/60"
+                          className="p-3 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-2.5"
                         >
-                          <div className="sm:col-span-5">
-                            <label htmlFor={`carga-${i}-nombre`} className={labelCls}>
-                              <span>Nombre completo *</span>
-                              {showCNombre && cv.nombre.isValid && (
-                                <span className="text-[10px] font-medium text-slate-400">✓</span>
-                              )}
-                            </label>
-                            <input
-                              id={`carga-${i}-nombre`}
-                              className={getInputClass(showCNombre, cv.nombre.error, cv.nombre.isValid)}
-                              value={c.nombreCompleto}
-                              onChange={(e) => {
-                                updateCarga(c.key, 'nombreCompleto', e.target.value);
-                                markTouched(`c-${c.key}-nombre`);
-                              }}
-                              onBlur={() => markTouched(`c-${c.key}-nombre`)}
-                              placeholder="Nombre y apellido"
-                            />
-                            {showCNombre && <FieldError msg={cv.nombre.error ?? undefined} />}
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                            <div className="sm:col-span-5">
+                              <label htmlFor={`carga-${i}-nombre`} className={labelCls}>
+                                <span>Nombre completo *</span>
+                                {showCNombre && cv.nombre.isValid && (
+                                  <span className="text-[10px] font-medium text-slate-400">✓</span>
+                                )}
+                              </label>
+                              <input
+                                id={`carga-${i}-nombre`}
+                                className={getInputClass(showCNombre, cv.nombre.error, cv.nombre.isValid)}
+                                value={c.nombreCompleto}
+                                onChange={(e) => {
+                                  updateCarga(c.key, 'nombreCompleto', e.target.value);
+                                  markTouched(`c-${c.key}-nombre`);
+                                }}
+                                onBlur={() => markTouched(`c-${c.key}-nombre`)}
+                                placeholder="Nombre y apellido"
+                              />
+                              {showCNombre && <FieldError msg={cv.nombre.error ?? undefined} />}
+                            </div>
+
+                            <div className="sm:col-span-3">
+                              <label htmlFor={`carga-${i}-run`} className={labelCls}>
+                                <span>RUN *</span>
+                                {showCRun && cv.run.isValid && (
+                                  <span className="text-[10px] font-medium text-slate-400">✓</span>
+                                )}
+                              </label>
+                              <input
+                                id={`carga-${i}-run`}
+                                className={getInputClass(showCRun, cv.run.error, cv.run.isValid)}
+                                value={c.run}
+                                onChange={(e) => {
+                                  updateCarga(c.key, 'run', formatRun(e.target.value));
+                                  markTouched(`c-${c.key}-run`);
+                                }}
+                                onBlur={() => markTouched(`c-${c.key}-run`)}
+                                placeholder="12.345.678-9"
+                                maxLength={12}
+                              />
+                              {showCRun && <FieldError msg={cv.run.error ?? undefined} />}
+                            </div>
+
+                            <div className="sm:col-span-3">
+                              <label htmlFor={`carga-${i}-parentesco`} className={labelCls}>
+                                <span>Parentesco *</span>
+                                {showCParentesco && cv.parentesco.isValid && (
+                                  <span className="text-[10px] font-medium text-slate-400">✓</span>
+                                )}
+                              </label>
+                              <select
+                                id={`carga-${i}-parentesco`}
+                                className={getInputClass(
+                                  showCParentesco,
+                                  cv.parentesco.error,
+                                  cv.parentesco.isValid
+                                )}
+                                value={c.parentesco}
+                                onChange={(e) => {
+                                  updateCarga(c.key, 'parentesco', e.target.value);
+                                  markTouched(`c-${c.key}-parentesco`);
+                                }}
+                                onBlur={() => markTouched(`c-${c.key}-parentesco`)}
+                              >
+                                <option value="">Seleccione…</option>
+                                {PARENTESCOS.map((p) => (
+                                  <option key={p} value={p}>
+                                    {p}
+                                  </option>
+                                ))}
+                              </select>
+                              {showCParentesco && <FieldError msg={cv.parentesco.error ?? undefined} />}
+                            </div>
+
+                            <div className="sm:col-span-1 flex sm:items-start sm:pt-5">
+                              <button
+                                type="button"
+                                onClick={() => removeCarga(c.key)}
+                                aria-label="Eliminar carga"
+                                className="w-full py-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
 
-                          <div className="sm:col-span-3">
-                            <label htmlFor={`carga-${i}-run`} className={labelCls}>
-                              <span>RUN *</span>
-                              {showCRun && cv.run.isValid && (
-                                <span className="text-[10px] font-medium text-slate-400">✓</span>
+                          {/* Campo Fotografía Frontal de Cédula de Identidad */}
+                          <div className="pt-2 border-t border-slate-200/80">
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700 mb-1">
+                              <span className="flex items-center gap-1.5 text-slate-800">
+                                <svg className="w-3.5 h-3.5 text-[#006799]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span>Fotografía Frontal de Cédula de Identidad (Carnet) *</span>
+                              </span>
+                              {cv.foto.isValid && (
+                                <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                                  ✓ Archivo cargado
+                                </span>
                               )}
-                            </label>
-                            <input
-                              id={`carga-${i}-run`}
-                              className={getInputClass(showCRun, cv.run.error, cv.run.isValid)}
-                              value={c.run}
-                              onChange={(e) => {
-                                updateCarga(c.key, 'run', formatRun(e.target.value));
-                                markTouched(`c-${c.key}-run`);
-                              }}
-                              onBlur={() => markTouched(`c-${c.key}-run`)}
-                              placeholder="12.345.678-9"
-                              maxLength={12}
-                            />
-                            {showCRun && <FieldError msg={cv.run.error ?? undefined} />}
-                          </div>
+                            </div>
 
-                          <div className="sm:col-span-3">
-                            <label htmlFor={`carga-${i}-parentesco`} className={labelCls}>
-                              <span>Parentesco *</span>
-                              {showCParentesco && cv.parentesco.isValid && (
-                                <span className="text-[10px] font-medium text-slate-400">✓</span>
-                              )}
+                            <label className="flex items-center justify-between px-3 py-2 bg-white border border-dashed border-slate-300 rounded-xl hover:bg-sky-50/40 hover:border-[#006799]/50 transition cursor-pointer text-xs">
+                              <span className="text-slate-600 truncate">
+                                {c.certificadoNombre ? c.certificadoNombre : 'Adjuntar carnet por el frente (JPG, PNG o PDF, máx 5MB)'}
+                              </span>
+                              <span className="text-[11px] font-bold text-[#006799] shrink-0 ml-2">
+                                {c.certificadoNombre ? 'Cambiar archivo' : 'Examinar…'}
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,application/pdf"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0] || null;
+                                  handleCargaFileChange(c.key, f);
+                                  markTouched(`c-${c.key}-foto`);
+                                }}
+                              />
                             </label>
-                            <select
-                              id={`carga-${i}-parentesco`}
-                              className={getInputClass(
-                                showCParentesco,
-                                cv.parentesco.error,
-                                cv.parentesco.isValid
-                              )}
-                              value={c.parentesco}
-                              onChange={(e) => {
-                                updateCarga(c.key, 'parentesco', e.target.value);
-                                markTouched(`c-${c.key}-parentesco`);
-                              }}
-                              onBlur={() => markTouched(`c-${c.key}-parentesco`)}
-                            >
-                              <option value="">Seleccione…</option>
-                              {PARENTESCOS.map((p) => (
-                                <option key={p} value={p}>
-                                  {p}
-                                </option>
-                              ))}
-                            </select>
-                            {showCParentesco && <FieldError msg={cv.parentesco.error ?? undefined} />}
-                          </div>
-
-                          <div className="sm:col-span-1 flex sm:items-start sm:pt-5">
-                            <button
-                              type="button"
-                              onClick={() => removeCarga(c.key)}
-                              aria-label="Eliminar carga"
-                              className="w-full py-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
-                            >
-                              ✕
-                            </button>
+                            {(submitAttempted || touched[`c-${c.key}-foto`]) && !cv.foto.isValid && (
+                              <FieldError msg={cv.foto.error ?? undefined} />
+                            )}
                           </div>
                         </div>
                       );

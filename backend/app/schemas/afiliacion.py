@@ -42,6 +42,9 @@ class CargaIn(BaseModel):
     nombreCompleto: str = Field(min_length=3, max_length=120)
     run: str
     parentesco: Optional[str] = Field(default=None, max_length=40)
+    certificadoNombre: Optional[str] = Field(default=None, max_length=255)
+    certificadoTipo: Optional[str] = Field(default="Cédula de Identidad (Frontal)", max_length=120)
+    certificadoData: Optional[str] = None
 
     @field_validator("run")
     @classmethod
@@ -84,6 +87,9 @@ class CargaOut(BaseModel):
     nombreCompleto: str
     run: str
     parentesco: Optional[str]
+    certificadoNombre: Optional[str] = None
+    certificadoTipo: Optional[str] = None
+    certificadoData: Optional[str] = None
 
 
 class ComprobanteOut(BaseModel):

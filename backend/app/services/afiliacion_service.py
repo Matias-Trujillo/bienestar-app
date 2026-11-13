@@ -145,8 +145,14 @@ async def asegurar_tabla_cargas(db: AsyncSession) -> None:
             "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
             "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
             "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
+            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
+            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
+            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
         ):
-            await db.execute(text(col_sql))
+            try:
+                await db.execute(text(col_sql))
+            except Exception:
+                pass
         await db.commit()
     except Exception:
         pass
@@ -273,6 +279,9 @@ def to_comprobante(
                 nombreCompleto=c.nombre_completo,
                 run=formatear_run(c.run),
                 parentesco=c.parentesco,
+                certificadoNombre=getattr(c, "certificado_nombre", None),
+                certificadoTipo=getattr(c, "certificado_tipo", None),
+                certificadoData=getattr(c, "certificado_data", None),
             )
             for c in cargas_raw
         ],
@@ -376,6 +385,8 @@ class AfiliacionService:
                 pass
         folio_nuevo = f"AF-{anio}-{max_correlativo + 1:05d}"
 
+        await asegurar_tabla_cargas(db)
+
         solicitud = SolicitudAfiliacion(
             folio=folio_nuevo,
             nombre_completo=payload.nombreCompleto.strip(),
@@ -395,6 +406,9 @@ class AfiliacionService:
                     nombre_completo=c.nombreCompleto.strip(),
                     run=c.run,
                     parentesco=c.parentesco.strip() if c.parentesco else None,
+                    certificado_nombre=c.certificadoNombre,
+                    certificado_tipo=c.certificadoTipo or "Cédula de Identidad (Frontal)",
+                    certificado_data=c.certificadoData,
                 )
             )
 
@@ -558,7 +572,7 @@ class AfiliacionService:
                         estado_previsional="Al día",
                         saldo_salud_disponible=150000,
                         saldo_salud_total_anual=150000,
-                        cargas_registradas=cargas_count,
+                        cargas_registradas=0,
                     )
                     db.add(nuevo_user)
                     await db.flush()
@@ -582,6 +596,58 @@ class AfiliacionService:
                                 descripcion=f"Seguridad usuario {solicitud.run}",
                             )
                         )
+
+                    # Derivación automática de cargas familiares declaradas en el formulario hacia solicitudes_cargas_familiares
+                    await asegurar_tabla_cargas(db)
+                    anio_carga = date.today().year
+                    for carga_item in (solicitud.cargas or []):
+                        carga_existente = await db.scalar(
+                            select(SolicitudCargaFamiliar).where(
+                                SolicitudCargaFamiliar.socio_id == socio_id,
+                                SolicitudCargaFamiliar.run == carga_item.run,
+                            )
+                        )
+                        if not carga_existente:
+                            corr_carga = await db.scalar(select(func.count(SolicitudCargaFamiliar.id)))
+                            next_corr = (corr_carga or 0) + 1
+                            folio_carga = f"CF-{anio_carga}-{next_corr:05d}"
+                            while await db.scalar(select(SolicitudCargaFamiliar.id).where(SolicitudCargaFamiliar.folio == folio_carga)):
+                                next_corr += 1
+                                folio_carga = f"CF-{anio_carga}-{next_corr:05d}"
+
+                            sol_carga = SolicitudCargaFamiliar(
+                                folio=folio_carga,
+                                socio_id=socio_id,
+                                socio_nombre=solicitud.nombre_completo,
+                                socio_rut=solicitud.run,
+                                socio_email=solicitud.email,
+                                nombre_completo=carga_item.nombre_completo,
+                                run=carga_item.run,
+                                parentesco=carga_item.parentesco or "Carga Familiar",
+                                observacion_socio=f"Declarada en postulación de incorporación digital (Folio {solicitud.folio})",
+                                certificado_nombre=getattr(carga_item, "certificado_nombre", None),
+                                certificado_tipo=getattr(carga_item, "certificado_tipo", "Cédula de Identidad (Frontal)"),
+                                certificado_data=getattr(carga_item, "certificado_data", None),
+                                estado=EstadoSolicitud.PENDIENTE,
+                            )
+                            db.add(sol_carga)
+                            db.add(
+                                AuditLog(
+                                    usuario_id=evaluador.id,
+                                    usuario_nombre=evaluador.nombre_completo,
+                                    usuario_rut=evaluador.rut,
+                                    usuario_rol=_val(evaluador.rol),
+                                    modulo="AFILIACION",
+                                    accion="DERIVAR_CARGA_DESDE_INCORPORACION",
+                                    recurso_tipo="SolicitudCargaFamiliar",
+                                    recurso_id=folio_carga,
+                                    detalles=(
+                                        f"Carga {carga_item.nombre_completo} (RUN: {carga_item.run}) "
+                                        f"derivada automáticamente a la bandeja de evaluación de Directorio tras aprobar afiliación {solicitud.folio}."
+                                    ),
+                                    ip_origen="127.0.0.1",
+                                )
+                            )
 
                 # Emitir Correo #2A: Aprobación con credenciales temporales y pasos a seguir
                 correo_resolucion = generar_correo_resolucion_solicitud(
@@ -797,6 +863,31 @@ class AfiliacionService:
             c_rec["id"] = f"{s.folio}-recepcion"
             c_rec["fechaEmision"] = s.created_at.strftime("%Y-%m-%d %H:%M") if s.created_at else c_rec.get("fechaEmision", "")
             mensajes.append(c_rec)
+
+        await asegurar_tabla_cargas(db)
+        solicitudes_cargas = (
+            await db.scalars(select(SolicitudCargaFamiliar).order_by(SolicitudCargaFamiliar.id.desc()))
+        ).all()
+        for sc in solicitudes_cargas:
+            if _val(sc.estado) in (_val(EstadoSolicitud.APROBADA), _val(EstadoSolicitud.RECHAZADA)):
+                aprob = _val(sc.estado) == _val(EstadoSolicitud.APROBADA)
+                c_carga = generar_correo_resolucion_carga_familiar(
+                    folio=sc.folio,
+                    socio_nombre=sc.socio_nombre,
+                    socio_rut=formatear_run(sc.socio_rut),
+                    email_destino=sc.socio_email or "",
+                    carga_nombre=sc.nombre_completo,
+                    carga_run=formatear_run(sc.run),
+                    parentesco=sc.parentesco or "Carga Familiar",
+                    aprobada=aprob,
+                    motivo=sc.observaciones_resolucion or "",
+                    fecha_sesion=sc.fecha_sesion,
+                    numero_acta=sc.numero_acta,
+                    enviar_smtp=False,
+                )
+                c_carga["id"] = f"{sc.folio}-resolucion-{'aprobada' if aprob else 'rechazada'}"
+                c_carga["fechaEmision"] = (sc.resuelto_at or (sc.created_at.isoformat() if sc.created_at else ""))[:16].replace("T", " ")
+                mensajes.append(c_carga)
 
         extra_memoria = listar_buzon_memoria()
         for em in extra_memoria:
