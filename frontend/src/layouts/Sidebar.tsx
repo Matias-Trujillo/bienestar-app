@@ -50,7 +50,6 @@ export const navigationItems: NavItem[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
       </svg>
     ),
-    badge: 'Salud',
   },
   {
     name: 'Aprobaciones',
@@ -93,37 +92,70 @@ export const navigationItems: NavItem[] = [
   },
 ];
 
-// [ESTUDIANTE INFORMÁTICA] Calcula el estilo de píldora para los contadores de pendientes en la barra lateral.
+// [ESTUDIANTE INFORMÁTICA] Calcula el estilo de píldora y el conteo en tiempo real al costado de cada módulo en la barra lateral.
 function resolveSidebarBadge(
   item: NavItem,
   isActive: boolean,
   esDirectiva: boolean,
   esAdminOSuper: boolean,
   afiliacionCount: number | null,
-  reembolsosCount: number | null
+  reembolsosCount: number | null,
+  beneficiosCount: number | null
 ): { text?: string; tooltip?: string; className: string } {
   const baseClass = isActive
     ? 'bg-white/20 text-white border border-white/25'
     : 'bg-slate-100 text-slate-600 border border-slate-200/80';
 
-  if (item.href === '/afiliacion' && esDirectiva) {
-    if (afiliacionCount === null) return { className: baseClass };
-    const text = afiliacionCount > 99 ? '99+' : `${afiliacionCount}`;
-    const alertClass =
-      afiliacionCount > 0
-        ? 'bg-amber-500 text-white font-bold shadow-xs'
-        : baseClass;
-    return { text, tooltip: `${afiliacionCount} solicitudes de incorporación pendientes`, className: alertClass };
+  if (item.href === '/afiliacion') {
+    if (esDirectiva) {
+      if (afiliacionCount === null) return { className: baseClass };
+      if (afiliacionCount > 0) {
+        const text = afiliacionCount > 99 ? '99+' : `${afiliacionCount}`;
+        return {
+          text,
+          tooltip: `${afiliacionCount} solicitudes de incorporación y cargas pendientes`,
+          className: 'bg-amber-500 text-white font-bold shadow-xs',
+        };
+      }
+    }
+    return { text: undefined, className: baseClass };
   }
 
-  if (item.href === '/aprobaciones' && esAdminOSuper) {
-    if (reembolsosCount === null) return { className: baseClass };
-    const text = reembolsosCount > 99 ? '99+' : `${reembolsosCount}`;
-    const alertClass =
-      reembolsosCount > 0
-        ? 'bg-amber-500 text-white font-bold shadow-xs'
-        : baseClass;
-    return { text, tooltip: `${reembolsosCount} reembolsos pendientes`, className: alertClass };
+  if (item.href === '/reembolsos') {
+    if (reembolsosCount !== null && reembolsosCount > 0) {
+      const text = reembolsosCount > 99 ? '99+' : `${reembolsosCount}`;
+      return {
+        text,
+        tooltip: `${reembolsosCount} reembolsos pendientes de revisión`,
+        className: 'bg-amber-500 text-white font-bold shadow-xs',
+      };
+    }
+    return { text: undefined, className: baseClass };
+  }
+
+  if (item.href === '/beneficios') {
+    if (beneficiosCount !== null && beneficiosCount > 0) {
+      const text = beneficiosCount > 99 ? '99+' : `${beneficiosCount}`;
+      return {
+        text,
+        tooltip: `${beneficiosCount} beneficios / bonos pendientes de validación`,
+        className: 'bg-amber-500 text-white font-bold shadow-xs',
+      };
+    }
+    return { text: undefined, className: baseClass };
+  }
+
+  if (item.href === '/aprobaciones' && (esAdminOSuper || esDirectiva)) {
+    const totalAprobaciones = (reembolsosCount ?? 0) + (beneficiosCount ?? 0) + (afiliacionCount ?? 0);
+    if (totalAprobaciones > 0) {
+      const text = totalAprobaciones > 99 ? '99+' : `${totalAprobaciones}`;
+      return {
+        text,
+        tooltip: `${totalAprobaciones} expedientes totales pendientes de resolución`,
+        className: 'bg-amber-500 text-white font-bold shadow-xs',
+      };
+    }
+    return { text: undefined, className: baseClass };
   }
 
   return { text: item.badge, className: baseClass };
@@ -167,49 +199,91 @@ const SidebarBrandHeader: React.FC<{ onClose: () => void }> = ({ onClose }) => (
   </div>
 );
 
-// [ESTUDIANTE INFORMÁTICA] Sidebar moderno con botones tipo píldora suave (rounded-xl), estado activo con relieve y tarjeta de soporte.
+// [ESTUDIANTE INFORMÁTICA] Sidebar moderno con contadores en tiempo real por módulo y sincronización multiventana.
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
   const { user, token } = useAuth();
-  const [pendientesCount, setPendientesCount] = useState<number | null>(null);
-  const [afiliacionPendientesCount, setAfiliacionPendientesCount] = useState<number | null>(null);
+  const [afiliacionCount, setAfiliacionCount] = useState<number | null>(null);
+  const [reembolsosCount, setReembolsosCount] = useState<number | null>(null);
+  const [beneficiosCount, setBeneficiosCount] = useState<number | null>(null);
 
   const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
   const esDirectiva = Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
-  const itemsVisibles = navigationItems.filter((item) => !item.adminOnly || esAdminOSuper);
+  const itemsVisibles = navigationItems.filter((item) => !item.adminOnly || esAdminOSuper || esDirectiva);
 
   const cargarConteoPendientes = useCallback(async () => {
     if (!token) return;
-    if (esAdminOSuper) {
-      try {
-        const data = await fetchFromApi<{ pendientes: number }>('/reembolsos/admin/conteo-pendientes', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (typeof data?.pendientes === 'number') setPendientesCount(data.pendientes);
-      } catch {
-        // Silencioso
+
+    // 1. Reembolsos pendientes
+    try {
+      const dataReembolsos = await fetchFromApi<{ pendientes: number }>('/reembolsos/conteo-pendientes', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (typeof dataReembolsos?.pendientes === 'number') {
+        setReembolsosCount(dataReembolsos.pendientes);
       }
+    } catch {
+      // Ignorar error puntual
     }
+
+    // 2. Beneficios / Bonos pendientes
+    try {
+      const dataBeneficios = await fetchFromApi<{ pendientes: number }>('/beneficios/conteo-pendientes', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (typeof dataBeneficios?.pendientes === 'number') {
+        setBeneficiosCount(dataBeneficios.pendientes);
+      }
+    } catch {
+      // Ignorar error puntual
+    }
+
+    // 3. Afiliación y Cargas (Directiva)
     if (esDirectiva) {
       try {
         const dataAf = await fetchFromApi<{ pendientes: number }>('/afiliacion/conteo-pendientes', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (typeof dataAf?.pendientes === 'number') setAfiliacionPendientesCount(dataAf.pendientes);
+        if (typeof dataAf?.pendientes === 'number') {
+          setAfiliacionCount(dataAf.pendientes);
+        }
       } catch {
-        // Silencioso
+        // Ignorar error puntual
       }
     }
-  }, [esAdminOSuper, esDirectiva, token]);
+  }, [esDirectiva, token]);
 
+  // Sondeo cada 4 segundos con sincronización multiventana
   useEffect(() => {
     cargarConteoPendientes();
-    const interval = setInterval(cargarConteoPendientes, 15000);
+
+    const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      cargarConteoPendientes();
+    }, 4000);
+
     const handleUpdate = () => cargarConteoPendientes();
+    const handleVisibility = () => {
+      if (!document.hidden) cargarConteoPendientes();
+    };
+
+    // Sincronización entre pestañas mediante BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('bienestar_alertas_channel');
+      bc.onmessage = () => {
+        cargarConteoPendientes();
+      };
+    }
+
     window.addEventListener('solicitudes-updated', handleUpdate);
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
-      clearInterval(interval);
+      clearInterval(intervalId);
       window.removeEventListener('solicitudes-updated', handleUpdate);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (bc) bc.close();
     };
   }, [cargarConteoPendientes, pathname]);
 
@@ -240,8 +314,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               isActive,
               esDirectiva,
               esAdminOSuper,
-              afiliacionPendientesCount,
-              pendientesCount
+              afiliacionCount,
+              reembolsosCount,
+              beneficiosCount
             );
 
             return (
@@ -264,7 +339,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {badge.text !== undefined && (
                   <span
                     title={badge.tooltip}
-                    className={`px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums min-w-[22px] text-center shrink-0 ml-2 ${badge.className}`}
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums min-w-[22px] text-center shrink-0 ml-2 transition-all duration-300 ${badge.className}`}
                   >
                     {badge.text}
                   </span>

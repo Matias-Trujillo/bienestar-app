@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -93,6 +93,31 @@ def _to_solicitud_out(s: SolicitudBeneficio, socio: Optional[User] = None) -> So
         fecha_liquidacion=s.fecha_liquidacion.strftime("%d-%m-%Y %H:%M") if s.fecha_liquidacion else None,
         created_at=s.created_at.strftime("%d-%m-%Y %H:%M") if s.created_at else datetime.now().strftime("%d-%m-%Y %H:%M"),
     )
+
+
+# [ESTUDIANTE INFORMÁTICA] Retorna el conteo de solicitudes de beneficios/bonos pendientes para badges del menú lateral y notificaciones.
+@router.get("/conteo-pendientes", summary="Obtener cantidad de solicitudes de beneficios / bonos pendientes")
+async def get_beneficios_conteo_pendientes(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, int]:
+    es_directiva_o_admin = user.is_superuser or user.rol in (
+        UserRole.ADMIN,
+        UserRole.SUPERUSUARIO,
+        UserRole.PRESIDENTE,
+        UserRole.SECRETARIO,
+        UserRole.TESORERO,
+        UserRole.AUDITOR,
+    )
+    if es_directiva_o_admin:
+        query = select(func.count(SolicitudBeneficio.id)).where(SolicitudBeneficio.estado == "PENDIENTE")
+    else:
+        query = select(func.count(SolicitudBeneficio.id)).where(
+            SolicitudBeneficio.socio_id == user.id,
+            SolicitudBeneficio.estado == "PENDIENTE",
+        )
+    total = await db.scalar(query)
+    return {"pendientes": int(total or 0)}
 
 
 @router.get("/catalogo", response_model=CatalogoBeneficiosResponse, summary="Obtener catálogo oficial y montos sobre Grado 15")

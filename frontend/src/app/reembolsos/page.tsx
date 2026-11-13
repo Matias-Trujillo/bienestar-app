@@ -325,6 +325,13 @@ export default function ReembolsosPage() {
       }
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({ type: 'SOLICITUD_CREADA', modulo: 'reembolsos', folio: nueva.codigo });
+            bc.close();
+          }
+        } catch {}
       }
 
       setShowModal(false);

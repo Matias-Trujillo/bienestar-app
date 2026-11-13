@@ -168,6 +168,21 @@ export default function BeneficiosPage() {
       setModalPostularBono(null);
       await cargarDatos();
       setActiveTab('hoja_socio');
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({
+              type: 'SOLICITUD_CREADA',
+              modulo: 'beneficios',
+              folio: `Bono #${resp.id}`,
+            });
+            bc.close();
+          }
+        } catch {}
+      }
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err) || 'Error al procesar la postulación.');
     }
@@ -190,6 +205,21 @@ export default function BeneficiosPage() {
       );
       setModalAsignacionDirecta(false);
       await cargarDatos();
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({
+              type: 'SOLICITUD_CREADA',
+              modulo: 'beneficios',
+              folio: `Bono Vacaciones #${resp.id}`,
+            });
+            bc.close();
+          }
+        } catch {}
+      }
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err) || 'Error al procesar la asignación directa.');
     }
@@ -209,8 +239,26 @@ export default function BeneficiosPage() {
       });
 
       setSuccessMsg(`Solicitud #${resp.id} actualizada a estado "${resp.estado}" correctamente.`);
+      const respId = resp.id;
+      const respEstado = resp.estado;
       setModalValidarSolicitud(null);
       await cargarDatos();
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({
+              type: 'SOLICITUD_APROBADA',
+              modulo: 'beneficios',
+              folio: `Bono #${respId}`,
+              accion: respEstado,
+            });
+            bc.close();
+          }
+        } catch {}
+      }
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err) || 'Error al actualizar la solicitud.');
     }

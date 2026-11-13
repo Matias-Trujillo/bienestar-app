@@ -353,6 +353,8 @@ export default function AfiliacionPage() {
           ? `Carga familiar ${res.nombreCompleto} (${res.run}) APROBADA e incorporada a la ficha del socio ${res.socioNombre}. Se notificó por correo.`
           : `Solicitud de carga familiar ${res.folio} RECHAZADA. Se envió notificación con el motivo al correo del socio.`
       );
+      const folioCarga = res.folio;
+      const accionCarga = modoResolucionCarga === 'aprobar' ? 'APROBAR' : 'RECHAZAR';
       setCargaSeleccionada(null);
       setModoResolucionCarga(null);
       cargarSolicitudesCargas();
@@ -363,7 +365,12 @@ export default function AfiliacionPage() {
         try {
           if ('BroadcastChannel' in window) {
             const bc = new BroadcastChannel('bienestar_alertas_channel');
-            bc.postMessage({ type: 'SOLICITUD_ACTUALIZADA' });
+            bc.postMessage({
+              type: 'SOLICITUD_APROBADA',
+              modulo: 'afiliacion',
+              folio: folioCarga,
+              accion: accionCarga,
+            });
             bc.close();
           }
         } catch {}
@@ -426,6 +433,8 @@ export default function AfiliacionPage() {
           ? `Solicitud ${solicitudSeleccionada.folio} aceptada correctamente. Las credenciales de acceso fueron enviadas de forma privada al correo ${res.notificacionEmail?.destinatario || res.email}.`
           : `Solicitud ${solicitudSeleccionada.folio} rechazada. Se notificó el detalle de la resolución al correo ${res.notificacionEmail?.destinatario || res.email}.`
       );
+      const folioRes = res.folio;
+      const accionRes = modoResolucion === 'aprobar' ? 'APROBAR' : 'RECHAZAR';
       cerrarModal();
       setSolicitudCorreo(res);
       cargarSolicitudes();
@@ -434,7 +443,12 @@ export default function AfiliacionPage() {
         try {
           if ('BroadcastChannel' in window) {
             const bc = new BroadcastChannel('bienestar_alertas_channel');
-            bc.postMessage({ type: 'SOLICITUD_ACTUALIZADA' });
+            bc.postMessage({
+              type: 'SOLICITUD_APROBADA',
+              modulo: 'afiliacion',
+              folio: folioRes,
+              accion: accionRes,
+            });
             bc.close();
           }
         } catch {}
@@ -472,6 +486,8 @@ export default function AfiliacionPage() {
           ? `Solicitud ${solicitudCorreo.folio} aprobada exitosamente. Las credenciales fueron enviadas a ${res.notificacionEmail?.destinatario || res.email}.`
           : `Solicitud ${solicitudCorreo.folio} rechazada. Se notificó al correo ${res.notificacionEmail?.destinatario || res.email}.`
       );
+      const folioFicha = res.folio;
+      const accionFicha = accion === 'aprobar' ? 'APROBAR' : 'RECHAZAR';
       setPanelResolucionFicha(null);
       setSolicitudCorreo(res);
       cargarSolicitudes();
@@ -480,7 +496,12 @@ export default function AfiliacionPage() {
         try {
           if ('BroadcastChannel' in window) {
             const bc = new BroadcastChannel('bienestar_alertas_channel');
-            bc.postMessage({ type: 'SOLICITUD_ACTUALIZADA' });
+            bc.postMessage({
+              type: 'SOLICITUD_APROBADA',
+              modulo: 'afiliacion',
+              folio: folioFicha,
+              accion: accionFicha,
+            });
             bc.close();
           }
         } catch {}

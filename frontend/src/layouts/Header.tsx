@@ -171,6 +171,7 @@ interface NotificationsDropdownProps {
   esAdminOSuper: boolean;
   afiliacionPendientes: number;
   reembolsosPendientes: number;
+  beneficiosPendientes: number;
   totalAlertas: number;
   sonidoHabilitado: boolean;
   onToggleSonido: () => void;
@@ -183,6 +184,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   esAdminOSuper,
   afiliacionPendientes,
   reembolsosPendientes,
+  beneficiosPendientes,
   totalAlertas,
   sonidoHabilitado,
   onToggleSonido,
@@ -248,7 +250,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
           </span>
         </Link>
       )}
-      {esAdminOSuper && (
+      {(esAdminOSuper || esDirectiva) && (
         <Link
           href="/aprobaciones"
           onClick={onClose}
@@ -273,6 +275,31 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
           </span>
         </Link>
       )}
+      {(esAdminOSuper || esDirectiva) && (
+        <Link
+          href="/beneficios"
+          onClick={onClose}
+          className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
+        >
+          <div>
+            <p className="text-xs font-semibold text-slate-800">Beneficios y Bonos</p>
+            <p className="text-[11px] text-slate-500">
+              {beneficiosPendientes > 0
+                ? `${beneficiosPendientes} solicitudes por evaluar`
+                : 'Sin bonos pendientes'}
+            </p>
+          </div>
+          <span
+            className={`px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums min-w-[24px] text-center ${
+              beneficiosPendientes > 0
+                ? 'bg-amber-100 text-[#b45309] border border-amber-300'
+                : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            {beneficiosPendientes}
+          </span>
+        </Link>
+      )}
       {!esDirectiva && !esAdminOSuper && (
         <div className="px-4 py-5 text-center text-xs text-slate-400">
           No tienes notificaciones pendientes.
@@ -290,6 +317,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [reembolsosPendientes, setReembolsosPendientes] = useState(0);
   const [afiliacionPendientes, setAfiliacionPendientes] = useState(0);
+  const [beneficiosPendientes, setBeneficiosPendientes] = useState(0);
   const [animandoCampana, setAnimandoCampana] = useState(false);
   const [campanaNuevaAlerta, setCampanaNuevaAlerta] = useState(false);
   const [toastActivo, setToastActivo] = useState<ToastData | null>(null);
@@ -301,6 +329,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const prevTotalAlertasRef = useRef<number | null>(null);
   const prevAfiliacionRef = useRef<number | null>(null);
   const prevReembolsosRef = useRef<number | null>(null);
+  const prevBeneficiosRef = useRef<number | null>(null);
 
   const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
   const esDirectiva = Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
@@ -311,7 +340,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   }, []);
 
   const dispararAlertaEnVivo = useCallback(
-    (nuevoTotal: number, prevTotal: number, nuevoAfiliacion: number, prevAfiliacion: number) => {
+    (
+      nuevoTotal: number,
+      prevTotal: number,
+      nuevoAfiliacion: number,
+      prevAfiliacion: number,
+      nuevoBeneficios: number,
+      prevBeneficios: number
+    ) => {
       // 1. Activar animación oscilatoria de campana
       setAnimandoCampana(true);
       setCampanaNuevaAlerta(true);
@@ -325,11 +361,17 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
       // 3. Determinar módulo causante del incremento y armar Toast
       const diff = nuevoTotal - prevTotal;
-      const incrementoAfiliacion = nuevoAfiliacion > prevAfiliacion;
-      const href = incrementoAfiliacion ? '/afiliacion' : '/aprobaciones';
-      const titulo = incrementoAfiliacion
-        ? '¡Nueva Solicitud de Afiliación / Carga!'
-        : '¡Nuevo Reembolso Médico por Revisar!';
+      let href = '/aprobaciones';
+      let titulo = '¡Nuevo Reembolso Médico por Revisar!';
+
+      if (nuevoBeneficios > prevBeneficios) {
+        href = '/beneficios';
+        titulo = '¡Nueva Solicitud de Beneficio / Bono!';
+      } else if (nuevoAfiliacion > prevAfiliacion) {
+        href = '/afiliacion';
+        titulo = '¡Nueva Solicitud de Afiliación / Carga!';
+      }
+
       const mensaje =
         diff === 1
           ? 'Se ha recibido una nueva solicitud pendiente de resolución directiva.'
@@ -350,23 +392,65 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     []
   );
 
+  const dispararAlertaAprobacion = useCallback((modulo: string, folio?: string, accion?: string) => {
+    setAnimandoCampana(true);
+    setCampanaNuevaAlerta(true);
+    if (bellAnimTimeoutRef.current) clearTimeout(bellAnimTimeoutRef.current);
+    bellAnimTimeoutRef.current = setTimeout(() => {
+      setAnimandoCampana(false);
+    }, 2600);
+
+    playNotificationChime();
+
+    const accionStr = accion === 'RECHAZAR' ? 'Rechazada' : 'Aprobada';
+    let moduloTitulo = 'Solicitud';
+    let href = '/';
+    if (modulo === 'afiliacion') {
+      moduloTitulo = 'Incorporación / Carga';
+      href = '/afiliacion';
+    } else if (modulo === 'reembolsos') {
+      moduloTitulo = 'Reembolso Médico';
+      href = '/aprobaciones';
+    } else if (modulo === 'beneficios') {
+      moduloTitulo = 'Bono / Beneficio Social';
+      href = '/beneficios';
+    }
+
+    setToastActivo({
+      id: String(Date.now()),
+      titulo: `¡${moduloTitulo} ${accionStr}!`,
+      mensaje: folio
+        ? `El expediente ${folio} ha sido procesado exitosamente.`
+        : `Se ha registrado la resolución del trámite exitosamente.`,
+      href,
+    });
+
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastActivo(null);
+    }, 6500);
+  }, []);
+
   const cargarNotificaciones = useCallback(async () => {
     if (!token) return;
 
     let nuevoReembolsos = 0;
     let nuevoAfiliacion = 0;
+    let nuevoBeneficios = 0;
 
-    if (esAdminOSuper) {
+    // 1. Reembolsos
+    if (esAdminOSuper || esDirectiva) {
       try {
-        const r = await fetchFromApi<{ pendientes: number }>('/reembolsos/admin/conteo-pendientes', {
+        const r = await fetchFromApi<{ pendientes: number }>('/reembolsos/conteo-pendientes', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (typeof r?.pendientes === 'number') nuevoReembolsos = r.pendientes;
       } catch {
-        // Ignorar error de red puntual
+        // Ignorar error puntual
       }
     }
 
+    // 2. Afiliaciones y Cargas
     if (esDirectiva) {
       try {
         const a = await fetchFromApi<{ pendientes: number }>('/afiliacion/conteo-pendientes', {
@@ -374,14 +458,30 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         });
         if (typeof a?.pendientes === 'number') nuevoAfiliacion = a.pendientes;
       } catch {
-        // Ignorar error de red puntual
+        // Ignorar error puntual
+      }
+    }
+
+    // 3. Beneficios y Bonos
+    if (esAdminOSuper || esDirectiva) {
+      try {
+        const b = await fetchFromApi<{ pendientes: number }>('/beneficios/conteo-pendientes', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (typeof b?.pendientes === 'number') nuevoBeneficios = b.pendientes;
+      } catch {
+        // Ignorar error puntual
       }
     }
 
     setReembolsosPendientes(nuevoReembolsos);
     setAfiliacionPendientes(nuevoAfiliacion);
+    setBeneficiosPendientes(nuevoBeneficios);
 
-    const nuevoTotal = (esDirectiva ? nuevoAfiliacion : 0) + (esAdminOSuper ? nuevoReembolsos : 0);
+    const nuevoTotal =
+      (esDirectiva ? nuevoAfiliacion : 0) +
+      (esAdminOSuper || esDirectiva ? nuevoReembolsos : 0) +
+      (esAdminOSuper || esDirectiva ? nuevoBeneficios : 0);
 
     // Comparar con el conteo previo para detectar llegadas en caliente
     if (prevTotalAlertasRef.current !== null && nuevoTotal > prevTotalAlertasRef.current) {
@@ -389,13 +489,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         nuevoTotal,
         prevTotalAlertasRef.current,
         nuevoAfiliacion,
-        prevAfiliacionRef.current ?? 0
+        prevAfiliacionRef.current ?? 0,
+        nuevoBeneficios,
+        prevBeneficiosRef.current ?? 0
       );
     }
 
     prevTotalAlertasRef.current = nuevoTotal;
     prevAfiliacionRef.current = nuevoAfiliacion;
     prevReembolsosRef.current = nuevoReembolsos;
+    prevBeneficiosRef.current = nuevoBeneficios;
   }, [dispararAlertaEnVivo, esAdminOSuper, esDirectiva, token]);
 
   // Sondeo inteligente cada 4 segundos para roles resolutivos con pausa si la pestaña está oculta
@@ -436,7 +539,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       bc = new BroadcastChannel('bienestar_alertas_channel');
       bc.onmessage = (ev) => {
-        if (ev.data?.type === 'SOLICITUD_CREADA' || ev.data?.type === 'SOLICITUD_ACTUALIZADA') {
+        if (ev.data?.type === 'SOLICITUD_CREADA') {
+          cargarNotificaciones();
+        } else if (ev.data?.type === 'SOLICITUD_APROBADA') {
+          dispararAlertaAprobacion(ev.data?.modulo || '', ev.data?.folio, ev.data?.accion);
+          cargarNotificaciones();
+        } else if (ev.data?.type === 'SOLICITUD_ACTUALIZADA') {
           cargarNotificaciones();
         }
       };
@@ -453,7 +561,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       if (bellAnimTimeoutRef.current) clearTimeout(bellAnimTimeoutRef.current);
     };
-  }, [cargarNotificaciones, esAdminOSuper, esDirectiva, pathname]);
+  }, [cargarNotificaciones, dispararAlertaAprobacion, esAdminOSuper, esDirectiva, pathname]);
 
   // Cierre de menús contextuales al hacer clic fuera o presionar escape
   useEffect(() => {
@@ -477,7 +585,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     setSonidoHabilitado(nuevo);
   };
 
-  const totalAlertas = (esDirectiva ? afiliacionPendientes : 0) + (esAdminOSuper ? reembolsosPendientes : 0);
+  const totalAlertas =
+    (esDirectiva ? afiliacionPendientes : 0) +
+    (esAdminOSuper || esDirectiva ? reembolsosPendientes : 0) +
+    (esAdminOSuper || esDirectiva ? beneficiosPendientes : 0);
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-[72px] px-4 sm:px-6 lg:px-8 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.03)]">
@@ -561,6 +672,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               esAdminOSuper={esAdminOSuper}
               afiliacionPendientes={afiliacionPendientes}
               reembolsosPendientes={reembolsosPendientes}
+              beneficiosPendientes={beneficiosPendientes}
               totalAlertas={totalAlertas}
               sonidoHabilitado={sonidoHabilitado}
               onToggleSonido={handleToggleSonido}

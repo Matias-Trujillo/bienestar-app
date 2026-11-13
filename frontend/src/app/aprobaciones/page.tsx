@@ -70,8 +70,25 @@ export default function AprobacionesPage() {
       });
       setSuccessMsg(`¡Solicitud ${solicitudAprobar.codigo} APROBADA exitosamente!`);
       setTimeout(() => setSuccessMsg(null), 5000);
+      const codigoAprobado = solicitudAprobar.codigo;
       setSolicitudAprobar(null);
       await cargarSolicitudes();
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({
+              type: 'SOLICITUD_APROBADA',
+              modulo: 'reembolsos',
+              folio: codigoAprobado,
+              accion: 'APROBAR',
+            });
+            bc.close();
+          }
+        } catch {}
+      }
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err));
     } finally {
@@ -90,9 +107,26 @@ export default function AprobacionesPage() {
       });
       setSuccessMsg(`Solicitud ${solicitudRechazar.codigo} RECHAZADA. Cupo restituido al socio.`);
       setTimeout(() => setSuccessMsg(null), 5000);
+      const codigoRechazado = solicitudRechazar.codigo;
       setSolicitudRechazar(null);
       setMotivoRechazo('');
       await cargarSolicitudes();
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('bienestar_alertas_channel');
+            bc.postMessage({
+              type: 'SOLICITUD_APROBADA',
+              modulo: 'reembolsos',
+              folio: codigoRechazado,
+              accion: 'RECHAZAR',
+            });
+            bc.close();
+          }
+        } catch {}
+      }
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err));
     } finally {

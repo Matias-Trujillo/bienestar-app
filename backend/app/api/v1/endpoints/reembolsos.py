@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.api.deps import get_current_user, bearer_scheme
 from app.core.security import decode_access_token
@@ -349,7 +349,38 @@ async def get_comprobante(
     )
 
 
-ROLES_GESTION_REEMBOLSOS = (UserRole.ADMIN, UserRole.SUPERUSUARIO, UserRole.PRESIDENTE, UserRole.TESORERO)
+ROLES_GESTION_REEMBOLSOS = (
+    UserRole.ADMIN,
+    UserRole.SUPERUSUARIO,
+    UserRole.PRESIDENTE,
+    UserRole.SECRETARIO,
+    UserRole.TESORERO,
+    UserRole.AUDITOR,
+)
+
+
+# ---------- GET /reembolsos/conteo-pendientes ----------
+
+# [ESTUDIANTE INFORMÁTICA] Retorna conteo de reembolsos pendientes para badges del menú lateral y alertas en tiempo real.
+@router.get(
+    "/conteo-pendientes",
+    summary="Obtener cantidad de solicitudes de reembolso pendientes",
+)
+async def get_conteo_pendientes(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS:
+        total = await contar_solicitudes_pendientes_admin(db)
+    else:
+        from app.models.reembolso import EstadoReembolso
+        total = await db.scalar(
+            select(func.count(SolicitudReembolso.id)).where(
+                SolicitudReembolso.socio_id == user.id,
+                SolicitudReembolso.estado == EstadoReembolso.EN_REVISION,
+            )
+        ) or 0
+    return {"pendientes": int(total)}
 
 
 # ---------- GET /reembolsos/admin/solicitudes ----------
