@@ -17,7 +17,7 @@ import {
 import { BuzonCorreosModal } from '@/components/ui/BuzonCorreosModal';
 
 const ROLES_DIRECTIVA = ['presidente', 'secretario', 'tesorero', 'admin', 'auditor', 'superusuario'];
-const ROLES_RESOLUTIVOS = ['presidente', 'secretario', 'superusuario'];
+const ROLES_RESOLUTIVOS = ['presidente', 'secretario', 'admin', 'superusuario'];
 
 const CERTIFICADO_INFO = {
   titulo: 'Cédula de Identidad (Frontal)',
@@ -94,6 +94,7 @@ export default function AfiliacionPage() {
 
   // Modal de detalle de resolución
   const [solicitudCorreo, setSolicitudCorreo] = useState<SolicitudResumen | null>(null);
+  const [panelResolucionFicha, setPanelResolucionFicha] = useState<'aprobar' | 'rechazar' | null>(null);
   const [reenviandoSmtp, setReenviandoSmtp] = useState(false);
   const [buzonAbierto, setBuzonAbierto] = useState(false);
 
@@ -425,6 +426,44 @@ export default function AfiliacionPage() {
     }
   };
 
+  const handleResolverFicha = async (accion: 'aprobar' | 'rechazar') => {
+    if (!solicitudCorreo || !token) return;
+    setResolviendo(true);
+    try {
+      const res = await fetchFromApi<SolicitudResumen>(
+        `/afiliacion/solicitudes/${solicitudCorreo.folio}/resolucion`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            accion,
+            fechaSesion,
+            numeroActa,
+            observaciones,
+          }),
+        }
+      );
+
+      setMensajeExito(
+        accion === 'aprobar'
+          ? `Solicitud ${solicitudCorreo.folio} aprobada exitosamente. Las credenciales fueron enviadas a ${res.notificacionEmail?.destinatario || res.email}.`
+          : `Solicitud ${solicitudCorreo.folio} rechazada. Se notificó al correo ${res.notificacionEmail?.destinatario || res.email}.`
+      );
+      setPanelResolucionFicha(null);
+      setSolicitudCorreo(res);
+      cargarSolicitudes();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('solicitudes-updated'));
+      }
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'Error al registrar la resolución.');
+    } finally {
+      setResolviendo(false);
+    }
+  };
+
   const cargasPendientesCount = solicitudesCargas.filter(
     (sc) => sc.estado === 'Pendiente de aprobación'
   ).length;
@@ -518,7 +557,12 @@ export default function AfiliacionPage() {
           cargando={cargando}
           puedeResolver={puedeResolver}
           onAbrirModal={abrirModal}
+          onVerDetalle={(sol) => {
+            setPanelResolucionFicha(null);
+            setSolicitudCorreo(sol);
+          }}
           onVerCorreo={(sol) => {
+            setPanelResolucionFicha(null);
             setSolicitudCorreo(sol);
           }}
         />
@@ -555,15 +599,15 @@ export default function AfiliacionPage() {
               No hay solicitudes adicionales de cargas familiares registradas.
             </div>
           ) : (
-            <div className="w-full">
-              <table className="w-full text-left text-xs">
+            <div className="w-full overflow-hidden">
+              <table className="w-full table-fixed text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200/80 bg-slate-50/80 text-slate-500 font-semibold uppercase text-[11px]">
-                    <th className="py-3 px-4">N° Solicitud / Ingreso</th>
-                    <th className="py-3 px-4">Socio Titular</th>
-                    <th className="py-3 px-4">Nueva Carga / Vínculo</th>
-                    <th className="py-3 px-4">Certificado Adjunto</th>
-                    <th className="py-3 px-4 text-right">Estado</th>
+                    <th className="w-[20%] py-3 px-4">N° Solicitud / Ingreso</th>
+                    <th className="w-[26%] py-3 px-4">Socio Titular</th>
+                    <th className="w-[24%] py-3 px-4">Nueva Carga / Vínculo</th>
+                    <th className="w-[18%] py-3 px-4">Certificado Adjunto</th>
+                    <th className="w-[12%] py-3 px-4 text-right">Estado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -573,7 +617,7 @@ export default function AfiliacionPage() {
                       onClick={() => abrirFichaCarga(sc, 'aprobar')}
                       className="hover:bg-sky-50/40 transition align-middle cursor-pointer group"
                     >
-                      <td className="py-3.5 px-4 whitespace-nowrap">
+                      <td className="py-3.5 px-4 align-middle">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -586,51 +630,60 @@ export default function AfiliacionPage() {
                           <span>{sc.folio}</span>
                           <span className="text-[10px]">→</span>
                         </button>
-                        <div className="text-[11px] text-slate-400 mt-1 pl-0.5">
+                        <div className="text-[11px] text-slate-400 mt-1 pl-0.5 tabular-nums">
                           {new Date(sc.fechaIngreso).toLocaleDateString('es-CL')}
                         </div>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-800">{sc.socioNombre}</div>
-                        <div className="font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                      <td className="py-3.5 px-4 align-middle min-w-0">
+                        <div className="font-bold text-slate-800 truncate" title={sc.socioNombre}>{sc.socioNombre}</div>
+                        <div className="font-mono text-[11px] text-slate-500 truncate mt-0.5">
                           RUN {sc.socioRut}
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="font-bold text-slate-800">{sc.nombreCompleto}</div>
-                        <div className="text-[11px] text-slate-500">
+                      <td className="py-3.5 px-4 align-middle min-w-0">
+                        <div className="font-bold text-slate-800 truncate" title={sc.nombreCompleto}>{sc.nombreCompleto}</div>
+                        <div className="text-[11px] text-slate-500 truncate mt-0.5">
                           <span className="font-mono">RUN {sc.run}</span>
                           <span className="text-[#006799] font-semibold"> · {sc.parentesco || 'Hijo/a'}</span>
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 text-slate-600 text-xs">
-                        <div className="font-semibold text-slate-700">
+                      <td className="py-3.5 px-4 align-middle text-slate-600 text-xs min-w-0">
+                        <div className="font-semibold text-slate-700 truncate" title={sc.certificadoTipo || sc.observacionSocio || 'Certificado de respaldo'}>
                           {sc.certificadoTipo || sc.observacionSocio || 'Certificado de respaldo'}
                         </div>
                         {sc.estado === 'Aprobada' && sc.fechaSesion ? (
-                          <div className="text-emerald-700 text-[11px] font-semibold">
+                          <div className="text-emerald-700 text-[11px] font-semibold truncate">
                             {sc.numeroActa || 'Sesión Ordinaria'} ({sc.fechaSesion})
                           </div>
                         ) : sc.estado === 'Rechazada' && sc.observacionesResolucion ? (
-                          <div className="text-rose-600 text-[11px] truncate max-w-[240px]" title={sc.observacionesResolucion}>
+                          <div className="text-rose-600 text-[11px] truncate" title={sc.observacionesResolucion}>
                             Motivo: {sc.observacionesResolucion}
                           </div>
                         ) : (
-                          <div className="text-[#006799] text-[11px] font-medium">
-                            Pinche el folio para revisar documento
+                          <div className="text-[#006799] text-[11px] font-medium truncate">
+                            Pinche para revisar documento
                           </div>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-right align-middle whitespace-nowrap">
                         <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                             sc.estado === 'Aprobada'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : sc.estado === 'Rechazada'
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
                           }`}
                         >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              sc.estado === 'Aprobada'
+                                ? 'bg-emerald-600'
+                                : sc.estado === 'Rechazada'
+                                ? 'bg-rose-600'
+                                : 'bg-amber-500'
+                            }`}
+                          />
                           {sc.estado === 'Aprobada' ? 'Aprobada' : sc.estado}
                         </span>
                       </td>
@@ -679,28 +732,27 @@ export default function AfiliacionPage() {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="w-full overflow-hidden">
+          <table className="w-full table-fixed text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase">
-                {esAdminOSuper && <th className="py-3 px-4">Socio Titular</th>}
-                <th className="py-3 px-4">Nombre Completo de la Carga</th>
-                <th className="py-3 px-4">Parentesco</th>
-                <th className="py-3 px-4">RUN Carga</th>
-                <th className="py-3 px-4">Certificado / Antecedente</th>
-                <th className="py-3 px-4">Estado</th>
+              <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase text-[11px]">
+                {esAdminOSuper && <th className="w-[20%] py-3 px-4">Socio Titular</th>}
+                <th className={esAdminOSuper ? "w-[22%] py-3 px-4" : "w-[28%] py-3 px-4"}>Nombre Completo de la Carga</th>
+                <th className={esAdminOSuper ? "w-[14%] py-3 px-4" : "w-[16%] py-3 px-4"}>Parentesco y RUN</th>
+                <th className={esAdminOSuper ? "w-[24%] py-3 px-4" : "w-[36%] py-3 px-4"}>Certificado / Antecedente</th>
+                <th className={esAdminOSuper ? "w-[20%] py-3 px-4 text-right" : "w-[20%] py-3 px-4 text-right"}>Estado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {cargandoMisCargas ? (
                 <tr>
-                  <td colSpan={esAdminOSuper ? 6 : 5} className="py-6 text-center text-slate-400">
+                  <td colSpan={esAdminOSuper ? 5 : 4} className="py-6 text-center text-slate-400">
                     Cargando cargas familiares...
                   </td>
                 </tr>
               ) : misCargas.length === 0 ? (
                 <tr>
-                  <td colSpan={esAdminOSuper ? 6 : 5} className="py-6 text-center text-slate-400">
+                  <td colSpan={esAdminOSuper ? 5 : 4} className="py-6 text-center text-slate-400">
                     No registra cargas familiares en su ficha. Use el botón «+ Agregar Nueva Carga Familiar» para inscribir una carga adjuntando su certificado.
                   </td>
                 </tr>
@@ -708,23 +760,29 @@ export default function AfiliacionPage() {
                 misCargas.map((carga) => (
                   <tr key={carga.id} className="hover:bg-slate-50/50 transition">
                     {esAdminOSuper && (
-                      <td className="py-3.5 px-4 align-middle">
-                        <div className="font-semibold text-[#0f2942]">{carga.socioNombre || 'Socio Titular'}</div>
+                      <td className="py-3.5 px-4 align-middle min-w-0">
+                        <div className="font-semibold text-[#0f2942] truncate" title={carga.socioNombre || 'Socio Titular'}>
+                          {carga.socioNombre || 'Socio Titular'}
+                        </div>
                         {carga.socioRut && (
-                          <div className="text-[11px] font-mono text-slate-400 whitespace-nowrap">RUN {carga.socioRut}</div>
+                          <div className="text-[11px] font-mono text-slate-400 truncate">RUN {carga.socioRut}</div>
                         )}
                       </td>
                     )}
-                    <td className="py-3.5 px-4 font-semibold text-slate-800 align-middle">{carga.nombre}</td>
-                    <td className="py-3.5 px-4 align-middle">
+                    <td className="py-3.5 px-4 font-semibold text-slate-800 align-middle min-w-0">
+                      <div className="truncate" title={carga.nombre}>{carga.nombre}</div>
+                    </td>
+                    <td className="py-3.5 px-4 align-middle min-w-0">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-sky-50 text-[#006799] border border-sky-200/70 font-semibold text-[11px] whitespace-nowrap">
                         {carga.parentesco}
                       </span>
+                      <div className="font-mono text-slate-600 text-[11px] mt-0.5 truncate">{carga.rut}</div>
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600 align-middle whitespace-nowrap">{carga.rut}</td>
-                    <td className="py-3.5 px-4 text-slate-600 align-middle">
+                    <td className="py-3.5 px-4 text-slate-600 align-middle min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span>{carga.certificadoTipo || carga.observacion || 'Incorporación inicial'}</span>
+                        <span className="truncate max-w-[200px]" title={carga.certificadoTipo || carga.observacion || 'Incorporación inicial'}>
+                          {carga.certificadoTipo || carga.observacion || 'Incorporación inicial'}
+                        </span>
                         {carga.certificadoData && (
                           <button
                             type="button"
@@ -753,7 +811,7 @@ export default function AfiliacionPage() {
                             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                             Motivo informado por Directorio:
                           </div>
-                          <p className="mt-0.5 text-slate-700 italic">
+                          <p className="mt-0.5 text-slate-700 italic truncate" title={carga.observacionesResolucion || 'Fotografía ilegible o antecedentes discordantes.'}>
                             «{carga.observacionesResolucion || 'Fotografía ilegible o antecedentes discordantes.'}»
                           </p>
                           <button
@@ -773,7 +831,7 @@ export default function AfiliacionPage() {
                         </div>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 align-middle">
+                    <td className="py-3.5 px-4 align-middle text-right whitespace-nowrap">
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${
                           carga.estado === 'Vigente'
@@ -1509,6 +1567,122 @@ export default function AfiliacionPage() {
                 )}
               </div>
 
+              {/* Panel de Gestión de Resolución Directiva Integrada */}
+              {solicitudCorreo.estado === 'Pendiente de aprobación' && puedeResolver && panelResolucionFicha && (
+                <div
+                  className={`p-4 rounded-2xl border space-y-3 animate-fade-in ${
+                    panelResolucionFicha === 'aprobar'
+                      ? 'bg-emerald-50/70 border-emerald-200'
+                      : 'bg-rose-50/70 border-rose-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-xs font-bold uppercase tracking-wider ${
+                        panelResolucionFicha === 'aprobar' ? 'text-emerald-800' : 'text-rose-800'
+                      }`}
+                    >
+                      {panelResolucionFicha === 'aprobar'
+                        ? 'Acuerdo de Directorio: Aprobar Incorporación'
+                        : 'Acuerdo de Directorio: Rechazar Solicitud'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPanelResolucionFicha(null)}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                    >
+                      ✕ Cancelar
+                    </button>
+                  </div>
+
+                  {panelResolucionFicha === 'aprobar' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Fecha Sesión Ordinaria *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={fechaSesion}
+                          onChange={(e) => setFechaSesion(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#006799]/20 focus:border-[#006799]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          N° Acta de Directorio
+                        </label>
+                        <input
+                          type="text"
+                          value={numeroActa}
+                          onChange={(e) => setNumeroActa(e.target.value)}
+                          placeholder="Ej: Acta N° 05-2026"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#006799]/20 focus:border-[#006799]"
+                        />
+                      </div>
+                      <div className="col-span-1 sm:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Motivo / Fundamento de Aprobación
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={observaciones}
+                          onChange={(e) => setObservaciones(e.target.value)}
+                          placeholder="Cumple requisitos reglamentarios de Planta/Contrata Municipal y autorización de descuento del 4% por planilla."
+                          className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#006799]/20 focus:border-[#006799]"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Motivo del Rechazo (Obligatorio) *
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={observaciones}
+                        onChange={(e) => setObservaciones(e.target.value)}
+                        placeholder="Detalle el motivo exacto del rechazo para notificar por correo al funcionario..."
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200/60">
+                    <p className="text-[11px] text-slate-500">
+                      Se despachará correo automático a <strong className="text-slate-700">{solicitudCorreo.email}</strong>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPanelResolucionFicha(null)}
+                        className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={resolviendo || (panelResolucionFicha === 'rechazar' && !observaciones.trim())}
+                        onClick={() => handleResolverFicha(panelResolucionFicha)}
+                        className={`px-4 py-1.5 text-xs font-bold text-white rounded-xl shadow-xs transition cursor-pointer ${
+                          panelResolucionFicha === 'aprobar'
+                            ? 'bg-emerald-700 hover:bg-emerald-800'
+                            : 'bg-rose-700 hover:bg-rose-800'
+                        } disabled:opacity-50`}
+                      >
+                        {resolviendo
+                          ? 'Procesando...'
+                          : panelResolucionFicha === 'aprobar'
+                          ? '✓ Confirmar y Enviar Credenciales'
+                          : '✕ Confirmar Rechazo'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Pie del modal: acciones según estado */}
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
                 <button
@@ -1521,14 +1695,15 @@ export default function AfiliacionPage() {
                 </button>
 
                 <div className="flex items-center gap-2">
-                  {solicitudCorreo.estado === 'Pendiente de aprobación' && puedeResolver && (
+                  {solicitudCorreo.estado === 'Pendiente de aprobación' && puedeResolver && !panelResolucionFicha && (
                     <>
                       <button
                         type="button"
                         onClick={() => {
-                          const sol = solicitudCorreo;
-                          setSolicitudCorreo(null);
-                          abrirModal(sol, 'rechazar');
+                          setPanelResolucionFicha('rechazar');
+                          setObservaciones(
+                            'Inconsistencia en calidad contractual / antecedentes de cargas familiares incompletos para acreditar asignación.'
+                          );
                         }}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
                       >
@@ -1537,9 +1712,12 @@ export default function AfiliacionPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const sol = solicitudCorreo;
-                          setSolicitudCorreo(null);
-                          abrirModal(sol, 'aprobar');
+                          setPanelResolucionFicha('aprobar');
+                          setFechaSesion(new Date().toISOString().split('T')[0]);
+                          setNumeroActa('Acta Ordinaria N° 04-2026');
+                          setObservaciones(
+                            'Cumple requisitos reglamentarios de Planta/Contrata Municipal y autorización de descuento del 4% por planilla.'
+                          );
                         }}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition cursor-pointer shadow-sm"
                       >
@@ -1549,7 +1727,10 @@ export default function AfiliacionPage() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setSolicitudCorreo(null)}
+                    onClick={() => {
+                      setSolicitudCorreo(null);
+                      setPanelResolucionFicha(null);
+                    }}
                     className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
                   >
                     Cerrar

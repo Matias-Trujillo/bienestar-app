@@ -31,9 +31,10 @@ export interface SolicitudResumen {
 interface EvaluacionDirectorioTableProps {
   solicitudes: SolicitudResumen[] | null;
   cargando: boolean;
-  puedeResolver: boolean;
-  onAbrirModal: (sol: SolicitudResumen, modo: 'aprobar' | 'rechazar') => void;
+  puedeResolver?: boolean;
+  onAbrirModal?: (sol: SolicitudResumen, modo: 'aprobar' | 'rechazar') => void;
   onVerCorreo?: (sol: SolicitudResumen) => void;
+  onVerDetalle?: (sol: SolicitudResumen) => void;
   onAbrirBuzonGeneral?: () => void;
 }
 
@@ -43,9 +44,20 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
   puedeResolver,
   onAbrirModal,
   onVerCorreo,
+  onVerDetalle,
 }) => {
   const pendientesTotal =
     solicitudes?.filter((s) => s.estado === 'Pendiente de aprobación').length || 0;
+
+  const handlerVer = (s: SolicitudResumen) => {
+    if (onVerDetalle) {
+      onVerDetalle(s);
+    } else if (onVerCorreo) {
+      onVerCorreo(s);
+    } else if (onAbrirModal) {
+      onAbrirModal(s, 'aprobar');
+    }
+  };
 
   return (
     <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
@@ -84,17 +96,29 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
       ) : !solicitudes || solicitudes.length === 0 ? (
         <p className="text-xs text-slate-400 italic">No hay solicitudes recepcionadas en el sistema.</p>
       ) : (
-        <>
-          {/* Vista Móvil: Tarjetas de Incorporación para Smartphones */}
+        <div className="w-full min-w-0">
+          {/* Vista Móvil: Tarjetas compactas donde al pinchar se abre la ficha para gestionar autorización */}
           <div className="block md:hidden divide-y divide-slate-100">
             {solicitudes.map((s) => (
-              <div key={s.folio} className="py-4 space-y-2.5">
+              <div
+                key={s.folio}
+                onClick={() => handlerVer(s)}
+                className="py-3.5 space-y-2 hover:bg-slate-50/80 cursor-pointer transition-colors"
+              >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded">
-                    {s.folio}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlerVer(s);
+                    }}
+                    className="text-xs font-semibold text-[#006799] hover:underline tabular-nums inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>{s.folio}</span>
+                    <span>→</span>
+                  </button>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                       s.estado === 'Aprobada'
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         : s.estado === 'Rechazada'
@@ -102,223 +126,143 @@ export const EvaluacionDirectorioTable: React.FC<EvaluacionDirectorioTableProps>
                         : 'bg-amber-50 text-amber-700 border-amber-200'
                     }`}
                   >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        s.estado === 'Aprobada'
+                          ? 'bg-emerald-600'
+                          : s.estado === 'Rechazada'
+                          ? 'bg-rose-600'
+                          : 'bg-amber-500'
+                      }`}
+                    />
                     {s.estado}
                   </span>
                 </div>
 
-                <div>
-                  <h3 className="font-bold text-slate-800 text-sm">{s.nombreCompleto}</h3>
-                  <p className="text-xs text-slate-500 font-mono">RUN: {s.run} • Grado {s.grado} ({s.calidadContractual})</p>
-                  {s.email && <p className="text-[11px] text-slate-400">{s.email}</p>}
-                </div>
-
-                <div className="bg-slate-50 p-2.5 rounded-xl text-xs space-y-1">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Fecha Ingreso:</span>
-                    <span className="font-medium text-slate-800">{new Date(s.fechaIngreso).toLocaleDateString('es-CL')}</span>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900 truncate">{s.nombreCompleto}</p>
+                    <p className="text-slate-500 tabular-nums truncate">
+                      RUN {s.run} • {s.calidadContractual} (Grado {s.grado})
+                    </p>
                   </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Cargas Familiares:</span>
-                    <span className="font-semibold text-slate-800">{s.cargas.length} cargas registradas</span>
+                  <div className="text-right shrink-0">
+                    <p className="text-slate-600 font-medium">
+                      {s.cargas.length} {s.cargas.length === 1 ? 'carga' : 'cargas'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {new Date(s.fechaIngreso).toLocaleDateString('es-CL')}
+                    </p>
                   </div>
-                  {s.cargas.length > 0 && (
-                    <div className="text-[10px] text-slate-400">
-                      {s.cargas.map(c => c.nombreCompleto).join(', ')}
-                    </div>
-                  )}
-
-                  {s.estado === 'Aprobada' && s.fechaFinCarencia && (
-                    <div className="pt-1 text-[11px] text-emerald-700 font-semibold border-t border-slate-200/60">
-                      ✓ Carencia hasta: {s.fechaFinCarencia} (Acta: {s.numeroActa || 'S/N'})
-                    </div>
-                  )}
-                  {s.estado === 'Rechazada' && s.observacionesResolucion && (
-                    <div className="pt-1 text-[11px] text-rose-700 font-medium border-t border-slate-200/60">
-                      Motivo: {s.observacionesResolucion}
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-1 space-y-2">
-                  {s.estado === 'Pendiente de aprobación' ? (
-                    puedeResolver ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => onAbrirModal(s, 'aprobar')}
-                          className="w-full py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-sm text-center"
-                        >
-                          ✓ Aprobar
-                        </button>
-                        <button
-                          onClick={() => onAbrirModal(s, 'rechazar')}
-                          className="w-full py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition text-center"
-                        >
-                          ✕ Rechazar
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-[11px] text-slate-400 italic text-center">
-                        Requiere resolución de Presidente o Secretario
-                      </p>
-                    )
-                  ) : null}
-                  {onVerCorreo && (
-                    <button
-                      type="button"
-                      onClick={() => onVerCorreo(s)}
-                      className={`w-full py-1.5 rounded-xl text-[11px] font-semibold border transition text-center ${
-                        s.estado === 'Pendiente de aprobación'
-                          ? 'text-[#006799] bg-sky-50 hover:bg-sky-100 border-sky-200'
-                          : 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-200'
-                      }`}
-                    >
-                      {s.estado === 'Pendiente de aprobación' ? 'Ver Solicitud' : 'Ver Detalle'}
-                    </button>
-                  )}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Vista Tablet / Desktop: Tabla optimizada sin scroll horizontal */}
-          <div className="hidden md:block">
-            <table id="tabla-solicitudes" className="w-full text-left text-xs">
+          {/* Vista Tablet / Desktop: 5 Columnas Limpias Data-Dense con Estado al Final (Estilo TablaAprobaciones) */}
+          <div className="hidden md:block w-full overflow-hidden">
+            <table className="w-full table-fixed text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200/80 bg-slate-50/80 text-slate-500 font-semibold uppercase text-[11px]">
-                  <th className="py-3 px-3">Folio / Ingreso</th>
-                  <th className="py-3 px-3">Funcionario / Contacto</th>
-                  <th className="py-3 px-3">Calidad / Cargas</th>
-                  <th className="py-3 px-3">Estado</th>
-                  <th className="py-3 px-3">Detalle / Carencia</th>
-                  <th className="py-3 px-3 text-right">Acciones</th>
+                <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-600 font-semibold">
+                  <th className="w-[20%] py-3 px-4">Folio / Ingreso</th>
+                  <th className="w-[26%] py-3 px-4">Funcionario / Contacto</th>
+                  <th className="w-[22%] py-3 px-4">Calidad / Cargas</th>
+                  <th className="w-[18%] py-3 px-4">Detalle / Carencia</th>
+                  <th className="w-[14%] py-3 px-4 text-right">Estado</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 text-xs">
                 {solicitudes.map((s) => (
-                  <tr key={s.folio} className="hover:bg-slate-50/70 transition align-middle">
-                    <td className="py-3.5 px-3 whitespace-nowrap">
+                  <tr
+                    key={s.folio}
+                    onClick={() => handlerVer(s)}
+                    className="hover:bg-sky-50/40 cursor-pointer transition-colors group"
+                  >
+                    <td className="py-3 px-4 align-middle">
                       <button
                         type="button"
-                        onClick={() => onVerCorreo?.(s)}
-                        className="inline-flex items-center gap-1 font-mono font-bold text-[#006799] bg-sky-50 hover:bg-[#006799] hover:text-white border border-sky-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                        title="Pinche aquí para abrir la solicitud y resolver"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlerVer(s);
+                        }}
+                        className="inline-flex items-center gap-1.5 font-semibold text-[#006799] group-hover:text-[#0c2b45] group-hover:underline tabular-nums truncate cursor-pointer"
+                        title="Pinchar para abrir ficha completa y resolver solicitud"
                       >
                         <span>{s.folio}</span>
-                        <span className="text-[10px]">→</span>
+                        <span className="text-[11px] opacity-75 group-hover:translate-x-0.5 transition-transform">→</span>
                       </button>
-                      <div className="text-[11px] text-slate-400 mt-1 pl-0.5">
+                      <div className="text-[11px] text-slate-400 font-normal mt-0.5 tabular-nums">
                         {new Date(s.fechaIngreso).toLocaleDateString('es-CL')}
                       </div>
                     </td>
-                    <td className="py-3.5 px-3">
-                      <div className="font-bold text-slate-800">{s.nombreCompleto}</div>
-                      <div className="font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                    <td className="py-3 px-4 align-middle min-w-0">
+                      <div className="font-semibold text-slate-900 truncate" title={s.nombreCompleto}>
+                        {s.nombreCompleto}
+                      </div>
+                      <div className="text-slate-500 font-normal tabular-nums truncate mt-0.5" title={s.email || ''}>
                         RUN {s.run}
                       </div>
                       {s.email && (
-                        <div className="text-[11px] text-[#006799] truncate max-w-[190px]" title={s.email}>
+                        <div className="text-slate-400 text-[11px] truncate mt-0.5 font-normal" title={s.email}>
                           {s.email}
                         </div>
                       )}
                     </td>
-                    <td className="py-3.5 px-3 whitespace-nowrap">
-                      <div className="font-semibold text-slate-700">
+                    <td className="py-3 px-4 align-middle min-w-0">
+                      <div className="font-medium text-slate-800 truncate">
                         {s.calidadContractual} · Grado {s.grado}
                       </div>
-                      <div
-                        className="text-[11px] text-slate-500 truncate max-w-[140px]"
-                        title={
-                          s.cargas.length > 0
-                            ? s.cargas.map((c) => `${c.nombreCompleto} (${c.parentesco || 'Carga'})`).join(', ')
-                            : 'Sin cargas registradas'
-                        }
-                      >
-                        <span className="font-medium text-slate-600">{s.cargas.length} {s.cargas.length === 1 ? 'carga' : 'cargas'}</span>
-                        {s.cargas.length > 0 && (
-                          <span className="text-slate-400">
-                            {' '}({s.cargas.map((c) => c.nombreCompleto.split(' ')[0]).join(', ')})
-                          </span>
-                        )}
+                      <div className="text-slate-500 font-normal truncate mt-0.5">
+                        {s.cargas.length} {s.cargas.length === 1 ? 'carga' : 'cargas'}
+                        {s.cargas.length > 0 && ` (${s.cargas.map((c) => c.nombreCompleto.split(' ')[0]).join(', ')})`}
                       </div>
                     </td>
-                    <td className="py-3.5 px-3 whitespace-nowrap">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${
-                          s.estado === 'Aprobada'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : s.estado === 'Rechazada'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}
-                      >
-                        {s.estado}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-3 text-slate-600 text-[11px] max-w-[200px]">
+                    <td className="py-3 px-4 align-middle text-slate-600 text-xs min-w-0">
                       {s.estado === 'Aprobada' && s.fechaFinCarencia ? (
                         <div>
-                          <div className="text-emerald-700 font-semibold whitespace-nowrap">
+                          <div className="text-emerald-700 font-semibold whitespace-nowrap text-[11px]">
                             Carencia hasta: {s.fechaFinCarencia}
                           </div>
-                          <div className="text-slate-400 text-[10px] truncate" title={`${s.numeroActa || 'S/N'} (${s.fechaSesion})`}>
-                            {s.numeroActa || 'Sesión Ordinaria'} ({s.fechaSesion})
+                          <div className="text-slate-400 text-[10px] truncate mt-0.5" title={`${s.numeroActa || 'S/N'} (${s.fechaSesion || ''})`}>
+                            {s.numeroActa || 'Acta Ordinaria'} {s.fechaSesion ? `(${s.fechaSesion})` : ''}
                           </div>
                         </div>
                       ) : s.estado === 'Rechazada' ? (
-                        <div className="text-rose-600 line-clamp-2" title={s.observacionesResolucion || ''}>
-                          Motivo: {s.observacionesResolucion}
+                        <div className="text-rose-600 text-[11px] line-clamp-2" title={s.observacionesResolucion || ''}>
+                          Motivo: {s.observacionesResolucion || 'Inconsistencia en antecedentes'}
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic">Pendiente de sesión</span>
+                        <span className="text-slate-400 italic text-[11px]">Pendiente de sesión</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-3 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center justify-end gap-1.5">
-                        {s.estado === 'Pendiente de aprobación' ? (
-                          puedeResolver ? (
-                            <>
-                              <button
-                                onClick={() => onAbrirModal(s, 'aprobar')}
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition shadow-sm cursor-pointer"
-                                title="Aprobar solicitud de incorporación"
-                              >
-                                Aprobar
-                              </button>
-                              <button
-                                onClick={() => onAbrirModal(s, 'rechazar')}
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
-                                title="Rechazar solicitud con motivo"
-                              >
-                                Rechazar
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 italic">Solo Presidente/Secretario</span>
-                          )
-                        ) : null}
-
-                        {onVerCorreo && (
-                          <button
-                            type="button"
-                            onClick={() => onVerCorreo(s)}
-                            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
-                              s.estado === 'Pendiente de aprobación'
-                                ? 'text-[#006799] bg-sky-50 hover:bg-sky-100 border-sky-200'
-                                : 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-200'
-                            }`}
-                            title="Ver ficha completa de la solicitud y cargas familiares"
-                          >
-                            {s.estado === 'Pendiente de aprobación' ? 'Ver Solicitud' : 'Ver Detalle'}
-                          </button>
-                        )}
-                      </div>
+                    <td className="py-3 px-4 text-right align-middle whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          s.estado === 'Aprobada'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : s.estado === 'Rechazada'
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            s.estado === 'Aprobada'
+                              ? 'bg-emerald-600'
+                              : s.estado === 'Rechazada'
+                              ? 'bg-rose-600'
+                              : 'bg-amber-500'
+                          }`}
+                        />
+                        {s.estado}
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
