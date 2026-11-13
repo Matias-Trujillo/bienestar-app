@@ -1,9 +1,10 @@
 """Endpoints para el módulo de Administración, Auditoría Inmutable y Gestión de Usuarios."""
 from datetime import datetime, timezone
+import re
 from typing import Any, Dict, List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import func, select, desc
+from sqlalchemy import func, select, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_roles
@@ -731,3 +732,288 @@ async def eliminar_bono_admin(
     await db.commit()
 
     return {"mensaje": f"Beneficio '{nombre_bono}' eliminado exitosamente del catálogo."}
+
+
+# ---------------------------------------------------------------------------
+# Endpoint Especial: Reset Integral de Ambiente de Pruebas
+# ---------------------------------------------------------------------------
+@router.post(
+    "/reset-ambiente-pruebas",
+    summary="Restablecimiento integral del ambiente de pruebas (Solo Superusuario)",
+)
+async def reset_ambiente_pruebas(
+    current_user: User = Depends(require_roles(UserRole.SUPERUSUARIO)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Vacía todas las solicitudes y nóminas de prueba, elimina cuentas de prueba no canónicas,
+    libera la cuenta y RUN de Matías Trujillo para prueba de registro, reinicia el Super Administrador
+    y restablece las cuentas canónicas con saldos de $150.000 y estado de carencia preciso (>= 6 meses y < 6 meses)."""
+    
+    # 1. Vaciar solicitudes y registros transaccionales
+    tablas_a_vaciar = [
+        "detalles_nomina_masiva",
+        "nominas_masivas",
+        "solicitudes_beneficio",
+        "solicitudes_reembolso",
+        "solicitudes_cargas_familiares",
+        "cargas_familiares",
+        "solicitudes_afiliacion",
+    ]
+    for tbl in tablas_a_vaciar:
+        await db.execute(text(f"DELETE FROM {tbl};"))
+
+    # 2. Limpiar bloqueos de seguridad temporales
+    await db.execute(text("DELETE FROM parametros_sistema WHERE clave LIKE 'SEC_USR_%';"))
+
+    # 3. Eliminar cuenta y registros de Matías Trujillo y Ani Castro
+    await db.execute(
+        text(
+            "DELETE FROM usuarios WHERE email IN ('mntrujillof@gmail.com', 'mntrujillog@gmail.com', 'ani.c.castro.v@gmail.com') "
+            "OR REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '') = '205452109';"
+        )
+    )
+
+    # 4. Eliminar usuarios dinámicos (id >= 12) que no sean Javiera Rivera
+    await db.execute(
+        text(
+            "DELETE FROM usuarios WHERE id >= 12 AND email NOT IN ('riverajavieraa@gmail.com') "
+            "AND REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '') <> '191884361';"
+        )
+    )
+
+    # 5. Restablecer cuentas semilla canónicas
+    cuentas_a_sincronizar = [
+        # Superadministrador
+        {
+            "rut": "11.111.111-1",
+            "email": "superadmin@mperalillo.cl",
+            "nombre_completo": "Super Administrador",
+            "password": "Super#2026",
+            "rol": UserRole.SUPERUSUARIO,
+            "is_superuser": True,
+            "is_active": True,
+            "departamento": "Soporte TI",
+            "antiguedad": "10 Años",
+            "meses_antiguedad": 120,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        # Directiva
+        {
+            "rut": "12.345.678-9",
+            "email": "msoto@mperalillo.cl",
+            "nombre_completo": "María Elena Soto",
+            "password": "Presi#2026",
+            "rol": UserRole.PRESIDENTE,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Directiva de Bienestar",
+            "antiguedad": "9 Años",
+            "meses_antiguedad": 108,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        {
+            "rut": "13.456.789-0",
+            "email": "pfuentes@mperalillo.cl",
+            "nombre_completo": "Patricia Fuentes R.",
+            "password": "Secre#2026",
+            "rol": UserRole.SECRETARIO,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Directiva de Bienestar",
+            "antiguedad": "7 Años",
+            "meses_antiguedad": 84,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        {
+            "rut": "14.982.112-4",
+            "email": "rmorales@mperalillo.cl",
+            "nombre_completo": "Roberto Morales P.",
+            "password": "Teso#2026",
+            "rol": UserRole.TESORERO,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Finanzas Municipales",
+            "antiguedad": "6 Años",
+            "meses_antiguedad": 72,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        {
+            "rut": "16.234.567-8",
+            "email": "jcontreras@mperalillo.cl",
+            "nombre_completo": "Jorge Contreras L.",
+            "password": "Admin#2026",
+            "rol": UserRole.ADMIN,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Administración Municipal",
+            "antiguedad": "4 Años",
+            "meses_antiguedad": 48,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        {
+            "rut": "17.345.678-K",
+            "email": "aibarra@mperalillo.cl",
+            "nombre_completo": "Andrea Ibarra V.",
+            "password": "Audit#2026",
+            "rol": UserRole.AUDITOR,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Comisión Revisora de Cuentas",
+            "antiguedad": "3 Años",
+            "meses_antiguedad": 36,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        # Socios Habilitados (>= 6 meses)
+        {
+            "rut": "15.489.123-K",
+            "email": "cvalenzuela@mperalillo.cl",
+            "nombre_completo": "Carlos Valenzuela M.",
+            "password": "Socio#2026",
+            "rol": UserRole.SOCIO,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "DIDECO",
+            "antiguedad": "5 Años, 4 Meses",
+            "meses_antiguedad": 64,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        {
+            "rut": "18.567.890-1",
+            "email": "faraya@mperalillo.cl",
+            "nombre_completo": "Felipe Araya M.",
+            "password": "Socio#2026",
+            "rol": UserRole.SOCIO,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Obras Municipales",
+            "antiguedad": "1 Año, 4 Meses",
+            "meses_antiguedad": 16,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        {
+            "rut": "18.765.432-1",
+            "email": "jherrera@mperalillo.cl",
+            "nombre_completo": "Javiera Herrera Tapia",
+            "password": "Socio#2026",
+            "rol": UserRole.SOCIO,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Secretaría Municipal",
+            "antiguedad": "1 Año, 2 Meses",
+            "meses_antiguedad": 14,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        # Socios en Carencia Activa (< 6 meses)
+        {
+            "rut": "19.876.543-2",
+            "email": "fsepulveda@mperalillo.cl",
+            "nombre_completo": "Francisca Sepúlveda T.",
+            "password": "Socio#2026",
+            "rol": UserRole.SOCIO,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Secretaría Municipal",
+            "antiguedad": "3 Meses",
+            "meses_antiguedad": 3,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+        # Socia Javiera Rivera (0 Meses - Caso solicitado)
+        {
+            "rut": "19.188.436-1",
+            "email": "riverajavieraa@gmail.com",
+            "nombre_completo": "Javiera Rivera Arraño",
+            "password": "Socio#2026",
+            "rol": UserRole.SOCIO,
+            "is_superuser": False,
+            "is_active": True,
+            "departamento": "Secretaría Municipal",
+            "antiguedad": "0 Meses",
+            "meses_antiguedad": 0,
+            "saldo_salud_disponible": 150000,
+            "saldo_salud_total_anual": 150000,
+            "cargas_registradas": 0,
+        },
+    ]
+
+    for c in cuentas_a_sincronizar:
+        rut_clean = re.sub(r"[^0-9kK]", "", c["rut"]).upper()
+        # Buscar por RUT o email
+        user_existente = await db.scalar(
+            select(User).where(
+                (func.replace(func.replace(func.upper(User.rut), ".", ""), "-", "") == rut_clean)
+                | (func.lower(User.email) == c["email"].lower())
+            )
+        )
+        if user_existente:
+            user_existente.rut = c["rut"]
+            user_existente.email = c["email"]
+            user_existente.nombre_completo = c["nombre_completo"]
+            user_existente.hashed_password = get_password_hash(c["password"])
+            user_existente.rol = c["rol"]
+            user_existente.is_superuser = c["is_superuser"]
+            user_existente.is_active = c["is_active"]
+            user_existente.departamento = c["departamento"]
+            user_existente.antiguedad = c["antiguedad"]
+            user_existente.meses_antiguedad = c["meses_antiguedad"]
+            user_existente.saldo_salud_disponible = c["saldo_salud_disponible"]
+            user_existente.saldo_salud_total_anual = c["saldo_salud_total_anual"]
+            user_existente.cargas_registradas = c["cargas_registradas"]
+            user_existente.estado_previsional = "Al día"
+            db.add(user_existente)
+        else:
+            nuevo_u = User(
+                rut=c["rut"],
+                email=c["email"],
+                nombre_completo=c["nombre_completo"],
+                hashed_password=get_password_hash(c["password"]),
+                rol=c["rol"],
+                is_superuser=c["is_superuser"],
+                is_active=c["is_active"],
+                departamento=c["departamento"],
+                antiguedad=c["antiguedad"],
+                meses_antiguedad=c["meses_antiguedad"],
+                saldo_salud_disponible=c["saldo_salud_disponible"],
+                saldo_salud_total_anual=c["saldo_salud_total_anual"],
+                cargas_registradas=c["cargas_registradas"],
+                estado_previsional="Al día",
+            )
+            db.add(nuevo_u)
+
+    await registrar_auditoria(
+        db=db,
+        usuario=current_user,
+        modulo="ADMINISTRACION",
+        accion="RESET_AMBIENTE_PRUEBAS",
+        recurso_tipo="Sistema",
+        recurso_id="GLOBAL",
+        detalles="Reinicio completo del ambiente de pruebas: bandejas vaciadas, cupos a $150.000, cuentas de prueba limpiadas, cuenta de Javiera Rivera configurada con 0 meses y cuenta de Matías Trujillo liberada.",
+    )
+
+    await db.commit()
+
+    return {
+        "status": "success",
+        "mensaje": "Ambiente de pruebas reiniciado exitosamente. Todas las bandejas vaciadas y cuentas listas.",
+        "matias_trujillo_liberado": True,
+        "cuentas_activas": len(cuentas_a_sincronizar),
+    }

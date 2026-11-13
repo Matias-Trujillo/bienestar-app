@@ -48,6 +48,7 @@ export default function ReembolsosPage() {
   const [beneficiarios, setBeneficiarios] = useState<BeneficiarioReembolso[]>([]);
   const [, setCargando] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showCarenciaModal, setShowCarenciaModal] = useState(false);
   const [showDetalle, setShowDetalle] = useState<SolicitudReembolso | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -131,15 +132,28 @@ export default function ReembolsosPage() {
     }
   }, [cargarReembolsos]);
 
+  const puedeSolicitar = Boolean(resumen.puede_solicitar);
+
   const handleAbrirModal = async () => {
     await cargarReembolsos();
     if (refreshUser) {
       await refreshUser();
     }
+    const esDirectivaOAdmin = Boolean(
+      user?.isSuperuser ||
+      ['ADMIN', 'SUPERUSUARIO', 'PRESIDENTE', 'TESORERO', 'SECRETARIO', 'AUDITOR'].includes(
+        (user?.rol || '').toUpperCase()
+      )
+    );
+
+    // Intercepción estricta: Si tiene < 6 meses y no es directiva, mostrar DIRECTAMENTE el diálogo de carencia sin abrir el formulario
+    if (!puedeSolicitar && !esDirectivaOAdmin) {
+      setShowCarenciaModal(true);
+      return;
+    }
+
     setShowModal(true);
   };
-
-  const puedeSolicitar = resumen.puede_solicitar;
 
   // Plazo 30 días
   useEffect(() => {
@@ -441,16 +455,20 @@ export default function ReembolsosPage() {
             </Link>
             <button
               onClick={handleAbrirModal}
-              disabled={!puedeSolicitar}
-              title={!puedeSolicitar ? 'Requiere al menos 6 meses de antigüedad' : undefined}
               id="btn-nueva-solicitud"
-              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm ${
+              title={
+                !puedeSolicitar
+                  ? `Antigüedad actual: ${resumen.meses_antiguedad} mes(es). Presione para conocer los detalles de su carencia reglamentaria.`
+                  : 'Ingresar nueva solicitud de reembolso médico'
+              }
+              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 ${
                 puedeSolicitar
                   ? 'text-white bg-gradient-to-r from-[#166534] to-[#558b2f] hover:opacity-95'
-                  : 'text-slate-400 bg-slate-700 cursor-not-allowed'
+                  : 'text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300'
               }`}
             >
-              + Nueva Solicitud
+              {!puedeSolicitar && <span>🔒</span>}
+              <span>+ Nueva Solicitud {!puedeSolicitar ? '(Carencia Activa)' : ''}</span>
             </button>
           </div>
         </div>
@@ -516,15 +534,94 @@ export default function ReembolsosPage() {
           user?.isSuperuser ||
           ['ADMIN', 'SUPERUSUARIO', 'PRESIDENTE', 'TESORERO'].includes((user?.rol || '').toUpperCase())
         )}
+        errorMsg={errorMsg}
+        setErrorMsg={setErrorMsg}
         onBuscarSocioAsistido={handleBuscarSocioAsistido}
         onClose={() => {
           setShowModal(false);
           setUploadedFile(null);
           setFechaValidacion(null);
+          setErrorMsg(null);
         }}
         onFileChange={handleFileChange}
         onSubmit={handleSubmit}
       />
+
+      {/* Modal Institucional de Carencia Estatutaria (Art. 14 / < 6 Meses) */}
+      {showCarenciaModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-amber-200 overflow-hidden animate-scale-in">
+            {/* Cabecera institucional */}
+            <div className="bg-gradient-to-r from-[#0c2b45] to-[#006799] p-5 text-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-extrabold text-lg shadow-sm shrink-0">
+                ⚖
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white leading-tight">
+                  Período de Carencia Estatutaria Activo
+                </h3>
+                <p className="text-xs text-sky-200 mt-0.5">
+                  Reglamento de Bienestar • Art. 14 Ley N° 19.754
+                </p>
+              </div>
+            </div>
+
+            {/* Contenido explicativo */}
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              <p className="leading-relaxed">
+                Estimado(a) funcionario(a) <strong className="text-slate-900">{user?.nombreCompleto || resumen.socio_nombre}</strong>:
+              </p>
+              <p className="leading-relaxed">
+                De conformidad con el <strong>Artículo 14 del Reglamento del Servicio de Bienestar de la I. Municipalidad de Peralillo</strong>,
+                todo socio de reciente incorporación debe registrar un período de antigüedad mínimo de <strong>6 meses continuos de cotizaciones</strong> para acceder al beneficio de reembolsos médicos, farmacéuticos y dentales.
+              </p>
+
+              {/* Tarjeta de estado de carencia */}
+              <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600 font-medium">Antigüedad registrada:</span>
+                  <span className="font-extrabold text-[#b45309] font-mono">
+                    {resumen.meses_antiguedad} mes(es) {resumen.meses_antiguedad === 0 ? '(Recién incorporado)' : ''}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600 font-medium">Antigüedad requerida:</span>
+                  <span className="font-bold text-slate-800 font-mono">≥ 6 meses continuos</span>
+                </div>
+                <div className="flex items-center justify-between text-xs border-t border-amber-200/80 pt-1.5">
+                  <span className="text-slate-600 font-medium">Meses para habilitación:</span>
+                  <span className="font-extrabold text-amber-800 font-mono">
+                    {Math.max(0, 6 - resumen.meses_antiguedad)} mes(es) faltante(s)
+                  </span>
+                </div>
+                {resumen.fecha_habilitacion && (
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <span className="text-slate-600 font-medium">Fecha estimada habilitación:</span>
+                    <span className="font-extrabold text-emerald-700 font-mono">
+                      {formatDate(resumen.fecha_habilitacion)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-normal">
+                Su incorporación se encuentra legalmente registrada y al día. Una vez completado este período estatutario, el sistema habilitará automáticamente el ingreso de sus solicitudes de reembolso con su cupo anual íntegro de <strong>$150.000</strong>.
+              </p>
+            </div>
+
+            {/* Botón de cierre */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowCarenciaModal(false)}
+                className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95 rounded-xl shadow-xs transition"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Detalle Modular */}
       <DetalleSolicitudModal

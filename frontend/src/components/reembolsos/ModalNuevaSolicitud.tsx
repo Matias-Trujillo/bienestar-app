@@ -44,6 +44,8 @@ interface ModalNuevaSolicitudProps {
   usuarioNombre?: string;
   beneficiarios?: BeneficiarioReembolso[];
   esDirectiva?: boolean;
+  errorMsg?: string | null;
+  setErrorMsg?: React.Dispatch<React.SetStateAction<string | null>>;
   onBuscarSocioAsistido?: (rut: string) => Promise<void>;
   onClose: () => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -61,6 +63,8 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
   usuarioNombre,
   beneficiarios = [],
   esDirectiva = false,
+  errorMsg,
+  setErrorMsg,
   onBuscarSocioAsistido,
   onClose,
   onFileChange,
@@ -154,8 +158,12 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
   // Renderizado en Portal directo al body para cubrir el 100% de la ventana completa
   return createPortal(
     <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-3 sm:p-5 flex items-center justify-center animate-fade-in">
-      {/* Contenedor del Modal Vertical y Cómodo */}
-      <div className="relative bg-white rounded-2xl max-w-lg sm:max-w-xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden my-auto animate-scale-in">
+      {/* Contenedor del Modal Vertical y Cómodo como Formulario Unificado */}
+      <form
+        id="form-reembolso"
+        onSubmit={onSubmit}
+        className="relative bg-white rounded-2xl max-w-lg sm:max-w-xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden my-auto animate-scale-in"
+      >
         
         {/* 1. Header Fijo */}
         <div className="flex-shrink-0 px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white z-10">
@@ -183,6 +191,25 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
             ✕
           </button>
         </div>
+
+        {/* Alerta de Error Visible Dentro del Propio Modal */}
+        {errorMsg && (
+          <div className="mx-5 mt-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="text-rose-600 font-bold text-sm">⚠</span>
+              <span>{errorMsg}</span>
+            </div>
+            {setErrorMsg && (
+              <button
+                type="button"
+                onClick={() => setErrorMsg(null)}
+                className="text-rose-600 hover:text-rose-900 font-bold px-2 py-0.5 rounded"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 2. Cuerpo con Flujo Vertical Hacia Abajo y Scroll Interno Fluido */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3.5 space-y-3 text-xs">
@@ -243,7 +270,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
           </div>
 
           {/* Formulario Secuencial Vertical hacia Abajo */}
-          <form id="form-reembolso" onSubmit={onSubmit} className="space-y-2.5">
+          <div className="space-y-2.5">
             {/* Barra de Atención Asistida para Directiva */}
             {esDirectiva && (
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
@@ -547,7 +574,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                 Declaro bajo juramento que los antecedentes y comprobantes ingresados son verídicos, fidedignos y legales.
               </span>
             </label>
-          </form>
+          </div>
         </div>
 
         {/* 3. Footer Fijo (Siempre visible al pie del modal) */}
@@ -575,7 +602,6 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
             </button>
             <button
               type="submit"
-              form="form-reembolso"
               disabled={
                 enviando ||
                 excedeSaldo ||
@@ -590,7 +616,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
           </div>
         </div>
 
-      </div>
+      </form>
     </div>,
     document.body
   );

@@ -47,6 +47,7 @@ export default function BeneficiosPage() {
   const [modalValidarSolicitud, setModalValidarSolicitud] = useState<SolicitudBeneficio | null>(null);
   const [modalVisorDoc, setModalVisorDoc] = useState<{ titulo: string; tipo: string; num?: string; url?: string; detalle?: string } | null>(null);
   const [modalExportarTesoreria, setModalExportarTesoreria] = useState<ExportarTesoreriaData | null>(null);
+  const [showCarenciaBonoModal, setShowCarenciaBonoModal] = useState<boolean>(false);
 
   // Formularios
   const [formPostulacion, setFormPostulacion] = useState<FormPostulacionBono>({
@@ -425,7 +426,7 @@ export default function BeneficiosPage() {
     document.body.removeChild(link);
   };
 
-  const antiguedadMesesActual = user?.mesesAntiguedad ?? 12;
+  const antiguedadMesesActual = user?.mesesAntiguedad ?? 0;
   const cumpleRequisito6Meses = antiguedadMesesActual >= 6;
 
   return (
@@ -482,6 +483,10 @@ export default function BeneficiosPage() {
           cumpleRequisito6Meses={cumpleRequisito6Meses}
           esDirectivaOAdmin={esDirectivaOAdmin}
           onPostular={(bono) => {
+            if (!cumpleRequisito6Meses && !esDirectivaOAdmin) {
+              setShowCarenciaBonoModal(true);
+              return;
+            }
             setModalPostularBono(bono);
             setFormPostulacion((p) => ({
               ...p,
@@ -490,7 +495,13 @@ export default function BeneficiosPage() {
             }));
           }}
           onAsignacionDirecta={() => setModalAsignacionDirecta(true)}
-          onError={(msg) => setErrorMsg(msg)}
+          onError={(msg) => {
+            if (!cumpleRequisito6Meses && !esDirectivaOAdmin) {
+              setShowCarenciaBonoModal(true);
+            } else {
+              setErrorMsg(msg);
+            }
+          }}
         />
       )}
 
@@ -577,6 +588,69 @@ export default function BeneficiosPage() {
         modalExportarTesoreria={modalExportarTesoreria}
         setModalExportarTesoreria={setModalExportarTesoreria}
       />
+
+      {/* Modal Institucional de Carencia en Beneficios Sociales (< 6 Meses) */}
+      {showCarenciaBonoModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-amber-200 overflow-hidden animate-scale-in">
+            <div className="bg-gradient-to-r from-[#0c2b45] to-[#006799] p-5 text-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-extrabold text-lg shadow-sm shrink-0">
+                ⚖
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white leading-tight">
+                  Período de Carencia en Beneficios
+                </h3>
+                <p className="text-xs text-sky-200 mt-0.5">
+                  Reglamento de Beneficios • Art. 14 Ley N° 19.754
+                </p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              <p className="leading-relaxed">
+                Estimado(a) funcionario(a) <strong className="text-slate-900">{user?.nombreCompleto || 'Socio'}</strong>:
+              </p>
+              <p className="leading-relaxed">
+                De conformidad con el <strong>Artículo 14 del Reglamento de Bienestar</strong>, las asignaciones y bonos sociales facultativos requieren un período de permanencia mínimo de <strong>6 meses continuos de cotizaciones</strong>.
+              </p>
+
+              <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600 font-medium">Antigüedad registrada:</span>
+                  <span className="font-extrabold text-[#b45309] font-mono">
+                    {antiguedadMesesActual} mes(es) {antiguedadMesesActual === 0 ? '(Recién incorporado)' : ''}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600 font-medium">Requisito estatutario:</span>
+                  <span className="font-bold text-slate-800 font-mono">≥ 6 meses continuos</span>
+                </div>
+                <div className="flex items-center justify-between text-xs border-t border-amber-200/80 pt-1.5">
+                  <span className="text-slate-600 font-medium">Meses para habilitación:</span>
+                  <span className="font-extrabold text-amber-800 font-mono">
+                    {Math.max(0, 6 - antiguedadMesesActual)} mes(es) faltante(s)
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-normal">
+                Su condición de socio se encuentra debidamente registrada y al día. Una vez completado este período, podrá postular a todos los bonos del catálogo con cálculo automático según el Sueldo Base de Referencia.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowCarenciaBonoModal(false)}
+                className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95 rounded-xl shadow-xs transition"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

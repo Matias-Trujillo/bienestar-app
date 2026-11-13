@@ -87,19 +87,19 @@ def _calcular_fecha_habilitacion(antiguedad_meses: int) -> Optional[str]:
     """Si faltan meses para alcanzar la carencia, retorna la fecha estimada."""
     if antiguedad_meses >= MESES_CARENCIA:
         return None
-    faltante = MESES_CARENCIA - antiguedad_meses
+    faltante = max(1, MESES_CARENCIA - antiguedad_meses)
     fecha = date.today() + timedelta(days=faltante * 30)
     return fecha.isoformat()
 
 
 # [ESTUDIANTE INFORMÁTICA] Esta función implementa la regla de negocio de carencia (HU-03: mínimo 6 meses); esto valida si el socio está habilitado y permite bloquear el formulario en caso contrario.
 def validar_carencia(user: User) -> Tuple[bool, Optional[str], Optional[str]]:
-    """Valida la carencia de 6 meses.
+    """Valida la carencia de 6 meses (precisión >= 6 meses habilitado, < 6 meses en carencia).
     
     Returns:
         (puede_solicitar, fecha_habilitacion, mensaje)
     """
-    meses = _parse_antiguedad_a_meses(user.antiguedad)
+    meses = user.meses_antiguedad if user.meses_antiguedad is not None else _parse_antiguedad_a_meses(user.antiguedad)
     if meses >= MESES_CARENCIA:
         return True, None, None
 
@@ -371,11 +371,10 @@ async def obtener_resumen_socio(
 ) -> ResumenSaludSocio:
     """Calcula el resumen de salud y fondos del socio para el año calendario vigente."""
     await asegurar_columnas_reembolso(db)
-    await _asegurar_semilla_diciembre_anterior(user, db)
 
     anio_calendario = anio or date.today().year
     puede, fecha_hab, msg_carencia = validar_carencia(user)
-    meses = _parse_antiguedad_a_meses(user.antiguedad)
+    meses = user.meses_antiguedad if user.meses_antiguedad is not None else _parse_antiguedad_a_meses(user.antiguedad)
 
     # Obtener todas las solicitudes del socio y filtrar exclusivamente por el año calendario consultado
     result = await db.scalars(
