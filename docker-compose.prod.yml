@@ -41,6 +41,13 @@ services:
       AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-false}
       AFILIACION_PORCENTAJE_DESCUENTO: 4
       AFILIACION_MESES_CARENCIA: 6
+      # Servicio de Correo SMTP Saliente Institucional (bperalillo@gmail.com)
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-bperalillo@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-xgsnewzymyqjumgc}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-bperalillo@gmail.com}
+      SMTP_FROM_NAME: "Comité de Bienestar • I. Municipalidad de Peralillo"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

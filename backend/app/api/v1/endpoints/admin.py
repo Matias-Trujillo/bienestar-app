@@ -407,8 +407,8 @@ async def listar_parametros(
     defaults_smtp = [
         ("SMTP_HOST", "smtp.gmail.com", "Servidor de correo saliente (ej: smtp.gmail.com o smtp.office365.com)"),
         ("SMTP_PORT", "587", "Puerto SMTP (587 para STARTTLS, 465 para SSL)"),
-        ("SMTP_USER", "", "Correo electrónico remitente para envío real de correos (ej: tucorreo@gmail.com)"),
-        ("SMTP_PASSWORD", "", "Contraseña de Aplicación de 16 letras (Google App Password) o clave SMTP"),
+        ("SMTP_USER", "bperalillo@gmail.com", "Correo electrónico remitente para envío real de correos (ej: tucorreo@gmail.com)"),
+        ("SMTP_PASSWORD", "xgsnewzymyqjumgc", "Contraseña de Aplicación de 16 letras (Google App Password) o clave SMTP"),
     ]
     hubo_nuevos = False
     for clave_def, val_def, desc_def in defaults_smtp:
