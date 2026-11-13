@@ -104,6 +104,8 @@ async def init_db() -> None:
         # auto-encripta contraseñas modificadas desde la interfaz DBA sin persistir texto plano,
         # registra auditoría inmutable en audit_logs y expone la vista de seguridad de roles.
         if engine.dialect.name == "postgresql":
+            await conn.execute(text("ALTER TABLE solicitudes_afiliacion ALTER COLUMN resuelto_at TYPE VARCHAR(60);"))
+            await conn.execute(text("ALTER TABLE solicitudes_afiliacion ALTER COLUMN resuelto_por TYPE VARCHAR(150);"))
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto;"))
             await conn.execute(text("""
                 CREATE OR REPLACE FUNCTION fn_usuarios_auto_bcrypt()

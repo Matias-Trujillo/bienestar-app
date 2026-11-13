@@ -9,12 +9,14 @@ Implementa las reglas de negocio estatutarias de Bienestar Municipal:
   - Ingestión masiva de socios y cargas mediante nómina digital.
 """
 import calendar
+import json
 import re
 from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Set
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select, text
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -47,6 +49,7 @@ from app.services.email_service import (
     generar_correo_recepcion_solicitud,
     generar_correo_resolucion_carga_familiar,
     generar_correo_resolucion_solicitud,
+    listar_buzon_memoria,
 )
 
 MESES = [
@@ -87,47 +90,66 @@ RUTS_AUTORIZADOS_CARGA_MASIVA: Set[str] = {
 _TABLA_CARGAS_LISTA = False
 
 
+def _val(x: Any) -> str:
+    """Extrae el valor en string de forma segura tanto para Enum como para str nativo de PostgreSQL."""
+    if x is None:
+        return ""
+    if hasattr(x, "value"):
+        return str(x.value)
+    return str(x)
+
+
 # [ESTUDIANTE INFORMÁTICA] Asegura que la tabla de cargas familiares exista e incluya los campos para certificados digitales.
 async def asegurar_tabla_cargas(db: AsyncSession) -> None:
     global _TABLA_CARGAS_LISTA
     if _TABLA_CARGAS_LISTA:
         return
-    await db.execute(
-        text(
-            """
-            CREATE TABLE IF NOT EXISTS solicitudes_cargas_familiares (
-                id SERIAL PRIMARY KEY,
-                folio VARCHAR(24) UNIQUE NOT NULL,
-                socio_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                socio_nombre VARCHAR(120) NOT NULL,
-                socio_rut VARCHAR(20) NOT NULL,
-                socio_email VARCHAR(120),
-                nombre_completo VARCHAR(120) NOT NULL,
-                run VARCHAR(15) NOT NULL,
-                parentesco VARCHAR(40) NOT NULL,
-                observacion_socio VARCHAR(300),
-                certificado_nombre VARCHAR(255),
-                certificado_tipo VARCHAR(120),
-                certificado_data TEXT,
-                estado estado_solicitud NOT NULL DEFAULT 'Pendiente de aprobación',
-                fecha_sesion VARCHAR(10),
-                numero_acta VARCHAR(50),
-                observaciones_resolucion VARCHAR(500),
-                resuelto_por VARCHAR(120),
-                resuelto_at VARCHAR(30),
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-            """
+    try:
+        bind = db.get_bind()
+        if bind and "sqlite" in getattr(bind.dialect, "name", ""):
+            _TABLA_CARGAS_LISTA = True
+            return
+    except Exception:
+        pass
+    try:
+        await db.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS solicitudes_cargas_familiares (
+                    id SERIAL PRIMARY KEY,
+                    folio VARCHAR(24) UNIQUE NOT NULL,
+                    socio_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+                    socio_nombre VARCHAR(120) NOT NULL,
+                    socio_rut VARCHAR(20) NOT NULL,
+                    socio_email VARCHAR(120),
+                    nombre_completo VARCHAR(120) NOT NULL,
+                    run VARCHAR(15) NOT NULL,
+                    parentesco VARCHAR(40) NOT NULL,
+                    observacion_socio VARCHAR(300),
+                    certificado_nombre VARCHAR(255),
+                    certificado_tipo VARCHAR(120),
+                    certificado_data TEXT,
+                    estado estado_solicitud NOT NULL DEFAULT 'Pendiente de aprobación',
+                    fecha_sesion VARCHAR(10),
+                    numero_acta VARCHAR(50),
+                    observaciones_resolucion VARCHAR(500),
+                    resuelto_por VARCHAR(120),
+                    resuelto_at VARCHAR(30),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """
+            )
         )
-    )
-    for col_sql in (
-        "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
-        "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
-        "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
-    ):
-        await db.execute(text(col_sql))
-    await db.commit()
+        for col_sql in (
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
+        ):
+            await db.execute(text(col_sql))
+        await db.commit()
+    except Exception:
+        pass
     _TABLA_CARGAS_LISTA = True
 
 
@@ -175,11 +197,11 @@ def to_comprobante(
     run_fmt = formatear_run(s.run)
     msg = (
         f"Su solicitud de incorporación N° {s.folio} fue ingresada correctamente y se encuentra "
-        f"en estado \"{s.estado.value}\". Será revisada por la Directiva del Comité de Bienestar."
+        f"en estado \"{_val(s.estado)}\". Será revisada por la Directiva del Comité de Bienestar."
     )
-    if s.estado == EstadoSolicitud.APROBADA:
+    if _val(s.estado) == _val(EstadoSolicitud.APROBADA):
         msg = f"Solicitud N° {s.folio} APROBADA en sesión de Directorio del {s.fecha_sesion}. Socio habilitado como Activo."
-    elif s.estado == EstadoSolicitud.RECHAZADA:
+    elif _val(s.estado) == _val(EstadoSolicitud.RECHAZADA):
         msg = f"Solicitud N° {s.folio} RECHAZADA. Observaciones: {s.observaciones_resolucion or 'Sin observaciones registradas'}."
 
     if notificacion_email is None and ligero:
@@ -189,21 +211,21 @@ def to_comprobante(
             "motivo": s.observaciones_resolucion,
         }
     elif notificacion_email is None:
-        if s.estado == EstadoSolicitud.PENDIENTE:
+        if _val(s.estado) == _val(EstadoSolicitud.PENDIENTE):
             notificacion_email = generar_correo_recepcion_solicitud(
                 folio=s.folio,
                 nombre_completo=s.nombre_completo,
                 run_formateado=run_fmt,
                 email_destino=s.email,
                 grado=s.grado,
-                calidad_contractual=s.calidad_contractual.value,
+                calidad_contractual=_val(s.calidad_contractual),
                 porcentaje_descuento=s.porcentaje_descuento,
                 meses_carencia=settings.AFILIACION_MESES_CARENCIA,
-                cantidad_cargas=len(s.cargas),
+                cantidad_cargas=len(s.cargas) if hasattr(s, "cargas") and s.cargas else 0,
                 fecha_ingreso=s.created_at,
                 enviar_smtp=enviar_email,
             )
-        elif s.estado == EstadoSolicitud.APROBADA:
+        elif _val(s.estado) == _val(EstadoSolicitud.APROBADA):
             notificacion_email = generar_correo_resolucion_solicitud(
                 folio=s.folio,
                 nombre_completo=s.nombre_completo,
@@ -218,7 +240,7 @@ def to_comprobante(
                 clave_temporal=generar_clave_temporal_rut(s.run),
                 enviar_smtp=enviar_email,
             )
-        elif s.estado == EstadoSolicitud.RECHAZADA:
+        elif _val(s.estado) == _val(EstadoSolicitud.RECHAZADA):
             notificacion_email = generar_correo_resolucion_solicitud(
                 folio=s.folio,
                 nombre_completo=s.nombre_completo,
@@ -232,14 +254,18 @@ def to_comprobante(
                 enviar_smtp=enviar_email,
             )
 
+    cargas_raw = []
+    if hasattr(s, "__dict__") and "cargas" in s.__dict__:
+        cargas_raw = s.__dict__["cargas"] or []
+
     return ComprobanteOut(
         folio=s.folio,
-        estado=s.estado.value,
+        estado=_val(s.estado),
         fechaIngreso=s.created_at,
         nombreCompleto=s.nombre_completo,
         run=run_fmt,
         grado=s.grado,
-        calidadContractual=s.calidad_contractual.value,
+        calidadContractual=_val(s.calidad_contractual),
         email=s.email,
         porcentajeDescuento=s.porcentaje_descuento,
         cargas=[
@@ -248,7 +274,7 @@ def to_comprobante(
                 run=formatear_run(c.run),
                 parentesco=c.parentesco,
             )
-            for c in s.cargas
+            for c in cargas_raw
         ],
         mesesCarencia=settings.AFILIACION_MESES_CARENCIA,
         textoCarencia=texto_carencia(),
@@ -373,16 +399,55 @@ class AfiliacionService:
             )
 
         db.add(solicitud)
-        await db.commit()
-        await db.refresh(solicitud)
+        await db.flush()
+
         await sincronizar_smtp_desde_db(db)
-        return to_comprobante(solicitud, enviar_email=True)
+        correo_recepcion = generar_correo_recepcion_solicitud(
+            folio=solicitud.folio,
+            nombre_completo=solicitud.nombre_completo,
+            run_formateado=formatear_run(solicitud.run),
+            email_destino=solicitud.email,
+            grado=solicitud.grado,
+            calidad_contractual=_val(solicitud.calidad_contractual),
+            porcentaje_descuento=solicitud.porcentaje_descuento,
+            meses_carencia=settings.AFILIACION_MESES_CARENCIA,
+            cantidad_cargas=len(payload.cargas),
+            fecha_ingreso=solicitud.created_at,
+            enviar_smtp=True,
+        )
+
+        db.add(
+            AuditLog(
+                usuario_nombre=solicitud.nombre_completo,
+                usuario_rut=formatear_run(solicitud.run),
+                usuario_rol="postulante",
+                modulo="AFILIACION",
+                accion="INGRESO_SOLICITUD_Y_CORREO",
+                recurso_tipo="SolicitudAfiliacion",
+                recurso_id=folio_nuevo,
+                detalles=(
+                    f"Solicitud {folio_nuevo} ingresada por {solicitud.nombre_completo} (RUN {formatear_run(solicitud.run)}). "
+                    f"Autoriza {settings.AFILIACION_PORCENTAJE_DESCUENTO}% descuento y acepta {settings.AFILIACION_MESES_CARENCIA} meses carencia. "
+                    f"Correo de confirmación enviado a {correo_recepcion['destinatario']}."
+                ),
+                ip_origen="127.0.0.1",
+            )
+        )
+        await db.commit()
+        creada = await db.scalar(
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .where(SolicitudAfiliacion.id == solicitud.id)
+        )
+        return to_comprobante(creada or solicitud, notificacion_email=correo_recepcion)
 
     @staticmethod
     async def consultar_solicitud(db: AsyncSession, folio: str, run: str) -> ComprobanteOut:
         run_norm = normalizar_run(run)
         solicitud = await db.scalar(
-            select(SolicitudAfiliacion).where(
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .where(
                 SolicitudAfiliacion.folio == folio,
                 SolicitudAfiliacion.run == run_norm,
             )
@@ -393,7 +458,11 @@ class AfiliacionService:
 
     @staticmethod
     async def listar_solicitudes(db: AsyncSession, estado: Optional[str] = None) -> List[ComprobanteOut]:
-        query = select(SolicitudAfiliacion).order_by(SolicitudAfiliacion.id.desc())
+        query = (
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .order_by(SolicitudAfiliacion.id.desc())
+        )
         if estado:
             query = query.where(SolicitudAfiliacion.estado == EstadoSolicitud(estado))
         filas = (await db.scalars(query)).all()
@@ -410,114 +479,344 @@ class AfiliacionService:
         return int(count or 0)
 
     @staticmethod
+    async def contar_solicitudes_pendientes(db: AsyncSession) -> int:
+        resultado = await db.scalar(
+            select(func.count(SolicitudAfiliacion.id)).where(
+                SolicitudAfiliacion.estado == EstadoSolicitud.PENDIENTE
+            )
+        )
+        return resultado or 0
+
+    @staticmethod
     async def resolver_solicitud(
         db: AsyncSession,
         folio: str,
         payload: ResolucionSolicitudIn,
         evaluador: User,
     ) -> ComprobanteOut:
+        try:
+            await sincronizar_smtp_desde_db(db)
+            solicitud = await db.scalar(
+                select(SolicitudAfiliacion)
+                .options(selectinload(SolicitudAfiliacion.cargas))
+                .where(SolicitudAfiliacion.folio == folio)
+            )
+            if not solicitud:
+                raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+
+            if _val(solicitud.estado) != _val(EstadoSolicitud.PENDIENTE):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"La solicitud {folio} ya fue resuelta previamente ({_val(solicitud.estado)}).",
+                )
+
+            ahora_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            if payload.accion == "aprobar":
+                if not payload.fechaSesion:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="La fecha de la sesión de Directorio es obligatoria para aprobar.",
+                    )
+                f_sesion = date.fromisoformat(payload.fechaSesion)
+                # Cálculo de término de carencia (+6 meses exactos)
+                fin_carencia_mes = (f_sesion.month + settings.AFILIACION_MESES_CARENCIA - 1) % 12 + 1
+                fin_carencia_anio = f_sesion.year + (f_sesion.month + settings.AFILIACION_MESES_CARENCIA - 1) // 12
+                ultimo_dia = calendar.monthrange(fin_carencia_anio, fin_carencia_mes)[1]
+                fin_carencia = date(fin_carencia_anio, fin_carencia_mes, min(f_sesion.day, ultimo_dia))
+
+                solicitud.estado = EstadoSolicitud.APROBADA
+                solicitud.fecha_sesion = f_sesion.isoformat()
+                solicitud.numero_acta = (payload.numeroActa or "").strip() or "Acta Ordinaria de Directorio"
+                solicitud.fecha_fin_carencia = fin_carencia.isoformat()
+                solicitud.observaciones_resolucion = (payload.observaciones or "").strip() or "Aprobada por Directorio"
+                solicitud.resuelto_por = evaluador.nombre_completo
+                solicitud.resuelto_at = ahora_iso
+
+                # Creación automática de cuenta de usuario con rol socio
+                user_existente = await db.scalar(select(User).where(User.rut == solicitud.run))
+                clave_temp = generar_clave_temporal_rut(solicitud.run)
+                socio_id = None
+                cargas_count = len(solicitud.cargas) if hasattr(solicitud, "cargas") and solicitud.cargas else 0
+                if not user_existente:
+                    target_email = (solicitud.email or f"{solicitud.run}@mperalillo.cl").strip().lower()
+                    email_en_uso = await db.scalar(select(User).where(func.lower(User.email) == target_email))
+                    if email_en_uso:
+                        target_email = f"{solicitud.run.replace('-', '').lower()}@mperalillo.cl"
+                    nuevo_user = User(
+                        rut=solicitud.run,
+                        email=target_email,
+                        nombre_completo=solicitud.nombre_completo,
+                        hashed_password=get_password_hash(clave_temp),
+                        rol=UserRole.SOCIO,
+                        departamento=f"{_val(solicitud.calidad_contractual)} ({solicitud.grado})",
+                        antiguedad="0 Meses (Período Carencia)",
+                        meses_antiguedad=0,
+                        estado_previsional="Al día",
+                        saldo_salud_disponible=150000,
+                        saldo_salud_total_anual=150000,
+                        cargas_registradas=cargas_count,
+                    )
+                    db.add(nuevo_user)
+                    await db.flush()
+                    socio_id = nuevo_user.id
+                else:
+                    socio_id = user_existente.id
+
+                if socio_id:
+                    # Marcar cambio obligatorio de contraseña en primer inicio de sesión
+                    sec_param = await db.scalar(
+                        select(ParametroSistema).where(ParametroSistema.clave == f"SEC_USR_{socio_id}")
+                    )
+                    sec_val = json.dumps({"i": 0, "b": False, "c": True, "u": None})
+                    if sec_param:
+                        sec_param.valor = sec_val
+                    else:
+                        db.add(
+                            ParametroSistema(
+                                clave=f"SEC_USR_{socio_id}",
+                                valor=sec_val,
+                                descripcion=f"Seguridad usuario {solicitud.run}",
+                            )
+                        )
+
+                # Emitir Correo #2A: Aprobación con credenciales temporales y pasos a seguir
+                correo_resolucion = generar_correo_resolucion_solicitud(
+                    folio=solicitud.folio,
+                    nombre_completo=solicitud.nombre_completo,
+                    run_formateado=formatear_run(solicitud.run),
+                    email_destino=solicitud.email,
+                    aprobada=True,
+                    motivo=solicitud.observaciones_resolucion,
+                    fecha_sesion=solicitud.fecha_sesion,
+                    numero_acta=solicitud.numero_acta,
+                    fecha_fin_carencia=solicitud.fecha_fin_carencia,
+                    porcentaje_descuento=solicitud.porcentaje_descuento,
+                    clave_temporal=clave_temp,
+                    enviar_smtp=True,
+                )
+
+                db.add(
+                    AuditLog(
+                        usuario_id=evaluador.id,
+                        usuario_nombre=evaluador.nombre_completo,
+                        usuario_rut=evaluador.rut,
+                        usuario_rol=_val(evaluador.rol),
+                        modulo="AFILIACION",
+                        accion="APROBAR_SOLICITUD_DIRECTORIO",
+                        recurso_tipo="SolicitudAfiliacion",
+                        recurso_id=folio,
+                        detalles=(
+                            f"Aprobada en sesión del {f_sesion} ({solicitud.numero_acta}). Carencia hasta {fin_carencia}. "
+                            f"Notificación con clave temporal emitida a {correo_resolucion['destinatario']}."
+                        ),
+                        ip_origen="127.0.0.1",
+                    )
+                )
+            else:
+                if not payload.observaciones or len(payload.observaciones.strip()) < 5:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Debe indicar el motivo de rechazo de forma obligatoria.",
+                    )
+                solicitud.estado = EstadoSolicitud.RECHAZADA
+                solicitud.observaciones_resolucion = payload.observaciones.strip()
+                solicitud.resuelto_por = evaluador.nombre_completo
+                solicitud.resuelto_at = ahora_iso
+
+                # Emitir Correo #2B: Rechazo con causal y pasos de subsanación
+                correo_resolucion = generar_correo_resolucion_solicitud(
+                    folio=solicitud.folio,
+                    nombre_completo=solicitud.nombre_completo,
+                    run_formateado=formatear_run(solicitud.run),
+                    email_destino=solicitud.email,
+                    aprobada=False,
+                    motivo=solicitud.observaciones_resolucion,
+                    fecha_sesion=solicitud.fecha_sesion,
+                    numero_acta=solicitud.numero_acta,
+                    porcentaje_descuento=solicitud.porcentaje_descuento,
+                    enviar_smtp=True,
+                )
+
+                db.add(
+                    AuditLog(
+                        usuario_id=evaluador.id,
+                        usuario_nombre=evaluador.nombre_completo,
+                        usuario_rut=evaluador.rut,
+                        usuario_rol=_val(evaluador.rol),
+                        modulo="AFILIACION",
+                        accion="RECHAZAR_SOLICITUD_DIRECTORIO",
+                        recurso_tipo="SolicitudAfiliacion",
+                        recurso_id=folio,
+                        detalles=(
+                            f"Rechazada. Motivo: {payload.observaciones.strip()}. "
+                            f"Notificación de resolución emitida a {correo_resolucion['destinatario']}."
+                        ),
+                        ip_origen="127.0.0.1",
+                    )
+                )
+
+            await db.commit()
+            resuelta = await db.scalar(
+                select(SolicitudAfiliacion)
+                .options(selectinload(SolicitudAfiliacion.cargas))
+                .where(SolicitudAfiliacion.id == solicitud.id)
+            )
+            return to_comprobante(resuelta or solicitud, notificacion_email=correo_resolucion)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error interno al resolver solicitud: {type(exc).__name__}: {str(exc)}",
+            )
+
+    @staticmethod
+    async def reenviar_correo(db: AsyncSession, folio: str) -> ComprobanteOut:
         await sincronizar_smtp_desde_db(db)
         solicitud = await db.scalar(
-            select(SolicitudAfiliacion).where(SolicitudAfiliacion.folio == folio)
+            select(SolicitudAfiliacion)
+            .options(selectinload(SolicitudAfiliacion.cargas))
+            .where(SolicitudAfiliacion.folio == folio)
         )
         if not solicitud:
             raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
 
-        if solicitud.estado != EstadoSolicitud.PENDIENTE:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"La solicitud {folio} ya fue resuelta previamente ({solicitud.estado.value}).",
+        run_fmt = formatear_run(solicitud.run)
+        cargas_raw = []
+        if hasattr(solicitud, "__dict__") and "cargas" in solicitud.__dict__:
+            cargas_raw = solicitud.__dict__["cargas"] or []
+        cantidad_cargas = len(cargas_raw)
+
+        if _val(solicitud.estado) == _val(EstadoSolicitud.PENDIENTE):
+            correo = generar_correo_recepcion_solicitud(
+                folio=solicitud.folio,
+                nombre_completo=solicitud.nombre_completo,
+                run_formateado=run_fmt,
+                email_destino=solicitud.email,
+                grado=solicitud.grado,
+                calidad_contractual=_val(solicitud.calidad_contractual),
+                porcentaje_descuento=solicitud.porcentaje_descuento,
+                meses_carencia=settings.AFILIACION_MESES_CARENCIA,
+                cantidad_cargas=cantidad_cargas,
+                fecha_ingreso=solicitud.created_at,
+                enviar_smtp=True,
             )
-
-        ahora_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        if payload.accion == "aprobar":
-            if not payload.fechaSesion:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="La fecha de la sesión de Directorio es obligatoria para aprobar.",
-                )
-            f_sesion = date.fromisoformat(payload.fechaSesion)
-            # Cálculo de término de carencia (+6 meses exactos)
-            fin_carencia_mes = (f_sesion.month + settings.AFILIACION_MESES_CARENCIA - 1) % 12 + 1
-            fin_carencia_anio = f_sesion.year + (f_sesion.month + settings.AFILIACION_MESES_CARENCIA - 1) // 12
-            ultimo_dia = calendar.monthrange(fin_carencia_anio, fin_carencia_mes)[1]
-            fin_carencia = date(fin_carencia_anio, fin_carencia_mes, min(f_sesion.day, ultimo_dia))
-
-            solicitud.estado = EstadoSolicitud.APROBADA
-            solicitud.fecha_sesion = f_sesion.isoformat()
-            solicitud.numero_acta = (payload.numeroActa or "").strip() or "Acta Ordinaria de Directorio"
-            solicitud.fecha_fin_carencia = fin_carencia.isoformat()
-            solicitud.observaciones_resolucion = (payload.observaciones or "").strip() or "Aprobada por Directorio"
-            solicitud.resuelto_por = evaluador.nombre_completo
-            solicitud.resuelto_at = ahora_iso
-
-            # Creación automática de cuenta de usuario con rol socio
-            user_existente = await db.scalar(select(User).where(User.rut == solicitud.run))
-            if not user_existente:
-                target_email = (solicitud.email or f"{solicitud.run}@mperalillo.cl").strip().lower()
-                email_en_uso = await db.scalar(select(User).where(func.lower(User.email) == target_email))
-                if email_en_uso:
-                    target_email = f"{solicitud.run.replace('-', '').lower()}@mperalillo.cl"
-                clave_temp = generar_clave_temporal_rut(solicitud.run)
-                nuevo_user = User(
-                    rut=solicitud.run,
-                    email=target_email,
-                    nombre_completo=solicitud.nombre_completo,
-                    hashed_password=get_password_hash(clave_temp),
-                    rol=UserRole.SOCIO,
-                    departamento=f"{solicitud.calidad_contractual.value} ({solicitud.grado})",
-                    antiguedad="0 Meses (Período Carencia)",
-                    meses_antiguedad=0,
-                    estado_previsional="Al día",
-                    saldo_salud_disponible=150000,
-                    saldo_salud_total_anual=150000,
-                    cargas_registradas=len(solicitud.cargas),
-                )
-                db.add(nuevo_user)
-
-            db.add(
-                AuditLog(
-                    usuario_id=evaluador.id,
-                    usuario_nombre=evaluador.nombre_completo,
-                    usuario_rut=evaluador.rut,
-                    usuario_rol=evaluador.rol.value,
-                    modulo="AFILIACION",
-                    accion="APROBAR_SOLICITUD_DIRECTORIO",
-                    recurso_tipo="SolicitudAfiliacion",
-                    recurso_id=folio,
-                    detalles=f"Aprobada en sesión del {f_sesion} ({solicitud.numero_acta}). Carencia hasta {fin_carencia}.",
-                    ip_origen="127.0.0.1",
-                )
+        elif _val(solicitud.estado) == _val(EstadoSolicitud.APROBADA):
+            correo = generar_correo_resolucion_solicitud(
+                folio=solicitud.folio,
+                nombre_completo=solicitud.nombre_completo,
+                run_formateado=run_fmt,
+                email_destino=solicitud.email,
+                aprobada=True,
+                motivo=solicitud.observaciones_resolucion,
+                fecha_sesion=solicitud.fecha_sesion,
+                numero_acta=solicitud.numero_acta,
+                fecha_fin_carencia=solicitud.fecha_fin_carencia,
+                porcentaje_descuento=solicitud.porcentaje_descuento,
+                clave_temporal=generar_clave_temporal_rut(solicitud.run),
+                enviar_smtp=True,
             )
         else:
-            if not payload.observaciones or len(payload.observaciones.strip()) < 5:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Debe indicar el motivo de rechazo de forma obligatoria.",
-                )
-            solicitud.estado = EstadoSolicitud.RECHAZADA
-            solicitud.observaciones_resolucion = payload.observaciones.strip()
-            solicitud.resuelto_por = evaluador.nombre_completo
-            solicitud.resuelto_at = ahora_iso
-
-            db.add(
-                AuditLog(
-                    usuario_id=evaluador.id,
-                    usuario_nombre=evaluador.nombre_completo,
-                    usuario_rut=evaluador.rut,
-                    usuario_rol=evaluador.rol.value,
-                    modulo="AFILIACION",
-                    accion="RECHAZAR_SOLICITUD_DIRECTORIO",
-                    recurso_tipo="SolicitudAfiliacion",
-                    recurso_id=folio,
-                    detalles=f"Rechazada. Motivo: {payload.observaciones.strip()}",
-                    ip_origen="127.0.0.1",
-                )
+            correo = generar_correo_resolucion_solicitud(
+                folio=solicitud.folio,
+                nombre_completo=solicitud.nombre_completo,
+                run_formateado=run_fmt,
+                email_destino=solicitud.email,
+                aprobada=False,
+                motivo=solicitud.observaciones_resolucion,
+                fecha_sesion=solicitud.fecha_sesion,
+                numero_acta=solicitud.numero_acta,
+                porcentaje_descuento=solicitud.porcentaje_descuento,
+                enviar_smtp=True,
             )
+        return to_comprobante(solicitud, notificacion_email=correo)
 
-        await db.commit()
-        await db.refresh(solicitud)
-        return to_comprobante(solicitud, enviar_email=True)
+    @staticmethod
+    async def obtener_buzon(db: AsyncSession, q: Optional[str] = None) -> Dict[str, Any]:
+        solicitudes = (
+            await db.scalars(select(SolicitudAfiliacion).order_by(SolicitudAfiliacion.id.desc()))
+        ).all()
+
+        mensajes: List[Dict[str, Any]] = []
+        for s in solicitudes:
+            run_fmt = formatear_run(s.run)
+            if s.estado == EstadoSolicitud.APROBADA:
+                c_res = generar_correo_resolucion_solicitud(
+                    folio=s.folio,
+                    nombre_completo=s.nombre_completo,
+                    run_formateado=run_fmt,
+                    email_destino=s.email,
+                    aprobada=True,
+                    motivo=s.observaciones_resolucion,
+                    fecha_sesion=s.fecha_sesion,
+                    numero_acta=s.numero_acta,
+                    fecha_fin_carencia=s.fecha_fin_carencia,
+                    porcentaje_descuento=s.porcentaje_descuento,
+                    clave_temporal=generar_clave_temporal_rut(s.run),
+                    enviar_smtp=False,
+                )
+                c_res["id"] = f"{s.folio}-resolucion-aprobada"
+                c_res["fechaEmision"] = (s.resuelto_at or (s.created_at.isoformat() if s.created_at else ""))[:16].replace("T", " ")
+                mensajes.append(c_res)
+            elif s.estado == EstadoSolicitud.RECHAZADA:
+                c_rech = generar_correo_resolucion_solicitud(
+                    folio=s.folio,
+                    nombre_completo=s.nombre_completo,
+                    run_formateado=run_fmt,
+                    email_destino=s.email,
+                    aprobada=False,
+                    motivo=s.observaciones_resolucion,
+                    fecha_sesion=s.fecha_sesion,
+                    numero_acta=s.numero_acta,
+                    porcentaje_descuento=s.porcentaje_descuento,
+                    enviar_smtp=False,
+                )
+                c_rech["id"] = f"{s.folio}-resolucion-rechazada"
+                c_rech["fechaEmision"] = (s.resuelto_at or (s.created_at.isoformat() if s.created_at else ""))[:16].replace("T", " ")
+                mensajes.append(c_rech)
+
+            c_rec = generar_correo_recepcion_solicitud(
+                folio=s.folio,
+                nombre_completo=s.nombre_completo,
+                run_formateado=run_fmt,
+                email_destino=s.email,
+                grado=s.grado,
+                calidad_contractual=_val(s.calidad_contractual),
+                porcentaje_descuento=s.porcentaje_descuento,
+                meses_carencia=settings.AFILIACION_MESES_CARENCIA,
+                cantidad_cargas=len(s.cargas) if hasattr(s, "cargas") and s.cargas else 0,
+                fecha_ingreso=s.created_at,
+                enviar_smtp=False,
+            )
+            c_rec["id"] = f"{s.folio}-recepcion"
+            c_rec["fechaEmision"] = s.created_at.strftime("%Y-%m-%d %H:%M") if s.created_at else c_rec.get("fechaEmision", "")
+            mensajes.append(c_rec)
+
+        extra_memoria = listar_buzon_memoria()
+        for em in extra_memoria:
+            if not any(m["id"] == em.get("id") or (m.get("folio") == em.get("folio") and m.get("tipo") == em.get("tipo")) for m in mensajes):
+                mensajes.append(em)
+
+        if q and q.strip():
+            qn = q.strip().lower()
+            q_clean = re.sub(r"[^0-9kKa-zA-Z@]", "", qn)
+            res_filtrada = []
+            for m in mensajes:
+                d = (m.get("destinatario") or "").lower()
+                fol = (m.get("folio") or "").lower()
+                nom = (m.get("nombreDestinatario") or "").lower()
+                cuerpo = (m.get("cuerpoTexto") or "").lower()
+                cuerpo_clean = re.sub(r"[^0-9kKa-zA-Z@]", "", cuerpo)
+                if qn in d or qn in fol or qn in nom or qn in cuerpo or q_clean in cuerpo_clean:
+                    res_filtrada.append(m)
+            mensajes = res_filtrada
+
+        return {
+            "total": len(mensajes),
+            "correos": mensajes,
+        }
 
     @staticmethod
     async def obtener_nomina_retenciones(db: AsyncSession) -> Dict[str, Any]:
@@ -606,7 +905,7 @@ class AfiliacionService:
                 usuario_id=evaluador.id,
                 usuario_nombre=evaluador.nombre_completo,
                 usuario_rut=evaluador.rut,
-                usuario_rol=evaluador.rol.value,
+                usuario_rol=_val(evaluador.rol),
                 modulo="AFILIACION",
                 accion="CARGA_MASIVA_SOCIOS_EXCEL",
                 recurso_tipo="NominaMasiva",
@@ -642,14 +941,18 @@ class AfiliacionService:
             for sc in todas_solicitudes_extra:
                 run_norm = re.sub(r"[^0-9kK]", "", sc.run or "").upper()
                 estado_val = sc.estado.value if isinstance(sc.estado, EstadoSolicitud) else str(sc.estado)
-                estado_mostrar = "Vigente" if estado_val == EstadoSolicitud.APROBADA.value else estado_val
                 if estado_val == EstadoSolicitud.APROBADA.value:
+                    estado_mostrar = "Vigente"
                     runs_vistos.add(run_norm)
+                elif estado_val == EstadoSolicitud.PENDIENTE.value:
+                    estado_mostrar = "Pendiente de Revisión"
+                elif estado_val == EstadoSolicitud.RECHAZADA.value:
+                    estado_mostrar = "Rechazada"
+                else:
+                    estado_mostrar = estado_val
 
                 parentesco_val = sc.parentesco or "Hijo/a"
-                cert_tipo = sc.certificado_tipo or TIPO_CERTIFICADO_POR_PARENTESCO.get(
-                    parentesco_val, "Certificado de Respaldo"
-                )
+                cert_tipo = sc.certificado_tipo or "Cédula de Identidad (Frontal)"
                 cargas_list.append({
                     "id": f"cf-{sc.id}",
                     "folio": sc.folio,
@@ -707,10 +1010,18 @@ class AfiliacionService:
         for sc in solicitudes_extra:
             run_norm = re.sub(r"[^0-9kK]", "", sc.run or "").upper()
             estado_val = sc.estado.value if isinstance(sc.estado, EstadoSolicitud) else str(sc.estado)
-            estado_mostrar = "Vigente" if estado_val == EstadoSolicitud.APROBADA.value else estado_val
             if estado_val == EstadoSolicitud.APROBADA.value:
+                estado_mostrar = "Vigente"
                 runs_vistos.add(run_norm)
+            elif estado_val == EstadoSolicitud.PENDIENTE.value:
+                estado_mostrar = "Pendiente de Revisión"
+            elif estado_val == EstadoSolicitud.RECHAZADA.value:
+                estado_mostrar = "Rechazada"
+            else:
+                estado_mostrar = estado_val
+
             parentesco_val = sc.parentesco or "Hijo/a"
+            cert_tipo = sc.certificado_tipo or "Cédula de Identidad (Frontal)"
             cargas_list.append({
                 "id": f"cf-{sc.id}",
                 "folio": sc.folio,
@@ -719,7 +1030,7 @@ class AfiliacionService:
                 "rut": formatear_run(sc.run),
                 "observacion": sc.observacion_socio,
                 "certificadoNombre": sc.certificado_nombre,
-                "certificadoTipo": sc.certificado_tipo or TIPO_CERTIFICADO_POR_PARENTESCO.get(parentesco_val, "Certificado"),
+                "certificadoTipo": cert_tipo,
                 "certificadoData": sc.certificado_data,
                 "estado": estado_mostrar,
                 "fechaSolicitud": sc.created_at.strftime("%Y-%m-%d") if sc.created_at else None,
@@ -730,19 +1041,44 @@ class AfiliacionService:
     @staticmethod
     async def solicitar_nueva_carga(db: AsyncSession, current_user: User, body: NuevaCargaIn) -> SolicitudCargaOut:
         await asegurar_tabla_cargas(db)
+
+        # Doble vía: Si es directiva/admin y se proporciona socioId o socioRut, asociar al socio asistido
+        es_directiva_o_admin = bool(
+            current_user.is_superuser
+            or _val(current_user.rol) in (
+                UserRole.ADMIN.value,
+                UserRole.SUPERUSUARIO.value,
+                UserRole.PRESIDENTE.value,
+                UserRole.SECRETARIO.value,
+                UserRole.TESORERO.value,
+            )
+        )
+        titular = current_user
+        if es_directiva_o_admin and (body.socioId is not None or body.socioRut):
+            if body.socioId is not None:
+                titular = await db.scalar(select(User).where(User.id == body.socioId))
+            elif body.socioRut:
+                rut_norm_busc = normalizar_run(body.socioRut)
+                titular = await db.scalar(select(User).where(User.rut == rut_norm_busc))
+            if not titular:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Socio titular no encontrado en los registros de Bienestar.",
+                )
+
         run_carga_norm = re.sub(r"[^0-9kK]", "", body.run).upper()
-        run_socio_norm = re.sub(r"[^0-9kK]", "", current_user.rut or "").upper()
-        if run_carga_norm == run_socio_norm:
+        run_titular_norm = re.sub(r"[^0-9kK]", "", titular.rut or "").upper()
+        if run_carga_norm == run_titular_norm:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="El RUN de la carga familiar no puede ser igual al RUN del socio titular.",
             )
-        parentesco_limpio = (body.parentesco or "Hijo/a").strip()
-        cert_tipo_exigido = TIPO_CERTIFICADO_POR_PARENTESCO.get(parentesco_limpio, "Certificado de Respaldo Legal")
+
+        # Exigencia de fotografía frontal de la cédula de identidad para verificar fehacientemente los datos
         if not body.certificadoData or not body.certificadoNombre:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Debe adjuntar el {cert_tipo_exigido} para respaldar la solicitud.",
+                detail="Debe adjuntar la fotografía frontal de la cédula de identidad para verificar el RUN y nombres de la carga familiar.",
             )
 
         existente = await db.scalar(
@@ -771,18 +1107,21 @@ class AfiliacionService:
                 pass
         folio_nuevo = f"CF-{anio}-{max_corr + 1:05d}"
 
+        parentesco_limpio = (body.parentesco or "Hijo/a").strip()
+        cert_tipo = body.certificadoTipo or "Cédula de Identidad (Frontal)"
+
         nueva_sc = SolicitudCargaFamiliar(
             folio=folio_nuevo,
-            socio_id=current_user.id,
-            socio_nombre=current_user.nombre_completo,
-            socio_rut=formatear_run(current_user.rut),
-            socio_email=current_user.email,
+            socio_id=titular.id,
+            socio_nombre=titular.nombre_completo,
+            socio_rut=formatear_run(titular.rut),
+            socio_email=titular.email,
             nombre_completo=body.nombreCompleto.strip(),
             run=body.run,
             parentesco=parentesco_limpio,
-            observacion_socio=(body.observacionSocio or "").strip() or cert_tipo_exigido,
+            observacion_socio=(body.observacionSocio or "").strip() or cert_tipo,
             certificado_nombre=body.certificadoNombre.strip(),
-            certificado_tipo=body.certificadoTipo or cert_tipo_exigido,
+            certificado_tipo=cert_tipo,
             certificado_data=body.certificadoData,
             estado=EstadoSolicitud.PENDIENTE,
         )
@@ -792,12 +1131,16 @@ class AfiliacionService:
                 usuario_id=current_user.id,
                 usuario_nombre=current_user.nombre_completo,
                 usuario_rut=current_user.rut,
-                usuario_rol=current_user.rol.value,
+                usuario_rol=_val(current_user.rol),
                 modulo="AFILIACION",
                 accion="SOLICITUD_NUEVA_CARGA_FAMILIAR",
                 recurso_tipo="SolicitudCargaFamiliar",
                 recurso_id=folio_nuevo,
-                detalles=f"Solicitud nueva carga {body.nombreCompleto.strip()} ({parentesco_limpio}).",
+                detalles=(
+                    f"Solicitud nueva carga {body.nombreCompleto.strip()} ({parentesco_limpio}) "
+                    f"para titular {titular.nombre_completo} (RUN {titular.rut}) "
+                    f"{'(asistida en oficina)' if titular.id != current_user.id else '(autogestión)'}."
+                ),
                 ip_origen="127.0.0.1",
             )
         )
@@ -824,44 +1167,77 @@ class AfiliacionService:
         sc = await db.scalar(select(SolicitudCargaFamiliar).where(SolicitudCargaFamiliar.folio == folio))
         if not sc:
             raise HTTPException(status_code=404, detail="Solicitud de carga familiar no encontrada.")
-        if sc.estado != EstadoSolicitud.PENDIENTE:
+        if _val(sc.estado) != _val(EstadoSolicitud.PENDIENTE):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"La solicitud {sc.folio} ya fue resuelta ({sc.estado.value}).",
+                detail=f"La solicitud {sc.folio} ya fue resuelta ({_val(sc.estado)}).",
             )
+
+        socio = await db.scalar(select(User).where(User.id == sc.socio_id))
+        email_dest = sc.socio_email or (socio.email if socio else None)
+        run_formateado_carga = formatear_run(sc.run)
+        run_formateado_socio = sc.socio_rut or (formatear_run(socio.rut) if socio else "")
 
         if body.accion == "aprobar":
             sc.estado = EstadoSolicitud.APROBADA
             sc.fecha_sesion = body.fechaSesion or date.today().isoformat()
             sc.numero_acta = (body.numeroActa or "").strip() or None
             sc.observaciones_resolucion = (body.observaciones or "").strip() or "Aprobada por Directorio"
-            sc.resuelto_por = f"{evaluador.nombre_completo} ({evaluador.rol.value})"
-            sc.resuelto_at = datetime.now().isoformat()
+            sc.resuelto_por = f"{evaluador.nombre_completo} ({_val(evaluador.rol)})"
+            sc.resuelto_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-            socio = await db.scalar(select(User).where(User.id == sc.socio_id))
             if socio:
                 socio.cargas_registradas = int(socio.cargas_registradas or 0) + 1
+
+            generar_correo_resolucion_carga_familiar(
+                folio=sc.folio,
+                socio_nombre=sc.socio_nombre,
+                socio_rut=run_formateado_socio,
+                email_destino=email_dest,
+                carga_nombre=sc.nombre_completo,
+                carga_run=run_formateado_carga,
+                parentesco=sc.parentesco or "Carga Familiar",
+                aprobada=True,
+                motivo=sc.observaciones_resolucion,
+                fecha_sesion=sc.fecha_sesion,
+                numero_acta=sc.numero_acta,
+                enviar_smtp=True,
+            )
         else:
             sc.estado = EstadoSolicitud.RECHAZADA
             sc.observaciones_resolucion = (body.observaciones or "").strip() or "Rechazada por Directorio"
-            sc.resuelto_por = f"{evaluador.nombre_completo} ({evaluador.rol.value})"
-            sc.resuelto_at = datetime.now().isoformat()
+            sc.resuelto_por = f"{evaluador.nombre_completo} ({_val(evaluador.rol)})"
+            sc.resuelto_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+            generar_correo_resolucion_carga_familiar(
+                folio=sc.folio,
+                socio_nombre=sc.socio_nombre,
+                socio_rut=run_formateado_socio,
+                email_destino=email_dest,
+                carga_nombre=sc.nombre_completo,
+                carga_run=run_formateado_carga,
+                parentesco=sc.parentesco or "Carga Familiar",
+                aprobada=False,
+                motivo=sc.observaciones_resolucion,
+                fecha_sesion=sc.fecha_sesion,
+                numero_acta=sc.numero_acta,
+                enviar_smtp=True,
+            )
 
         db.add(
             AuditLog(
                 usuario_id=evaluador.id,
                 usuario_nombre=evaluador.nombre_completo,
                 usuario_rut=evaluador.rut,
-                usuario_rol=evaluador.rol.value,
+                usuario_rol=_val(evaluador.rol),
                 modulo="AFILIACION",
                 accion="RESOLVER_CARGA_FAMILIAR",
                 recurso_tipo="SolicitudCargaFamiliar",
                 recurso_id=sc.folio,
-                detalles=f"Carga {sc.folio} resuelta como {sc.estado.value}.",
+                detalles=f"Carga {sc.folio} resuelta como {_val(sc.estado)}.",
                 ip_origen="127.0.0.1",
             )
         )
         await db.commit()
         await db.refresh(sc)
         return to_solicitud_carga_out(sc)
-

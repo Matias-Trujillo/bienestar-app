@@ -1112,9 +1112,26 @@ def generar_correo_resolucion_carga_familiar(
         if enviar_smtp and destinatario
         else (False, None)
     )
-    return {
-        "folio": folio,
+    payload = {
+        "tipo": "resolucion_carga_familiar",
         "destinatario": destinatario,
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto,
+        "fechaEmision": fecha_emision,
+        "folio": folio,
+        "nombreDestinatario": socio_nombre,
+        "runDestinatario": socio_rut,
+        "estadoSolicitud": "APROBADA" if aprobada else "RECHAZADA",
+        "estadoResolucion": "ACEPTADA" if aprobada else "RECHAZADA",
+        "resumenEstado": (
+            f"Carga Familiar {carga_nombre} ({parentesco}) {'APROBADA' if aprobada else 'RECHAZADA'}"
+        ),
+        "motivo": motivo_texto,
+        "cuerpoTexto": cuerpo_texto,
+        "cuerpoHtml": cuerpo_html,
         "enviadoSmtp": enviado_smtp,
         "errorSmtp": error_smtp,
+        "modoEnvio": "smtp_real" if enviado_smtp else "buzon_institucional",
     }
+    registrar_en_buzon(payload)
+    return payload
