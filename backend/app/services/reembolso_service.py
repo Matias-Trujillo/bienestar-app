@@ -254,6 +254,7 @@ async def asegurar_columnas_reembolso(db: AsyncSession) -> None:
 
 async def obtener_beneficiarios_socio(user: User, db: AsyncSession) -> List[BeneficiarioReembolso]:
     """Retorna la lista de beneficiarios válidos para un socio (Titular + Cargas Familiares Aprobadas)."""
+    await asegurar_columnas_reembolso(db)
     beneficiarios: List[BeneficiarioReembolso] = [
         BeneficiarioReembolso(
             nombre=user.nombre_completo,
@@ -369,6 +370,7 @@ async def obtener_resumen_socio(
     user: User, db: AsyncSession, anio: Optional[int] = None
 ) -> ResumenSaludSocio:
     """Calcula el resumen de salud y fondos del socio para el año calendario vigente."""
+    await asegurar_columnas_reembolso(db)
     await _asegurar_semilla_diciembre_anterior(user, db)
 
     anio_calendario = anio or date.today().year
@@ -604,6 +606,7 @@ async def listar_solicitudes_socio(
     user: User, db: AsyncSession
 ) -> List[SolicitudReembolso]:
     """Lista todas las solicitudes de reembolso del socio, ordenadas por fecha."""
+    await asegurar_columnas_reembolso(db)
     result = await db.scalars(
         select(SolicitudReembolso)
         .options(selectinload(SolicitudReembolso.socio))
@@ -709,6 +712,7 @@ async def listar_todas_solicitudes_admin(
     db: AsyncSession, estado: Optional[str] = None
 ) -> List[SolicitudReembolso]:
     """Lista todas las solicitudes de reembolso de los socios para la bandeja de administración."""
+    await asegurar_columnas_reembolso(db)
     await _asegurar_semillas_sla_demo(db)
 
     query = (
@@ -730,6 +734,7 @@ async def listar_todas_solicitudes_admin(
 # [ESTUDIANTE INFORMÁTICA] Esto cuenta las solicitudes en estado 'en_revision'; permite mostrar el globito de alerta roja con la cantidad de pendientes en el menú.
 async def contar_solicitudes_pendientes_admin(db: AsyncSession) -> int:
     """Retorna la cantidad de solicitudes de reembolso en estado EN_REVISION."""
+    await asegurar_columnas_reembolso(db)
     await _asegurar_semillas_sla_demo(db)
 
     count = await db.scalar(
