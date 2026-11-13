@@ -170,6 +170,7 @@ def to_comprobante(
     s: SolicitudAfiliacion,
     notificacion_email: Optional[Dict[str, Any]] = None,
     ligero: bool = False,
+    enviar_email: bool = False,
 ) -> ComprobanteOut:
     run_fmt = formatear_run(s.run)
     msg = (
@@ -200,7 +201,7 @@ def to_comprobante(
                 meses_carencia=settings.AFILIACION_MESES_CARENCIA,
                 cantidad_cargas=len(s.cargas),
                 fecha_ingreso=s.created_at,
-                enviar_smtp=False,
+                enviar_smtp=enviar_email,
             )
         elif s.estado == EstadoSolicitud.APROBADA:
             notificacion_email = generar_correo_resolucion_solicitud(
@@ -215,7 +216,7 @@ def to_comprobante(
                 fecha_fin_carencia=s.fecha_fin_carencia,
                 porcentaje_descuento=s.porcentaje_descuento,
                 clave_temporal=generar_clave_temporal_rut(s.run),
-                enviar_smtp=False,
+                enviar_smtp=enviar_email,
             )
         elif s.estado == EstadoSolicitud.RECHAZADA:
             notificacion_email = generar_correo_resolucion_solicitud(
@@ -228,7 +229,7 @@ def to_comprobante(
                 fecha_sesion=s.fecha_sesion,
                 numero_acta=s.numero_acta,
                 porcentaje_descuento=s.porcentaje_descuento,
-                enviar_smtp=False,
+                enviar_smtp=enviar_email,
             )
 
     return ComprobanteOut(
@@ -374,7 +375,8 @@ class AfiliacionService:
         db.add(solicitud)
         await db.commit()
         await db.refresh(solicitud)
-        return to_comprobante(solicitud)
+        await sincronizar_smtp_desde_db(db)
+        return to_comprobante(solicitud, enviar_email=True)
 
     @staticmethod
     async def consultar_solicitud(db: AsyncSession, folio: str, run: str) -> ComprobanteOut:
@@ -427,7 +429,7 @@ class AfiliacionService:
                 detail=f"La solicitud {folio} ya fue resuelta previamente ({solicitud.estado.value}).",
             )
 
-        ahora_iso = datetime.now(timezone.utc).isoformat()
+        ahora_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         if payload.accion == "aprobar":
             if not payload.fechaSesion:
                 raise HTTPException(
@@ -452,10 +454,14 @@ class AfiliacionService:
             # Creación automática de cuenta de usuario con rol socio
             user_existente = await db.scalar(select(User).where(User.rut == solicitud.run))
             if not user_existente:
+                target_email = (solicitud.email or f"{solicitud.run}@mperalillo.cl").strip().lower()
+                email_en_uso = await db.scalar(select(User).where(func.lower(User.email) == target_email))
+                if email_en_uso:
+                    target_email = f"{solicitud.run.replace('-', '').lower()}@mperalillo.cl"
                 clave_temp = generar_clave_temporal_rut(solicitud.run)
                 nuevo_user = User(
                     rut=solicitud.run,
-                    email=solicitud.email or f"{solicitud.run}@mperalillo.cl",
+                    email=target_email,
                     nombre_completo=solicitud.nombre_completo,
                     hashed_password=get_password_hash(clave_temp),
                     rol=UserRole.SOCIO,
@@ -511,7 +517,7 @@ class AfiliacionService:
 
         await db.commit()
         await db.refresh(solicitud)
-        return to_comprobante(solicitud)
+        return to_comprobante(solicitud, enviar_email=True)
 
     @staticmethod
     async def obtener_nomina_retenciones(db: AsyncSession) -> Dict[str, Any]:

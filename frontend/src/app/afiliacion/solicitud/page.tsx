@@ -127,7 +127,10 @@ function validateEmailLive(value: string): { isValid: boolean; error: string | n
 }
 
 function parseApiError(err: unknown): string {
+  if (!err) return 'No se pudo enviar la solicitud. Intente nuevamente.';
   const msg = err instanceof Error ? err.message : String(err);
+  if (!msg) return 'No se pudo enviar la solicitud. Intente nuevamente.';
+
   const jsonStart = msg.indexOf('{');
   if (jsonStart >= 0) {
     try {
@@ -140,7 +143,7 @@ function parseApiError(err: unknown): string {
       /* ignorar */
     }
   }
-  return 'No se pudo enviar la solicitud. Verifique su conexión e intente nuevamente.';
+  return msg;
 }
 
 export default function SolicitudAfiliacionPage() {
