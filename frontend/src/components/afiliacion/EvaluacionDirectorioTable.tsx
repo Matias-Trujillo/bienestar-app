@@ -6,6 +6,9 @@ export interface CargaInfo {
   nombreCompleto: string;
   run: string;
   parentesco?: string | null;
+  certificadoNombre?: string | null;
+  certificadoTipo?: string | null;
+  certificadoData?: string | null;
 }
 
 export interface SolicitudResumen {

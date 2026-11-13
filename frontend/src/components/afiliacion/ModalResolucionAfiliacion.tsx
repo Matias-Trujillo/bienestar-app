@@ -30,6 +30,8 @@ export const ModalResolucionAfiliacion: React.FC<ModalResolucionAfiliacionProps>
   onClose,
   onSubmit,
 }) => {
+  const [fotoCargaPreview, setFotoCargaPreview] = React.useState<{ nombre: string; data: string } | null>(null);
+
   if (!solicitud || !modoResolucion) return null;
 
   const correoDestino =
@@ -109,6 +111,15 @@ export const ModalResolucionAfiliacion: React.FC<ModalResolucionAfiliacionProps>
                           <span className="px-1.5 py-0.5 rounded bg-sky-50 text-[#006799] border border-sky-200/70 font-semibold text-[10px]">
                             {c.parentesco || 'Carga'}
                           </span>
+                          {c.certificadoData && (
+                            <button
+                              type="button"
+                              onClick={() => setFotoCargaPreview({ nombre: c.nombreCompleto, data: c.certificadoData! })}
+                              className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px] hover:bg-emerald-100 transition cursor-pointer"
+                            >
+                              Ver Cédula
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -228,6 +239,52 @@ export const ModalResolucionAfiliacion: React.FC<ModalResolucionAfiliacionProps>
           </form>
         </div>
       </div>
+
+      {/* Modal Visor de Cédula de la Carga */}
+      {fotoCargaPreview && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] to-emerald-600" />
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-[#0f2942]">Cédula de Identidad Frontal</h4>
+                <p className="text-xs text-slate-500">Carga: {fotoCargaPreview.nombre}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFotoCargaPreview(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer px-2"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex items-center justify-center bg-slate-50 min-h-[250px]">
+              {fotoCargaPreview.data.startsWith('data:image/') ? (
+                <img
+                  src={fotoCargaPreview.data}
+                  alt={`Cédula de ${fotoCargaPreview.nombre}`}
+                  className="max-h-[60vh] max-w-full rounded-xl object-contain shadow-sm border border-slate-200"
+                />
+              ) : (
+                <iframe
+                  src={fotoCargaPreview.data}
+                  title={`Cédula de ${fotoCargaPreview.nombre}`}
+                  className="w-full h-[55vh] rounded-xl border border-slate-200"
+                />
+              )}
+            </div>
+            <div className="p-3 bg-white border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setFotoCargaPreview(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+              >
+                Cerrar Visor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

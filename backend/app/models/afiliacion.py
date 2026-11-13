@@ -69,6 +69,11 @@ class CargaFamiliar(Base, TimestampMixin):
     run: Mapped[str] = mapped_column(String(12))
     parentesco: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
+    # Respaldo de Cédula de Identidad Frontal ingresada desde el formulario público
+    certificado_nombre: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    certificado_tipo: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    certificado_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     solicitud: Mapped[SolicitudAfiliacion] = relationship(back_populates="cargas")
 
 
