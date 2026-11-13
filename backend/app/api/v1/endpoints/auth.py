@@ -225,12 +225,12 @@ def to_out(
         rolLabel=rol_label,
         isSuperuser=bool(u.is_superuser),
         isActive=bool(u.is_active),
-        departamento=u.departamento,
-        antiguedad=u.antiguedad,
-        estadoPrevisional=u.estado_previsional,
-        saldoSaludDisponible=min(int(u.saldo_salud_disponible), TOPE_ANUAL_SALUD),
+        departamento=u.departamento or "",
+        antiguedad=u.antiguedad or "",
+        estadoPrevisional=u.estado_previsional or "Al día",
+        saldoSaludDisponible=min(int(u.saldo_salud_disponible or 0), TOPE_ANUAL_SALUD),
         saldoSaludTotalAnual=TOPE_ANUAL_SALUD,
-        cargasRegistradas=u.cargas_registradas,
+        cargasRegistradas=int(u.cargas_registradas or 0),
         mesesAntiguedad=meses_ant,
         intentosFallidos=int(sec_data.get("i", 0) or 0),
         passwordBloqueada=bloqueada,
@@ -321,8 +321,11 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
         await db.commit()
 
     # Sincronizar el saldo disponible según el año calendario vigente (renovación automática 1 de enero)
-    await obtener_resumen_socio(user, db)
-    await db.refresh(user)
+    try:
+        await obtener_resumen_socio(user, db)
+        await db.refresh(user)
+    except Exception:
+        user = (await db.get(User, user.id)) or user
 
     token = create_access_token(user.id, extra_claims={"rol": _val(user.rol)})
     return TokenResponse(access_token=token, user=to_out(user, sec))
@@ -330,8 +333,11 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await obtener_resumen_socio(user, db)
-    await db.refresh(user)
+    try:
+        await obtener_resumen_socio(user, db)
+        await db.refresh(user)
+    except Exception:
+        user = (await db.get(User, user.id)) or user
     sec = await obtener_seguridad_usuario(db, user.id)
     return to_out(user, sec)
 

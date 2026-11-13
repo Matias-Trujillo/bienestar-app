@@ -88,7 +88,7 @@ async def init_db() -> None:
         await conn.execute(text("ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS meses_antiguedad INTEGER DEFAULT 12;"))
         # Crear tablas nuevas si no existen
         await conn.run_sync(Base.metadata.create_all)
-        # Migraciones idempotentes para columnas de HU-02
+        # Migraciones idempotentes para columnas de HU-02 y HU-03 (Reembolsos médicos y usuarios)
         nuevas_columnas = [
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_sesion VARCHAR(10);",
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS numero_acta VARCHAR(50);",
@@ -96,6 +96,19 @@ async def init_db() -> None:
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS observaciones_resolucion VARCHAR(500);",
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_por VARCHAR(120);",
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_at VARCHAR(30);",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS beneficiario_run VARCHAR(20) DEFAULT '';",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS tipo_documento VARCHAR(40) DEFAULT '';",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS comprobante_filename VARCHAR(255) DEFAULT '';",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS comprobante_url VARCHAR(500) DEFAULT '';",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS declaracion_aceptada BOOLEAN DEFAULT FALSE;",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS motivo_rechazo TEXT DEFAULT '';",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS saldo_salud_disponible INTEGER DEFAULT 150000;",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS saldo_salud_total_anual INTEGER DEFAULT 150000;",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS cargas_registradas INTEGER DEFAULT 0;",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS meses_antiguedad INTEGER DEFAULT 12;",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS antiguedad VARCHAR(60) DEFAULT '';",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS departamento VARCHAR(120) DEFAULT '';",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS estado_previsional VARCHAR(20) DEFAULT 'Al día';",
         ]
         for sql in nuevas_columnas:
             await conn.execute(text(sql))

@@ -383,6 +383,7 @@ async def get_conteo_pendientes(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await asegurar_columnas_reembolso(db)
     if user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS:
         total = await contar_solicitudes_pendientes_admin(db)
     else:
