@@ -503,25 +503,35 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               </select>
             </div>
 
-            {/* 6. Descripción del gasto */}
+            {/* 6. Descripción del gasto con cuenta regresiva interior */}
             <div>
-              <div className="flex items-center justify-between mb-0.5">
-                <label className="block text-[11px] font-semibold text-slate-700">
-                  Descripción del gasto
-                </label>
-                <span className={`text-[10px] font-mono tabular-nums ${formData.descripcion.length >= 480 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
-                  {formData.descripcion.length}/500 caracteres
-                </span>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                Descripción del gasto
+              </label>
+              <div className="relative">
+                <textarea
+                  rows={2}
+                  maxLength={500}
+                  placeholder="Ej: Medicamento con receta médica por control oftalmológico."
+                  value={formData.descripcion}
+                  onChange={(e) => setFormData((p) => ({ ...p, descripcion: e.target.value }))}
+                  className="w-full px-2.5 pt-2 pb-6 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition resize-none placeholder:text-slate-400"
+                  id="input-descripcion"
+                />
+                <div className="absolute right-2 bottom-2 pointer-events-none select-none flex items-center">
+                  <span
+                    className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded transition-colors ${
+                      500 - (formData.descripcion?.length || 0) <= 20
+                        ? 'text-rose-600 bg-rose-50 font-bold'
+                        : 500 - (formData.descripcion?.length || 0) <= 50
+                        ? 'text-amber-600 bg-amber-50'
+                        : 'text-slate-400 bg-slate-50/80'
+                    }`}
+                  >
+                    {Math.max(0, 500 - (formData.descripcion?.length || 0))}
+                  </span>
+                </div>
               </div>
-              <textarea
-                rows={2}
-                maxLength={500}
-                placeholder="Ej: Medicamento con receta médica por control oftalmológico."
-                value={formData.descripcion}
-                onChange={(e) => setFormData((p) => ({ ...p, descripcion: e.target.value }))}
-                className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition resize-none"
-                id="input-descripcion"
-              />
             </div>
 
             {/* 7. Adjuntar Comprobante */}
