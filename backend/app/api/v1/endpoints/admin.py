@@ -799,9 +799,9 @@ async def reset_ambiente_pruebas(
             "saldo_salud_total_anual": 150000,
             "cargas_registradas": 0,
         },
-        # Directiva
+        # Directiva (RUTs normalizados Módulo 11)
         {
-            "rut": "12.345.678-9",
+            "rut": "12.345.678-5",
             "email": "msoto@mperalillo.cl",
             "nombre_completo": "María Elena Soto",
             "password": "Presi#2026",
@@ -816,7 +816,7 @@ async def reset_ambiente_pruebas(
             "cargas_registradas": 0,
         },
         {
-            "rut": "13.456.789-0",
+            "rut": "13.456.789-9",
             "email": "pfuentes@mperalillo.cl",
             "nombre_completo": "Patricia Fuentes R.",
             "password": "Secre#2026",
@@ -831,7 +831,7 @@ async def reset_ambiente_pruebas(
             "cargas_registradas": 0,
         },
         {
-            "rut": "14.982.112-4",
+            "rut": "14.982.112-0",
             "email": "rmorales@mperalillo.cl",
             "nombre_completo": "Roberto Morales P.",
             "password": "Teso#2026",
@@ -846,7 +846,7 @@ async def reset_ambiente_pruebas(
             "cargas_registradas": 0,
         },
         {
-            "rut": "16.234.567-8",
+            "rut": "16.234.567-2",
             "email": "jcontreras@mperalillo.cl",
             "nombre_completo": "Jorge Contreras L.",
             "password": "Admin#2026",
@@ -861,7 +861,7 @@ async def reset_ambiente_pruebas(
             "cargas_registradas": 0,
         },
         {
-            "rut": "17.345.678-K",
+            "rut": "17.345.678-6",
             "email": "aibarra@mperalillo.cl",
             "nombre_completo": "Andrea Ibarra V.",
             "password": "Audit#2026",
@@ -877,7 +877,7 @@ async def reset_ambiente_pruebas(
         },
         # Socios Habilitados (>= 6 meses)
         {
-            "rut": "15.489.123-K",
+            "rut": "15.489.123-4",
             "email": "cvalenzuela@mperalillo.cl",
             "nombre_completo": "Carlos Valenzuela M.",
             "password": "Socio#2026",
@@ -892,7 +892,7 @@ async def reset_ambiente_pruebas(
             "cargas_registradas": 0,
         },
         {
-            "rut": "18.567.890-1",
+            "rut": "18.567.890-3",
             "email": "faraya@mperalillo.cl",
             "nombre_completo": "Felipe Araya M.",
             "password": "Socio#2026",
@@ -907,7 +907,7 @@ async def reset_ambiente_pruebas(
             "cargas_registradas": 0,
         },
         {
-            "rut": "18.765.432-1",
+            "rut": "18.765.432-7",
             "email": "jherrera@mperalillo.cl",
             "nombre_completo": "Javiera Herrera Tapia",
             "password": "Socio#2026",
@@ -923,7 +923,7 @@ async def reset_ambiente_pruebas(
         },
         # Socios en Carencia Activa (< 6 meses)
         {
-            "rut": "19.876.543-2",
+            "rut": "19.876.543-0",
             "email": "fsepulveda@mperalillo.cl",
             "nombre_completo": "Francisca Sepúlveda T.",
             "password": "Socio#2026",

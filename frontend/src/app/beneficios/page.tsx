@@ -410,11 +410,11 @@ export default function BeneficiosPage() {
   const handleDescargarPlantillaCSV = () => {
     const csvContent =
       'RUN,Nombres,Apellidos,Decreto,FechaDecreto\n' +
-      '15.489.123-K,Carlos,Valenzuela Morales,DEC-ALC-774/2026,2026-07-20\n' +
-      '18.765.432-1,Javiera,Herrera Tapia,DEC-ALC-774/2026,2026-07-20\n' +
-      '12.345.678-9,María Elena,Soto Pérez,DEC-ALC-774/2026,2026-07-20\n' +
-      '13.456.789-0,Patricia,Fuentes Rojas,DEC-ALC-774/2026,2026-07-20\n' +
-      '19.876.543-2,Felipe,Morales Sandoval,DEC-ALC-774/2026,2026-07-20\n';
+      '15.489.123-4,Carlos,Valenzuela Morales,DEC-ALC-774/2026,2026-07-20\n' +
+      '18.765.432-7,Javiera,Herrera Tapia,DEC-ALC-774/2026,2026-07-20\n' +
+      '12.345.678-5,María Elena,Soto Pérez,DEC-ALC-774/2026,2026-07-20\n' +
+      '13.456.789-9,Patricia,Fuentes Rojas,DEC-ALC-774/2026,2026-07-20\n' +
+      '19.876.543-0,Felipe,Morales Sandoval,DEC-ALC-774/2026,2026-07-20\n';
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

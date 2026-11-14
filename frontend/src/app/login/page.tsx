@@ -46,6 +46,7 @@ const TEST_ACCOUNTS = [
   { label: 'Directiva', user: 'jcontreras@mperalillo.cl', pass: 'Admin#2026', roleTag: 'DIR' },
   { label: 'Auditor', user: 'aibarra@mperalillo.cl', pass: 'Audit#2026', roleTag: 'AUD' },
   { label: 'Socio Activo', user: 'cvalenzuela@mperalillo.cl', pass: 'Socio#2026', roleTag: 'SOC' },
+  { label: 'Socia Carencia (Javiera)', user: 'riverajavieraa@gmail.com', pass: 'Socio#2026', roleTag: 'JAV' },
 ] as const;
 
 // [ESTUDIANTE INFORMÁTICA] Sanitiza y restringe la entrada de usuario aplicando topes estrictos:
