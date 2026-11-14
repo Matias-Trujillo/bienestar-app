@@ -132,9 +132,9 @@ export default function AfiliacionPage() {
   const [resolviendoCarga, setResolviendoCarga] = useState(false);
   const [errorResolucionCarga, setErrorResolucionCarga] = useState<string | null>(null);
 
-  // Modal: Carga Masiva (Exclusivo 7 cuentas Muni Peralillo)
+  // Modal: Carga Masiva (Exclusivo Directiva y Administradores autorizados de Muni Peralillo)
   const [modalCargaMasivaOpen, setModalCargaMasivaOpen] = useState(false);
-  const puedeCargaMasiva = esCuentaAutorizadaCargaMasiva(user?.email, user?.rut);
+  const puedeCargaMasiva = Boolean(esDirectiva && esCuentaAutorizadaCargaMasiva(user?.email, user?.rut));
 
   const cargarMisCargas = useCallback(() => {
     if (!token) return;

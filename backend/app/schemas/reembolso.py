@@ -12,7 +12,7 @@ class ReembolsoCreateRequest(BaseModel):
     socio_id: Optional[int] = Field(None, description="ID del socio titular asistido en oficina")
     socio_rut: Optional[str] = Field(None, description="RUN del socio titular asistido en oficina")
     tipo_prestacion: str = Field(..., description="Clave del tipo de prestación médica")
-    descripcion: str = Field("", description="Descripción libre del gasto")
+    descripcion: str = Field("", max_length=500, description="Descripción libre del gasto (máx 500 caracteres)")
     beneficiario_nombre: str = Field(..., description="Nombre del beneficiario")
     beneficiario_parentesco: str = Field("Titular", description="Parentesco con el socio")
     beneficiario_run: Optional[str] = Field(None, description="RUN del beneficiario (carga o titular)")

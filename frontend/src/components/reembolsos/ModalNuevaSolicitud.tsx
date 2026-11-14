@@ -394,6 +394,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                   className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
                   required
                   id="input-fecha-atencion"
+                  autoComplete="off"
                 />
               </div>
               <div>
@@ -408,6 +409,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                   className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
                   required
                   id="input-fecha-boleta"
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -503,15 +505,21 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
 
             {/* 6. Descripción del gasto */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
-                Descripción del gasto
-              </label>
-              <input
-                type="text"
-                placeholder="Ej: Medicamento con receta"
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="block text-[11px] font-semibold text-slate-700">
+                  Descripción del gasto
+                </label>
+                <span className={`text-[10px] font-mono tabular-nums ${formData.descripcion.length >= 480 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
+                  {formData.descripcion.length}/500 caracteres
+                </span>
+              </div>
+              <textarea
+                rows={2}
+                maxLength={500}
+                placeholder="Ej: Medicamento con receta médica por control oftalmológico."
                 value={formData.descripcion}
                 onChange={(e) => setFormData((p) => ({ ...p, descripcion: e.target.value }))}
-                className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition resize-none"
                 id="input-descripcion"
               />
             </div>
