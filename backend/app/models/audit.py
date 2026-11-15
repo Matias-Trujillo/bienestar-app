@@ -1,7 +1,7 @@
 """Modelo de Auditoría (Audit Log inmutable) para trazabilidad legal y administrativa."""
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import DateTime, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base
 
@@ -17,7 +17,9 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
-    usuario_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    usuario_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     usuario_nombre: Mapped[str] = mapped_column(String(150), nullable=False)
     usuario_rut: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     usuario_rol: Mapped[str] = mapped_column(String(50), nullable=False)

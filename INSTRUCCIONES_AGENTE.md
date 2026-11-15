@@ -59,7 +59,31 @@ El backend en `backend/app` se organiza conceptualmente en tres capas estrictas:
 
 ---
 
-## 3. 🎨 Prevención de AI Slop (Frontend — Next.js & Tailwind CSS)
+## 3. 🗄️ Gobernanza y Buenas Prácticas de Base de Datos (PostgreSQL 15 / 3FN)
+
+Durante la evolución del sistema, la base de datos es una pieza arquitectónica de primera clase. Queda terminantemente prohibido tratar el esquema relacional como un mero contenedor secundario o introducir deuda técnica en los modelos SQLAlchemy (`backend/app/models/`). Todo agente de IA debe cumplir de forma estricta las siguientes **6 Leyes de Base de Datos**:
+
+1. **Prohibición de "Tablas Isla" (Integridad Referencial Física Obligatoria):**
+   - Toda relación conceptual entre entidades (`usuarios`, `bonos_catalogo`, `cargas_familiares`, `solicitudes_*`, `nominas_masivas`, `audit_logs`) **debe declararse físicamente con `ForeignKey(...)` en SQLAlchemy y `REFERENCES ...` en PostgreSQL**.
+   - Nunca se debe vincular una tabla transaccional a un catálogo o entidad maestra únicamente mediante un `VARCHAR` suelto sin `ForeignKey`. Si una solicitud referencia un bono de `bonos_catalogo` o una carga de `cargas_familiares`, debe existir la columna `bono_id` / `carga_id` (`INTEGER REFERENCES ...`) para que el motor relacional garantice la integridad y las herramientas CASE (pgAdmin 4 / Draw.io) tracen todas las aristas del Modelo Entidad-Relación.
+2. **Tipado Estricto de Dominio Financiero y Temporal (Cero Tipos Ambiguos):**
+   - **Moneda Chilena (CLP):** Queda **estrictamente prohibido usar `Float` (`double precision`) para montos monetarios en pesos chilenos**. Todo monto financiero (`monto_boleta`, `monto_copago`, `monto_reembolso`, `monto_calculado`, `sueldo_base_*`, `saldo_salud_*`) debe ser de tipo `Integer` (`INTEGER`). El tipo `Float` solo se permite para porcentajes fraccionarios (`porcentaje_base`, `porcentaje_aplicado`).
+   - **Fechas y Marcas de Tiempo:** Queda prohibido crear nuevas columnas de fechas como `String` (`VARCHAR`). Toda fecha de negocio o resolución (`fecha_sesion`, `fecha_fin_carencia`, `decreto_fecha`, `fecha_atencion`, `fecha_boleta`) debe ser `Date` (`DATE`), y todo instante exacto (`resuelto_at`, `fecha_revision`, `fecha_liquidacion`, `ultimo_cambio_password`, `created_at`) debe ser `DateTime(timezone=True)` (`TIMESTAMPTZ`). Si el contrato JSON del Frontend requiere un `string` ISO (`"YYYY-MM-DD"`), la conversión se realiza en la capa de servicio/schema Pydantic, **nunca degradando el tipo en PostgreSQL**.
+3. **Trazabilidad Relacional Unificada de Evaluadores (Directiva / Admin):**
+   - Toda tabla transaccional que sea resuelta, revisada o liquidada por un miembro de la Directiva o Administración (`solicitudes_afiliacion`, `solicitudes_cargas_familiares`, `solicitudes_reembolso`, `solicitudes_beneficio`, `nominas_masivas`) **debe incluir la clave foránea tipada hacia `usuarios(id)`** (`resuelto_por_id`, `revisado_por_id`, `liquidado_por_id`, `creado_por_id` con `ON DELETE SET NULL`), además del snapshot textual del nombre para los comprobantes.
+4. **Cumplimiento Estricto de 1FN, 2FN y 3FN + Patrón Snapshot Inmutable CGR:**
+   - **1FN:** Atributos atómicos; prohibido guardar listas separadas por comas o empaquetar estados operacionales de entidades (como bloqueos o intentos de login de usuarios) dentro de strings JSON en `parametros_sistema`. Los atributos propios del usuario residen como columnas tipadas en `usuarios`.
+   - **2FN y 3FN:** Todo atributo no clave depende funcionalmente de la clave primaria sin dependencias transitivas operacionales.
+   - **Excepción Reglamentaria Documentada (Snapshot CGR):** En tablas sujetas a fiscalización de la Contraloría General de la República (`solicitudes_beneficio`, `detalles_nomina_masiva`, `solicitudes_cargas_familiares`, `audit_logs`), se mantiene **primero la Foreign Key operacional** (`socio_id`, `bono_id`, `usuario_id`) y **adicionalmente** las columnas de fotografía histórica (`socio_rut`, `socio_nombre`, `sueldo_base_referencia`) para preservar el estado exacto al momento del acto administrativo. **El snapshot complementa a la Foreign Key; jamás la reemplaza.**
+5. **Sincronización Obligatoria 3-en-1 (`models/` ↔ `init_db.py` ↔ `PostgreSQL`):**
+   - Como el proyecto utiliza inicialización e hidratación automática en `backend/app/db/init_db.py`, **cada vez que se agregue o modifique una columna o `ForeignKey` en `backend/app/models/`**, el agente **debe agregar en el mismo acto** la sentencia idempotente `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` / `ALTER COLUMN ... TYPE` en `backend/app/db/init_db.py`.
+   - Ninguna migración de esquema puede quedar oculta dentro de endpoints o servicios secundarios que solo se ejecutan bajo demanda.
+6. **Compatibilidad Total con Contratos API del Frontend:**
+   - Al normalizar o corregir tipos de columnas en PostgreSQL (`DATE`, `TIMESTAMPTZ`, `INTEGER`, `ForeignKey`), los esquemas Pydantic (`backend/app/schemas/`) y serializadores de servicio deben mantener intacta la estructura JSON esperada por el Frontend Next.js (`frontend/src/types/index.ts`), verificando siempre con la suite `pytest` antes de concluir.
+
+---
+
+## 4. 🎨 Prevención de AI Slop (Frontend — Next.js & Tailwind CSS)
 
 Queda estrictamente prohibido el diseño corporativo genérico (*AI Slop*), caracterizado por tarjetas blancas flotantes con sombras difusas gigantescas (`shadow-2xl`), gradientes excesivos sin justificación o interfaces vacías con baja densidad de datos.
 
@@ -77,7 +101,7 @@ Este sistema es una **herramienta de gestión operativa municipal (Data-Dense)**
 
 ---
 
-## 4. ⚡ Reglas de Código Limpio y Micro-arquitectura
+## 5. ⚡ Reglas de Código Limpio y Micro-arquitectura
 
 * **KISS (Keep It Simple, Stupid) y YAGNI (You Aren't Gonna Need It):**
   - Escribe el código más simple, directo y legible que satisfaga el requerimiento actual.
@@ -93,7 +117,7 @@ Este sistema es una **herramienta de gestión operativa municipal (Data-Dense)**
 
 ---
 
-## 5. 🔄 Protocolo de Trabajo Iterativo (4 Pasos)
+## 6. 🔄 Protocolo de Trabajo Iterativo (4 Pasos)
 
 Para evitar desvíos o sobreescrituras no deseadas, el agente **nunca devolverá bloques masivos de código de golpe**. En cada requerimiento se seguirá estrictamente este flujo:
 
@@ -120,6 +144,7 @@ flowchart LR
 Antes de dar por concluida cualquier tarea, el agente debe verificar:
 - [ ] ¿Se consultó `CONTEXTO_IA.md`?
 - [ ] ¿Se preservaron las reglas legales (4% retención, 6 meses carencia, 30 días caducidad, Grado 15)?
+- [ ] ¿Se cumplió la Gobernanza de Base de Datos (3FN, cero tablas isla sin FK, CLP en `INTEGER`, fechas en `DATE`/`TIMESTAMPTZ`, evaluadores con `FK` a `usuarios` y sincronización en `init_db.py`)?
 - [ ] ¿Se mantuvo la auditoría inmutable en `audit_logs`?
 - [ ] ¿Se evitó el AI Slop en la UI (Data-Dense, bordes firmes, cero sombras gigantes)?
 - [ ] ¿Hay cero usos de `any` en TypeScript y Type Hints completos en Python?

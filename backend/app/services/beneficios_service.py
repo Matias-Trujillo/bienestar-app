@@ -5,7 +5,7 @@ HU-05 (Postulaciones por contingencia) y HU-06 (Liquidación masiva de calendari
 import csv
 import io
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple
 
 from sqlalchemy import select, or_, func
@@ -16,6 +16,7 @@ from app.models import (
     User,
     UserRole,
     ParametroSistema,
+    BonoCatalogo,
     SolicitudBeneficio,
     NominaMasiva,
     DetalleNominaMasiva,
@@ -249,6 +250,28 @@ class BeneficiosService:
         )
 
     @staticmethod
+    def _parse_decreto_fecha(raw: Optional[str]) -> Optional[date]:
+        if not raw:
+            return None
+        if isinstance(raw, date):
+            return raw
+        s = str(raw).strip()
+        try:
+            return date.fromisoformat(s[:10])
+        except ValueError:
+            try:
+                return datetime.strptime(s[:10], "%d-%m-%Y").date()
+            except ValueError:
+                return date.today()
+
+    @staticmethod
+    async def _resolver_bono_id(db: AsyncSession, codigo: str) -> Optional[int]:
+        cod = (codigo or "").strip().lower()
+        if cod == "vacaciones_masivo":
+            cod = "vacaciones"
+        return await db.scalar(select(BonoCatalogo.id).where(BonoCatalogo.codigo == cod))
+
+    @staticmethod
     def verificar_antiguedad_socio(user: User) -> Tuple[bool, int, str]:
         """
         Valida que el socio tenga al menos 6 meses de permanencia en el Comité.
@@ -305,9 +328,11 @@ class BeneficiosService:
                 )
 
         monto = int(round(base_g15 * (porcentaje / 100.0)))
+        bono_id = await cls._resolver_bono_id(db, payload.tipo_bono)
         
         solicitud = SolicitudBeneficio(
             socio_id=user.id,
+            bono_id=bono_id,
             tipo_bono=payload.tipo_bono,
             titulo_bono=bono_def["nombre"],
             porcentaje_base=porcentaje,
@@ -319,7 +344,7 @@ class BeneficiosService:
             documento_nombre=payload.documento_nombre or f"{payload.tipo_bono}_{user.rut}.pdf",
             documento_url=payload.documento_url or f"/docs/postulaciones/{payload.tipo_bono}_{user.id}.pdf",
             decreto_numero=payload.decreto_numero,
-            decreto_fecha=payload.decreto_fecha,
+            decreto_fecha=cls._parse_decreto_fecha(payload.decreto_fecha),
             dias_habiles_feriado=payload.dias_habiles_feriado,
             nombre_beneficiario=payload.nombre_beneficiario,
             rut_beneficiario=payload.rut_beneficiario,
@@ -364,10 +389,12 @@ class BeneficiosService:
         monto = int(round(base_g15 * (porcentaje / 100.0)))
         
         ahora = datetime.now(timezone.utc)
+        bono_id = await cls._resolver_bono_id(db, "vacaciones")
         
         # Asignación directa automática: se genera directamente aprobada/liquidada
         solicitud = SolicitudBeneficio(
             socio_id=socio.id,
+            bono_id=bono_id,
             tipo_bono="vacaciones",
             titulo_bono="Bono de Vacaciones",
             porcentaje_base=porcentaje,
@@ -379,7 +406,7 @@ class BeneficiosService:
             documento_nombre=payload.documento_nombre,
             documento_url=payload.documento_url,
             decreto_numero=payload.decreto_numero,
-            decreto_fecha=payload.decreto_fecha,
+            decreto_fecha=cls._parse_decreto_fecha(payload.decreto_fecha),
             dias_habiles_feriado=payload.dias_habiles_feriado,
             asignacion_directa=True,
             observaciones_admin=payload.observaciones or "Asignación directa procesada por administración municipal.",
@@ -551,8 +578,10 @@ class BeneficiosService:
         beneficiados = [d for d in req.detalles if d.cumple_antiguedad]
         excluidos = [d for d in req.detalles if not d.cumple_antiguedad]
         total_monto = len(beneficiados) * monto_unitario
+        bono_id = await cls._resolver_bono_id(db, req.tipo_bono)
         
         nomina = NominaMasiva(
+            bono_id=bono_id,
             tipo_bono=req.tipo_bono,
             titulo=req.titulo,
             periodo=req.periodo,
@@ -600,6 +629,7 @@ class BeneficiosService:
                 db.add(
                     SolicitudBeneficio(
                         socio_id=d.socio_id,
+                        bono_id=bono_id,
                         tipo_bono=req.tipo_bono,
                         titulo_bono=f"Bono de {req.tipo_bono.capitalize()} ({req.periodo})",
                         porcentaje_base=req.porcentaje,
@@ -611,7 +641,7 @@ class BeneficiosService:
                         documento_nombre=f"Decreto_{req.tipo_bono}_{req.periodo.replace(' ', '_')}.pdf",
                         documento_url=d.decreto_digital_url,
                         decreto_numero=req.decreto_marco,
-                        decreto_fecha=ahora.strftime("%Y-%m-%d"),
+                        decreto_fecha=ahora.date(),
                         asignacion_directa=True,
                         revisado_por_id=admin_user.id,
                         fecha_revision=ahora,

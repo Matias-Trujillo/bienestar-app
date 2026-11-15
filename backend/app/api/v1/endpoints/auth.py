@@ -62,9 +62,23 @@ def _parse_sec_json(raw: Optional[str]) -> Dict[str, Any]:
 
 
 async def obtener_seguridad_usuario(db: AsyncSession, user_id: int) -> Dict[str, Any]:
+    u = await db.get(User, user_id)
     clave = _clave_seguridad_usr(user_id)
     param = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave))
-    return _parse_sec_json(param.valor if param else None)
+    sec_param = _parse_sec_json(param.valor if param else None)
+    if u is not None:
+        ult_str = (
+            u.ultimo_cambio_password.strftime("%Y-%m-%d %H:%M")
+            if getattr(u, "ultimo_cambio_password", None)
+            else sec_param.get("u")
+        )
+        return {
+            "i": int(getattr(u, "intentos_fallidos", 0) or sec_param.get("i", 0) or 0),
+            "b": bool(getattr(u, "password_bloqueada", False) or sec_param.get("b", False)),
+            "c": bool(getattr(u, "debe_cambiar_password", False) or sec_param.get("c", False)),
+            "u": ult_str,
+        }
+    return sec_param
 
 
 async def guardar_seguridad_usuario(
@@ -75,15 +89,30 @@ async def guardar_seguridad_usuario(
     debe_cambiar: bool = False,
     ultimo_cambio: Optional[str] = None,
 ) -> Dict[str, Any]:
+    u = await db.get(User, user_id)
     clave = _clave_seguridad_usr(user_id)
     param = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave))
     actual = _parse_sec_json(param.valor if param else None)
+
+    ult_str = ultimo_cambio if ultimo_cambio is not None else actual.get("u")
+    if u is not None:
+        u.intentos_fallidos = int(intentos)
+        u.password_bloqueada = bool(bloqueada)
+        u.debe_cambiar_password = bool(debe_cambiar)
+        if ultimo_cambio is not None:
+            try:
+                u.ultimo_cambio_password = datetime.now(timezone.utc)
+            except Exception:
+                pass
+        elif u.ultimo_cambio_password and not ult_str:
+            ult_str = u.ultimo_cambio_password.strftime("%Y-%m-%d %H:%M")
+        db.add(u)
 
     nuevo_estado = {
         "i": int(intentos),
         "b": bool(bloqueada),
         "c": bool(debe_cambiar),
-        "u": ultimo_cambio if ultimo_cambio is not None else actual.get("u"),
+        "u": ult_str,
     }
     raw_val = json.dumps(nuevo_estado, separators=(",", ":"))
 
@@ -203,9 +232,24 @@ def to_out(
     puede_eliminar: bool = False,
     motivo_no_eliminable: Optional[str] = None,
 ) -> UserOut:
-    sec_data = sec or {"i": 0, "b": False, "c": False, "u": None}
-    bloqueada = bool(sec_data.get("b", False))
-    debe_cambiar = bool(sec_data.get("c", False))
+    sec_data = sec or {
+        "i": getattr(u, "intentos_fallidos", 0) or 0,
+        "b": getattr(u, "password_bloqueada", False) or False,
+        "c": getattr(u, "debe_cambiar_password", False) or False,
+        "u": (
+            u.ultimo_cambio_password.strftime("%Y-%m-%d %H:%M")
+            if getattr(u, "ultimo_cambio_password", None)
+            else None
+        ),
+    }
+    bloqueada = bool(sec_data.get("b", False) or getattr(u, "password_bloqueada", False))
+    debe_cambiar = bool(sec_data.get("c", False) or getattr(u, "debe_cambiar_password", False))
+    intentos_val = int(sec_data.get("i", 0) or getattr(u, "intentos_fallidos", 0) or 0)
+    ult_cambio_val = sec_data.get("u") or (
+        u.ultimo_cambio_password.strftime("%Y-%m-%d %H:%M")
+        if getattr(u, "ultimo_cambio_password", None)
+        else None
+    )
     estado_pwd = "bloqueada" if bloqueada else ("cambio_pendiente" if debe_cambiar else "vigente")
     meses_ant = int(u.meses_antiguedad) if u.meses_antiguedad is not None else 0
 
@@ -232,11 +276,11 @@ def to_out(
         saldoSaludTotalAnual=TOPE_ANUAL_SALUD,
         cargasRegistradas=int(u.cargas_registradas or 0),
         mesesAntiguedad=meses_ant,
-        intentosFallidos=int(sec_data.get("i", 0) or 0),
+        intentosFallidos=intentos_val,
         passwordBloqueada=bloqueada,
         debeCambiarPassword=debe_cambiar,
         estadoPassword=estado_pwd,
-        ultimoCambioPassword=sec_data.get("u"),
+        ultimoCambioPassword=ult_cambio_val,
         puedeEliminar=puede_eliminar,
         motivoNoEliminable=motivo_no_eliminable,
     )

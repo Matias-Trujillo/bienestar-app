@@ -1,6 +1,6 @@
 """Creación de tablas, migraciones seguras y carga inicial de usuarios y parámetros."""
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from sqlalchemy import select, text, func
 
 from app.core.security import get_password_hash
@@ -88,20 +88,35 @@ async def init_db() -> None:
         await conn.execute(text("ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS meses_antiguedad INTEGER DEFAULT 12;"))
         # Crear tablas nuevas si no existen
         await conn.run_sync(Base.metadata.create_all)
-        # Migraciones idempotentes para columnas de HU-02 y HU-03 (Reembolsos médicos y usuarios)
+        # Migraciones idempotentes para las 11 tablas (3FN, FKs completas y columnas tipadas)
         nuevas_columnas = [
-            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_sesion VARCHAR(10);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS socio_creado_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_por_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_sesion DATE;",
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS numero_acta VARCHAR(50);",
-            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_fin_carencia VARCHAR(10);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS fecha_fin_carencia DATE;",
             "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS observaciones_resolucion VARCHAR(500);",
-            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_por VARCHAR(120);",
-            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_at VARCHAR(30);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_por VARCHAR(150);",
+            "ALTER TABLE solicitudes_afiliacion ADD COLUMN IF NOT EXISTS resuelto_at TIMESTAMPTZ;",
+            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS socio_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;",
+            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
+            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
+            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS carga_id INTEGER REFERENCES cargas_familiares(id) ON DELETE SET NULL;",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS resuelto_por_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
+            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
             "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS beneficiario_run VARCHAR(20) DEFAULT '';",
             "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS tipo_documento VARCHAR(40) DEFAULT '';",
             "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS comprobante_filename VARCHAR(255) DEFAULT '';",
             "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS comprobante_url VARCHAR(500) DEFAULT '';",
             "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS declaracion_aceptada BOOLEAN DEFAULT FALSE;",
             "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS motivo_rechazo TEXT DEFAULT '';",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS revisado_por_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS fecha_revision TIMESTAMPTZ;",
+            "ALTER TABLE solicitudes_beneficio ADD COLUMN IF NOT EXISTS bono_id INTEGER REFERENCES bonos_catalogo(id) ON DELETE SET NULL;",
+            "ALTER TABLE nominas_masivas ADD COLUMN IF NOT EXISTS bono_id INTEGER REFERENCES bonos_catalogo(id) ON DELETE SET NULL;",
             "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS saldo_salud_disponible INTEGER DEFAULT 150000;",
             "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS saldo_salud_total_anual INTEGER DEFAULT 150000;",
             "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS cargas_registradas INTEGER DEFAULT 0;",
@@ -109,16 +124,41 @@ async def init_db() -> None:
             "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS antiguedad VARCHAR(60) DEFAULT '';",
             "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS departamento VARCHAR(120) DEFAULT '';",
             "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS estado_previsional VARCHAR(20) DEFAULT 'Al día';",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intentos_fallidos INTEGER NOT NULL DEFAULT 0;",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_bloqueada BOOLEAN NOT NULL DEFAULT FALSE;",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN NOT NULL DEFAULT FALSE;",
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_cambio_password TIMESTAMPTZ;",
         ]
         for sql in nuevas_columnas:
             await conn.execute(text(sql))
 
-        # [ESTUDIANTE INFORMÁTICA] Capa de seguridad nativa en PostgreSQL: habilita pgcrypto (Bcrypt costo 12),
-        # auto-encripta contraseñas modificadas desde la interfaz DBA sin persistir texto plano,
-        # registra auditoría inmutable en audit_logs y expone la vista de seguridad de roles.
+        # [ESTUDIANTE INFORMÁTICA] Capa de seguridad nativa en PostgreSQL y normalización estricta de tipos (CLP = INTEGER, Fechas = DATE/TIMESTAMPTZ)
         if engine.dialect.name == "postgresql":
-            await conn.execute(text("ALTER TABLE solicitudes_afiliacion ALTER COLUMN resuelto_at TYPE VARCHAR(60);"))
             await conn.execute(text("ALTER TABLE solicitudes_afiliacion ALTER COLUMN resuelto_por TYPE VARCHAR(150);"))
+            # Conversión segura e idempotente de tipos monetarios CLP (FLOAT -> INTEGER) y fechas (VARCHAR -> DATE / TIMESTAMPTZ)
+            migraciones_tipos_pg = [
+                "ALTER TABLE solicitudes_reembolso ALTER COLUMN monto_boleta TYPE INTEGER USING ROUND(COALESCE(monto_boleta, 0))::INTEGER;",
+                "ALTER TABLE solicitudes_reembolso ALTER COLUMN monto_copago TYPE INTEGER USING ROUND(COALESCE(monto_copago, 0))::INTEGER;",
+                "ALTER TABLE solicitudes_reembolso ALTER COLUMN monto_reembolso TYPE INTEGER USING ROUND(COALESCE(monto_reembolso, 0))::INTEGER;",
+                "ALTER TABLE solicitudes_afiliacion ALTER COLUMN fecha_sesion TYPE DATE USING NULLIF(SUBSTRING(TRIM(fecha_sesion::text) FROM 1 FOR 10), '')::DATE;",
+                "ALTER TABLE solicitudes_afiliacion ALTER COLUMN fecha_fin_carencia TYPE DATE USING NULLIF(SUBSTRING(TRIM(fecha_fin_carencia::text) FROM 1 FOR 10), '')::DATE;",
+                "ALTER TABLE solicitudes_afiliacion ALTER COLUMN resuelto_at TYPE TIMESTAMPTZ USING NULLIF(TRIM(resuelto_at::text), '')::TIMESTAMPTZ;",
+                "ALTER TABLE solicitudes_cargas_familiares ALTER COLUMN fecha_sesion TYPE DATE USING NULLIF(SUBSTRING(TRIM(fecha_sesion::text) FROM 1 FOR 10), '')::DATE;",
+                "ALTER TABLE solicitudes_cargas_familiares ALTER COLUMN resuelto_at TYPE TIMESTAMPTZ USING NULLIF(TRIM(resuelto_at::text), '')::TIMESTAMPTZ;",
+                "ALTER TABLE solicitudes_beneficio ALTER COLUMN decreto_fecha TYPE DATE USING NULLIF(SUBSTRING(TRIM(decreto_fecha::text) FROM 1 FOR 10), '')::DATE;",
+                """
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'audit_logs_usuario_id_fkey') THEN
+                        UPDATE audit_logs SET usuario_id = NULL WHERE usuario_id IS NOT NULL AND usuario_id NOT IN (SELECT id FROM usuarios);
+                        ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL;
+                    END IF;
+                END $$;
+                """,
+            ]
+            for sql_type in migraciones_tipos_pg:
+                await conn.execute(text(sql_type))
+
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto;"))
             await conn.execute(text("""
                 CREATE OR REPLACE FUNCTION fn_usuarios_auto_bcrypt()
@@ -131,6 +171,8 @@ async def init_db() -> None:
                             RAISE EXCEPTION 'Seguridad BD: La contraseña debe tener al menos 8 caracteres.';
                         END IF;
                         NEW.hashed_password := crypt(NEW.hashed_password, gen_salt('bf', 12));
+                        NEW.intentos_fallidos := 0;
+                        NEW.password_bloqueada := FALSE;
                         IF NEW.id IS NOT NULL THEN
                             DELETE FROM parametros_sistema WHERE clave = 'SEC_USR_' || NEW.id::text;
                         END IF;
@@ -250,9 +292,9 @@ async def init_db() -> None:
                         THEN 'BCRYPT COSTO 12 (Seguro)'
                         ELSE 'REVISAR'
                     END AS "Seguridad Contraseña",
-                    COALESCE((p.valor::jsonb ->> 'i')::int, 0) AS "Intentos Fallidos",
+                    COALESCE(u.intentos_fallidos, (p.valor::jsonb ->> 'i')::int, 0) AS "Intentos Fallidos",
                     CASE
-                        WHEN COALESCE((p.valor::jsonb ->> 'b')::boolean, false) THEN 'BLOQUEADO'
+                        WHEN COALESCE(u.password_bloqueada, (p.valor::jsonb ->> 'b')::boolean, false) THEN 'BLOQUEADO'
                         ELSE 'DESBLOQUEADO'
                     END AS "Estado Bloqueo",
                     'Para cambiar clave: abra tabla "usuarios" -> edite hashed_password con la nueva clave -> Guardar (Save)' AS "Instrucción Cambio Clave"
@@ -353,7 +395,7 @@ async def init_db() -> None:
                     documento_nombre="Decreto_Alcaldicio_1042_FeriadoLegal.pdf",
                     documento_url="/docs/decretos/DEC-1042-2026.pdf",
                     decreto_numero="DEC-ALC-1042/2026",
-                    decreto_fecha="2026-01-15",
+                    decreto_fecha=date(2026, 1, 15),
                     dias_habiles_feriado=15,
                     asignacion_directa=True,
                     observaciones_admin="Validado feriado legal por 15 días hábiles continuos. Asignación directa según nómina de personal municipal.",
@@ -476,3 +518,84 @@ async def init_db() -> None:
             ])
             await db.commit()
             logger.info("Registros de auditoría iniciales creados")
+
+        # 5. Sincronización retroactiva (Backfill) de Claves Foráneas en registros existentes
+        if engine.dialect.name == "postgresql":
+            backfill_sqls = [
+                # Vincular solicitudes_beneficio y nominas_masivas con bonos_catalogo
+                """
+                UPDATE solicitudes_beneficio sb
+                SET bono_id = bc.id
+                FROM bonos_catalogo bc
+                WHERE sb.bono_id IS NULL
+                  AND (sb.tipo_bono = bc.codigo OR (sb.tipo_bono = 'vacaciones_masivo' AND bc.codigo = 'vacaciones'));
+                """,
+                """
+                UPDATE nominas_masivas nm
+                SET bono_id = bc.id
+                FROM bonos_catalogo bc
+                WHERE nm.bono_id IS NULL
+                  AND (nm.tipo_bono = bc.codigo OR (nm.tipo_bono = 'vacaciones_masivo' AND bc.codigo = 'vacaciones'));
+                """,
+                # Vincular solicitudes_afiliacion con usuarios (socio_creado_id y resuelto_por_id)
+                """
+                UPDATE solicitudes_afiliacion sa
+                SET socio_creado_id = u.id
+                FROM usuarios u
+                WHERE sa.socio_creado_id IS NULL
+                  AND REPLACE(REPLACE(UPPER(sa.run), '.', ''), '-', '') = REPLACE(REPLACE(UPPER(u.rut), '.', ''), '-', '');
+                """,
+                """
+                UPDATE solicitudes_afiliacion sa
+                SET resuelto_por_id = u.id
+                FROM usuarios u
+                WHERE sa.resuelto_por_id IS NULL
+                  AND sa.resuelto_por IS NOT NULL
+                  AND POSITION(LOWER(u.nombre_completo) IN LOWER(sa.resuelto_por)) > 0;
+                """,
+                # Vincular cargas_familiares con usuarios (socio_id) y solicitudes_cargas_familiares con cargas_familiares (carga_id)
+                """
+                UPDATE cargas_familiares cf
+                SET socio_id = sa.socio_creado_id
+                FROM solicitudes_afiliacion sa
+                WHERE cf.solicitud_id = sa.id
+                  AND cf.socio_id IS NULL
+                  AND sa.socio_creado_id IS NOT NULL;
+                """,
+                """
+                UPDATE solicitudes_cargas_familiares scf
+                SET carga_id = cf.id
+                FROM cargas_familiares cf
+                WHERE scf.carga_id IS NULL
+                  AND REPLACE(REPLACE(UPPER(scf.run), '.', ''), '-', '') = REPLACE(REPLACE(UPPER(cf.run), '.', ''), '-', '');
+                """,
+                """
+                UPDATE solicitudes_cargas_familiares scf
+                SET resuelto_por_id = u.id
+                FROM usuarios u
+                WHERE scf.resuelto_por_id IS NULL
+                  AND scf.resuelto_por IS NOT NULL
+                  AND POSITION(LOWER(u.nombre_completo) IN LOWER(scf.resuelto_por)) > 0;
+                """,
+                # Vincular audit_logs.usuario_id cuando coincida el nombre o RUT con usuarios
+                """
+                UPDATE audit_logs al
+                SET usuario_id = u.id
+                FROM usuarios u
+                WHERE al.usuario_id IS NULL
+                  AND LOWER(TRIM(al.usuario_nombre)) = LOWER(TRIM(u.nombre_completo));
+                """,
+                # Sincronizar seguridad desde SEC_USR_ en parametros_sistema hacia columnas tipadas de usuarios
+                """
+                UPDATE usuarios u
+                SET
+                    intentos_fallidos = COALESCE((p.valor::jsonb ->> 'i')::int, u.intentos_fallidos, 0),
+                    password_bloqueada = COALESCE((p.valor::jsonb ->> 'b')::boolean, u.password_bloqueada, false),
+                    debe_cambiar_password = COALESCE((p.valor::jsonb ->> 'c')::boolean, u.debe_cambiar_password, false)
+                FROM parametros_sistema p
+                WHERE p.clave = ('SEC_USR_' || u.id::text);
+                """,
+            ]
+            for b_sql in backfill_sqls:
+                await db.execute(text(b_sql))
+            await db.commit()

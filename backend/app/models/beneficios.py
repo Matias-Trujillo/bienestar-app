@@ -3,9 +3,9 @@ Implementa las reglas de negocio para:
 - HU-05: Postulación y Liquidación de Bonos por Contingencia / Evento.
 - HU-06: Liquidación Masiva de Bonos Periódicos de Calendario (Invierno y Navidad).
 """
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List
-from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import String, Integer, Float, Boolean, Date, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -47,6 +47,9 @@ class SolicitudBeneficio(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     socio_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), index=True)
+    bono_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("bonos_catalogo.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     
     # Identificación del bono
     tipo_bono: Mapped[str] = mapped_column(String(60), index=True)
@@ -66,7 +69,7 @@ class SolicitudBeneficio(Base, TimestampMixin):
     
     # Campos específicos según tipo de beneficio
     decreto_numero: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    decreto_fecha: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    decreto_fecha: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     dias_habiles_feriado: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     
     nombre_beneficiario: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
@@ -92,6 +95,7 @@ class SolicitudBeneficio(Base, TimestampMixin):
     
     # Relaciones
     socio = relationship("User", foreign_keys=[socio_id])
+    bono = relationship("BonoCatalogo", foreign_keys=[bono_id])
     revisado_por = relationship("User", foreign_keys=[revisado_por_id])
     liquidado_por = relationship("User", foreign_keys=[liquidado_por_id])
 
@@ -101,6 +105,9 @@ class NominaMasiva(Base, TimestampMixin):
     __tablename__ = "nominas_masivas"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bono_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("bonos_catalogo.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     tipo_bono: Mapped[str] = mapped_column(String(60), index=True)
     titulo: Mapped[str] = mapped_column(String(150))
     periodo: Mapped[str] = mapped_column(String(60))
@@ -119,6 +126,7 @@ class NominaMasiva(Base, TimestampMixin):
     
     creado_por_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"))
     creado_por = relationship("User", foreign_keys=[creado_por_id])
+    bono = relationship("BonoCatalogo", foreign_keys=[bono_id])
     detalles = relationship("DetalleNominaMasiva", back_populates="nomina", cascade="all, delete-orphan")
 
 

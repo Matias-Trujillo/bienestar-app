@@ -168,6 +168,32 @@ Cualquier código nuevo o modificación generada por la IA DEBE respetar estas r
 
 ---
 
+## 🗄️ 4.5. Arquitectura Relacional y Gobernanza de Base de Datos (PostgreSQL 15 — 3FN)
+
+Toda intervención de la IA que toque modelos (`backend/app/models/`), migraciones (`backend/app/db/init_db.py`) o consultas de datos **DEBE respetar estrictamente la arquitectura relacional en Tercera Forma Normal (3FN) y las buenas prácticas de PostgreSQL 15**:
+
+### 1. Mapa de las 11 Tablas e Integridad Referencial Obligatoria (Cero Tablas Isla)
+El esquema relacional consta de **11 tablas** organizadas alrededor de la entidad maestra `usuarios(id)` y el catálogo `bonos_catalogo(id)`:
+- **`usuarios` (`PK: id`):** Entidad maestra de funcionarios y socios. Incluye estado previsional, saldos anuales (`INTEGER`) y columnas tipadas de seguridad de acceso (`intentos_fallidos`, `password_bloqueada`, `debe_cambiar_password`, `ultimo_cambio_password`).
+- **`solicitudes_afiliacion` (`PK: id`):** Postulaciones de incorporación (HU-01). Conectada a `usuarios(id)` mediante `socio_creado_id` y `resuelto_por_id` (`ON DELETE SET NULL`).
+- **`cargas_familiares` (`PK: id`):** Cargas declaradas en la incorporación inicial (HU-02). Conectada a `solicitudes_afiliacion(id)` vía `solicitud_id` (`ON DELETE CASCADE`) y a `usuarios(id)` vía `socio_id` (`ON DELETE SET NULL`).
+- **`solicitudes_cargas_familiares` (`PK: id`):** Bandeja de evaluación de cargas ante el Directorio. Conectada a `usuarios(id)` vía `socio_id` (`ON DELETE CASCADE`), `resuelto_por_id` (`ON DELETE SET NULL`) y a `cargas_familiares(id)` vía `carga_id` (`ON DELETE SET NULL`).
+- **`solicitudes_reembolso` (`PK: id`):** Solicitudes de reembolso médico/dental/farmacia (HU-03 y HU-04). Conectada a `usuarios(id)` vía `socio_id` (`ON DELETE SET NULL`) y `revisado_por_id` (`ON DELETE SET NULL`).
+- **`bonos_catalogo` (`PK: id`, `UQ: codigo`):** Catálogo maestro de bonos de contingencia y calendario indexados al Grado 15.
+- **`solicitudes_beneficio` (`PK: id`):** Solicitudes y liquidaciones individuales de bonos (HU-05). Conectada a `usuarios(id)` vía `socio_id`, `revisado_por_id`, `liquidado_por_id` y a `bonos_catalogo(id)` vía `bono_id`.
+- **`nominas_masivas` (`PK: id`):** Cabecera de liquidaciones masivas de bonos de calendario (HU-06). Conectada a `usuarios(id)` vía `creado_por_id` y a `bonos_catalogo(id)` vía `bono_id`.
+- **`detalles_nomina_masiva` (`PK: id`):** Detalle individual por socio de cada nómina masiva. Conectada a `nominas_masivas(id)` vía `nomina_id` (`ON DELETE CASCADE`) y a `usuarios(id)` vía `socio_id`.
+- **`audit_logs` (`PK: id`):** Bitácora forense inmutable (HU-10). Conectada a `usuarios(id)` vía `usuario_id` (`ON DELETE SET NULL`) además de preservar el snapshot inmutable del actor.
+- **`parametros_sistema` (`PK: id`, `UQ: clave`):** Tabla de configuración global institucional (`SUELDO_BASE_GRADO_15`, parámetros `SMTP_*`, etc.). **No requiere Foreign Key por ser tabla de configuración global del sistema**, y nunca debe usarse para almacenar atributos propios de un usuario individual.
+
+### 2. Reglas de Tipado Estricto y Normalización en PostgreSQL
+1. **Dinero Chileno (CLP) siempre en `INTEGER`:** Todo monto monetario en pesos chilenos (`monto_boleta`, `monto_copago`, `monto_reembolso`, `monto_calculado`, `sueldo_base_*`, `saldo_salud_*`) **DEBE declararse como `Integer` (`INTEGER`)**. Queda prohibido el uso de `Float` (`double precision`) para dinero.
+2. **Fechas y Tiempos Tipados (`DATE` y `TIMESTAMPTZ`):** Las fechas de negocio (`fecha_sesion`, `fecha_fin_carencia`, `decreto_fecha`, `fecha_atencion`, `fecha_boleta`) se almacenan como `Date` (`DATE`), y los momentos exactos (`resuelto_at`, `fecha_revision`, `fecha_liquidacion`, `ultimo_cambio_password`, `created_at`, `updated_at`) como `DateTime(timezone=True)` (`TIMESTAMPTZ`). En las respuestas hacia el Frontend (`schemas/`), se serializan a formato ISO string (`"YYYY-MM-DD"`) para mantener 100% de compatibilidad con TypeScript.
+3. **Patrón 3FN + Snapshot Inmutable CGR:** Las columnas históricas (`socio_rut`, `socio_nombre`, `sueldo_base_referencia`, `resuelto_por`) existen por exigencia de auditoría de la Contraloría General de la República (CGR) para congelar el estado legal del documento en su fecha de emisión, pero **jamás sustituyen a las claves foráneas relacionales (`socio_id`, `bono_id`, `carga_id`, `resuelto_por_id`, `revisado_por_id`)**.
+4. **Sincronización Obligatoria `models/` ↔ `init_db.py`:** Cualquier cambio en `backend/app/models/` debe ir acompañado inmediatamente de su migración SQL idempotente (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS` / `ADD CONSTRAINT`) en `backend/app/db/init_db.py`.
+
+---
+
 ## 🤖 5. Manual de Actuación para la IA
 
 Cuando el usuario te pida realizar modificaciones, nuevas funcionalidades o depuración:
@@ -181,7 +207,8 @@ Cuando el usuario te pida realizar modificaciones, nuevas funcionalidades o depu
    - **Moneda:** Formatea siempre en pesos chilenos sin centavos con punto separador de miles: `$150.000` usando `formatCurrency` de `@/lib/utils`.
    - **Identificador chileno (RUT/RUN):** Respeta el formato `XX.XXX.XXX-X` y valida con el algoritmo de módulo 11 provisto en `utils.ts` / `afiliacion.py`.
    - **Comentarios Didácticos:** Al modificar o crear archivos, mantén el estilo didáctico universitario con la marca `[ESTUDIANTE INFORMÁTICA]` explicando qué hace el bloque y qué permite en el sistema.
-3. **Sincronización:**
+3. **Sincronización Backend ↔ Base de Datos ↔ Frontend:**
+   - Si creas o modificas un campo en `backend/app/models/`, agrega obligatoriamente la migración idempotente en `backend/app/db/init_db.py` (verificando FKs, `INTEGER` para CLP y `DATE`/`TIMESTAMPTZ` para fechas).
    - Si creas un nuevo campo o endpoint en el backend, actualiza **inmediatamente** la interfaz correspondiente en `frontend/src/types/index.ts`.
 4. **Registro de Decisiones:**
    - Cada vez que apliques un cambio estructural o nueva regla acordada con el usuario, documenta brevemente la adición al final de este archivo en la sección **Historial de Cambios y Decisiones**.
@@ -198,3 +225,4 @@ Cuando el usuario te pida realizar modificaciones, nuevas funcionalidades o depu
 | **2026-11-11** | Antigravity AI | QA / Testing Backend | Implementación de suite de 19 pruebas automatizadas con Pytest + SQLite en memoria (`aiosqlite`), validando carencia (6m), caducidad (30d), retención preventiva, restitución de saldos, indexación Grado 15 y auditoría inmutable. |
 | **2026-11-11** | Antigravity AI | DevOps / Hosting & CI/CD | Creación de infraestructura de producción (`docker-compose.prod.yml`, Dockerfiles multi-stage, script `deploy/setup_server.sh`, workflow GitHub Actions CI/CD) y redacción del manual maestro `docs/GUIA_INSTALACION_SERVIDOR_LINUX.md` para torre con Windows 10 a Linux Headless 24/7. |
 | **2026-11-11** | Antigravity AI | Frontend UX/UI (Anti AI-Slop & Modern Civic SaaS) | Rediseño integral y Upgrade UX/UI Moderno en todos los módulos: tarjetas `.card-modern-interactive` (`rounded-2xl` con elevación multicapa sutil), cabeceras `.hero-institutional`, blindaje anti-desborde (`min-w-0`, `flex-wrap`, `overflow-x-hidden`), tipografía `tabular-nums`, navegación tipo píldora y descomposición modular bajo el límite de 40 líneas. |
+| **2026-11-15** | Antigravity AI | Base de Datos PostgreSQL 15 / Gobernanza 3FN | Blindaje normativo de Base de Datos en `CONTEXTO_IA.md` e `INSTRUCCIONES_AGENTE.md` e integración de las 6 correcciones relacionales en código y motor PostgreSQL: eliminación de tablas isla (`bono_id` FK a `bonos_catalogo`, `socio_id` y `carga_id` en cargas familiares, `usuario_id` FK en `audit_logs`), trazabilidad relacional de evaluadores (`resuelto_por_id`, `revisado_por_id`), conversión de montos CLP de `Float` a `Integer` en `solicitudes_reembolso`, tipado temporal `DATE`/`TIMESTAMPTZ` en fechas de resolución/decreto, y migración de seguridad de acceso a columnas tipadas en `usuarios`. |

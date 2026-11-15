@@ -1,7 +1,16 @@
 {
   "Servers": {
     "1": {
-      "Name": "Comite de Bienestar Peralillo (PostgreSQL 15)",
+      "Name": "Comite de Bienestar Peralillo (Local Dev)",
+      "Group": "Servidores Municipales",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "bienestar_db",
+      "Username": "bienestar_user",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "Comite de Bienestar Peralillo (Produccion)",
       "Group": "Servidores Municipales",
       "Host": "postgres",
       "Port": 5432,

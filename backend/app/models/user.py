@@ -1,7 +1,9 @@
 """Modelo ORM de usuarios del sistema."""
+from datetime import datetime
 import enum
+from typing import Optional
 
-from sqlalchemy import Boolean, Enum, Integer, String
+from sqlalchemy import Boolean, DateTime, Enum, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -50,3 +52,9 @@ class User(Base, TimestampMixin):
     saldo_salud_total_anual: Mapped[int] = mapped_column(Integer, default=150000)
     cargas_registradas: Mapped[int] = mapped_column(Integer, default=0)
     meses_antiguedad: Mapped[int] = mapped_column(Integer, default=12)
+
+    # [ESTUDIANTE INFORMÁTICA] Atributos de seguridad de acceso normalizados en 3FN directamente en la entidad usuarios
+    intentos_fallidos: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    password_bloqueada: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    debe_cambiar_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    ultimo_cambio_password: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -241,11 +241,12 @@ async def asegurar_columnas_reembolso(db: AsyncSession) -> None:
     except Exception:
         pass
     try:
-        await db.execute(
-            text(
-                "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS beneficiario_run VARCHAR(20) DEFAULT ''"
-            )
-        )
+        for sql_col in (
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS beneficiario_run VARCHAR(20) DEFAULT ''",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS revisado_por_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL",
+            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS fecha_revision TIMESTAMPTZ",
+        ):
+            await db.execute(text(sql_col))
         await db.commit()
         _COLUMNAS_REEMBOLSO_LISTAS = True
     except Exception:
@@ -545,6 +546,9 @@ async def crear_solicitud(
 
     codigo = await generar_codigo(db)
 
+    monto_boleta_int = int(round(payload.monto_boleta))
+    monto_copago_int = int(round(payload.monto_copago))
+
     solicitud = SolicitudReembolso(
         codigo=codigo,
         socio_id=socio_a_evaluar.id,
@@ -553,9 +557,9 @@ async def crear_solicitud(
         beneficiario_nombre=payload.beneficiario_nombre,
         beneficiario_parentesco=payload.beneficiario_parentesco,
         beneficiario_run=beneficiario_run,
-        monto_boleta=payload.monto_boleta,
-        monto_copago=payload.monto_copago,
-        monto_reembolso=payload.monto_copago,
+        monto_boleta=monto_boleta_int,
+        monto_copago=monto_copago_int,
+        monto_reembolso=monto_copago_int,
         fecha_atencion=payload.fecha_atencion,
         fecha_boleta=payload.fecha_boleta,
         tipo_documento=payload.tipo_documento,
@@ -771,6 +775,9 @@ async def resolver_solicitud_reembolso(
         # Al rechazar, liberamos el monto comprometido en su año calendario correspondiente
         solicitud.estado = EstadoReembolso.RECHAZADO
         solicitud.motivo_rechazo = motivo_rechazo or "Rechazado por administración"
+
+    solicitud.revisado_por_id = admin_user.id
+    solicitud.fecha_revision = datetime.now(timezone.utc)
 
     # Registrar evento inmutable en AuditLog
     audit = AuditLog(

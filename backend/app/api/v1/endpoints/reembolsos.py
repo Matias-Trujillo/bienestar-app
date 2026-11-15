@@ -38,6 +38,7 @@ from app.schemas.reembolso import (
     ReembolsoHistorialResponse,
 )
 from app.services.reembolso_service import (
+    asegurar_columnas_reembolso,
     crear_solicitud,
     listar_solicitudes_socio,
     listar_todas_solicitudes_admin,

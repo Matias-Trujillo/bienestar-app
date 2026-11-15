@@ -1,9 +1,10 @@
 """Modelo ORM de solicitudes de reembolso de prestaciones de salud."""
+from datetime import datetime
 import enum
 from typing import Optional
 
 from sqlalchemy import (
-    Boolean, Date, Enum, Float, ForeignKey, Integer, String, Text,
+    Boolean, Date, DateTime, Enum, ForeignKey, Integer, String, Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -104,10 +105,10 @@ class SolicitudReembolso(Base, TimestampMixin):
         String(20), nullable=True, default=""
     )
 
-    # [ESTUDIANTE INFORMÁTICA] Estos campos guardan los valores financieros del gasto y permiten calcular la cobertura y descontar del saldo disponible del socio.
-    monto_boleta: Mapped[float] = mapped_column(Float, nullable=False)
-    monto_copago: Mapped[float] = mapped_column(Float, default=0)
-    monto_reembolso: Mapped[float] = mapped_column(Float, default=0)
+    # [ESTUDIANTE INFORMÁTICA] Estos campos guardan los valores financieros del gasto en CLP entero (INTEGER) sin decimales flotantes.
+    monto_boleta: Mapped[int] = mapped_column(Integer, nullable=False)
+    monto_copago: Mapped[int] = mapped_column(Integer, default=0)
+    monto_reembolso: Mapped[int] = mapped_column(Integer, default=0)
 
     # [ESTUDIANTE INFORMÁTICA] Estas fechas registran cuándo ocurrió la atención médica y cuándo se emitió la boleta; esto permite validar la regla de los 30 días corridos de caducidad.
     fecha_atencion: Mapped[str] = mapped_column(Date, nullable=False)
@@ -134,6 +135,11 @@ class SolicitudReembolso(Base, TimestampMixin):
     )
 
     motivo_rechazo: Mapped[str] = mapped_column(Text, default="")
+    revisado_por_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    fecha_revision: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # [ESTUDIANTE INFORMÁTICA] Esto crea la relación bidireccional ORM con el modelo User y permite acceder a los datos completos del socio (nombre, rut, correo) directamente desde la solicitud.
-    socio = relationship("User", backref="solicitudes_reembolso", lazy="selectin")
+    # [ESTUDIANTE INFORMÁTICA] Esto crea la relación bidireccional ORM con el modelo User y permite acceder a los datos completos del socio y del evaluador desde la solicitud.
+    socio = relationship("User", foreign_keys=[socio_id], backref="solicitudes_reembolso", lazy="selectin")
+    revisado_por = relationship("User", foreign_keys=[revisado_por_id])

@@ -1,8 +1,9 @@
 """Modelos ORM del módulo de Afiliación (HU-01: solicitud de incorporación y cargas familiares)."""
+from datetime import date, datetime
 import enum
 from typing import List, Optional
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -47,13 +48,19 @@ class SolicitudAfiliacion(Base, TimestampMixin):
         _enum(EstadoSolicitud, "estado_solicitud"), default=EstadoSolicitud.PENDIENTE
     )
 
-    # HU-02: Revisión y aprobación en sesión de Directorio
-    fecha_sesion: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD
+    # HU-02: Revisión y aprobación en sesión de Directorio (Tipado estricto DATE/TIMESTAMPTZ + FKs a usuarios)
+    socio_creado_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    resuelto_por_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    fecha_sesion: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     numero_acta: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    fecha_fin_carencia: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD (+6 meses)
+    fecha_fin_carencia: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     observaciones_resolucion: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     resuelto_por: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    resuelto_at: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    resuelto_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     cargas: Mapped[List["CargaFamiliar"]] = relationship(
         back_populates="solicitud", cascade="all, delete-orphan", lazy="selectin"
@@ -65,6 +72,9 @@ class CargaFamiliar(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     solicitud_id: Mapped[int] = mapped_column(ForeignKey("solicitudes_afiliacion.id", ondelete="CASCADE"))
+    socio_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     nombre_completo: Mapped[str] = mapped_column(String(120))
     run: Mapped[str] = mapped_column(String(12))
     parentesco: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
@@ -85,8 +95,11 @@ class SolicitudCargaFamiliar(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     folio: Mapped[str] = mapped_column(String(24), unique=True, index=True)
 
-    # Socio titular solicitante
+    # Socio titular solicitante y vínculo opcional con carga declarada en incorporación
     socio_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
+    carga_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("cargas_familiares.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     socio_nombre: Mapped[str] = mapped_column(String(120))
     socio_rut: Mapped[str] = mapped_column(String(20), index=True)
     socio_email: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
@@ -102,12 +115,15 @@ class SolicitudCargaFamiliar(Base, TimestampMixin):
     certificado_tipo: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     certificado_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # Estado y resolución de Directiva
+    # Estado y resolución de Directiva (Tipado estricto DATE/TIMESTAMPTZ + FK evaluador)
     estado: Mapped[EstadoSolicitud] = mapped_column(
         _enum(EstadoSolicitud, "estado_solicitud"), default=EstadoSolicitud.PENDIENTE
     )
-    fecha_sesion: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    resuelto_por_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    fecha_sesion: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     numero_acta: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     observaciones_resolucion: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     resuelto_por: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    resuelto_at: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    resuelto_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
