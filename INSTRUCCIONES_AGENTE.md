@@ -54,8 +54,13 @@ El backend en `backend/app` se organiza conceptualmente en tres capas estrictas:
   - La capa externa (`infrastructure/api`) nunca contiene lógica de cálculo ni ejecuta consultas crudas a la base de datos dentro de los routers. Siempre delega la lógica en los servicios de la capa de aplicación (`app/services/`).
   - La capa de dominio (`models/`, `schemas/`) no conoce ni importa nada de la capa de infraestructura.
 * **Auditoría Inmutable (Append-Only):**
-  - Cualquier acción que altere el estado del sistema (aprobar/rechazar solicitudes de afiliación, resolver reembolsos, liquidar bonos, crear o modificar usuarios y saldos) **debe invocar obligatoriamente a `registrar_auditoria()`**.
+  - Cualquier acción que altere el estado del sistema (aprobar/rechazar solicitudes de afiliación, crear o resolver reembolsos, postular o liquidar bonos, ejecutar nóminas masivas, crear o modificar usuarios, parámetros y saldos) **debe invocar obligatoriamente a `registrar_auditoria()`** desde `app/services/audit_service.py`.
   - La tabla `audit_logs` es estrictamente append-only: **nunca se debe actualizar (`UPDATE`) ni eliminar (`DELETE`) un registro de auditoría**.
+* **Arquitectura de Doble Vista (`Admin` ↔ `Usuario`) y Principio de Probidad Administrativa (Inhabilidad de Auto-Aprobación):**
+  - **Perfil 1 — Trabajador Normal (`socio`, 1 sola vista):** Opera exclusivamente en la *Vista Usuario*, donde gestiona sus propias solicitudes (reembolsos, vacaciones, bonos, cargas). No tiene acceso alguno a bandejas de aprobación, nóminas financieras ni historiales globales de terceros.
+  - **Perfil 2 — Cuenta con 2 Vistas (`admin`, `presidente`, `secretario`, `tesorero`, `auditor`):** Asignada por el `superusuario` desde `/admin`. Como estos directivos/administradores también son trabajadores municipales afiliados al Comité, disponen en la esquina superior derecha (`Header`) de una pestaña para alternar entre **`Vista Admin`** (gestión y resolución de terceros) y **`Vista Usuario`** (solicitudes personales como trabajador).
+  - **Prohibición de Auto-Aprobación (Probidad — Ley N° 19.754):** Bajo ninguna circunstancia un usuario con `Vista Admin` puede aprobar, rechazar, liquidar ni auto-asignarse sus propias solicitudes (`solicitud.socio_id == current_user.id` o coincidencia de RUN). El Backend debe rechazarlo siempre con `HTTP 403 Forbidden` y el Frontend debe bloquear los controles de resolución sobre solicitudes propias.
+  - **Rol `auditor` Estricto de Lectura:** El rol `auditor` (Comisión Revisora de Cuentas) solo posee permisos de lectura/fiscalización y jamás puede resolver solicitudes ejecutivas.
 
 ---
 

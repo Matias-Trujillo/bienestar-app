@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi, API_BASE_URL } from '@/lib/api';
 import { getErrorMessage } from '@/lib/utils';
@@ -16,7 +17,8 @@ import { TablaAprobaciones } from '@/components/aprobaciones/TablaAprobaciones';
 
 // [ESTUDIANTE INFORMÁTICA] Orquestador principal de la bandeja de aprobaciones de la Directiva (HU-04); Clean Architecture en frontend.
 export default function AprobacionesPage() {
-  const { user, token } = useAuth();
+  const { user, token, isAdminView, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [solicitudes, setSolicitudes] = useState<SolicitudReembolso[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState<string>('en_revision');
@@ -56,8 +58,14 @@ export default function AprobacionesPage() {
   }, [token]);
 
   useEffect(() => {
-    cargarSolicitudes();
-  }, [cargarSolicitudes]);
+    if (!authLoading && user && !isAdminView) {
+      router.replace('/');
+      return;
+    }
+    if (isAdminView) {
+      cargarSolicitudes();
+    }
+  }, [authLoading, user, isAdminView, router, cargarSolicitudes]);
 
   const handleConfirmarAprobar = async () => {
     if (!solicitudAprobar || !token) return;

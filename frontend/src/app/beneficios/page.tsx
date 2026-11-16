@@ -26,7 +26,7 @@ import { LiquidacionMasivaPanel } from '@/components/beneficios/LiquidacionMasiv
 import { ModalesBeneficios } from '@/components/beneficios/ModalesBeneficios';
 
 export default function BeneficiosPage() {
-  const { user, token } = useAuth();
+  const { user, token, isAdminView, viewMode } = useAuth();
 
   const authHeaders = useMemo((): Record<string, string> => {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -96,20 +96,27 @@ export default function BeneficiosPage() {
   const [baseG15Nueva, setBaseG15Nueva] = useState<number>(750000);
 
   const esDirectivaOAdmin = useMemo(() => {
-    if (!user) return false;
+    if (!user || !isAdminView) return false;
     return (
       user.isSuperuser ||
       ['admin', 'presidente', 'secretario', 'tesorero', 'superusuario', 'auditor'].includes(user.rol)
     );
-  }, [user]);
+  }, [user, isAdminView]);
+
+  useEffect(() => {
+    if (!esDirectivaOAdmin && (activeTab === 'gestion_directiva' || activeTab === 'liquidacion_masiva')) {
+      setActiveTab('catalogo');
+    }
+  }, [esDirectivaOAdmin, activeTab]);
 
   const cargarDatos = async () => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
+      const modoQuery = esDirectivaOAdmin ? '?modo=admin' : '?modo=socio';
       const [catRes, solRes] = await Promise.all([
         fetchFromApi<CatalogoBeneficios>('/beneficios/catalogo'),
-        fetchFromApi<SolicitudBeneficio[]>('/beneficios/solicitudes', { headers: authHeaders }),
+        fetchFromApi<SolicitudBeneficio[]>(`/beneficios/solicitudes${modoQuery}`, { headers: authHeaders }),
       ]);
       setCatalogo(catRes);
       setSolicitudes(solRes);
@@ -121,7 +128,7 @@ export default function BeneficiosPage() {
           if (paramsRes.bono_navidad_porcentaje) {
             setPorcentajeNavidad(paramsRes.bono_navidad_porcentaje);
           }
-        } catch (_) {}
+        } catch (_err: unknown) {}
       }
     } catch (err: unknown) {
       console.error('Error al cargar datos:', err);
@@ -133,7 +140,7 @@ export default function BeneficiosPage() {
 
   useEffect(() => {
     cargarDatos();
-  }, [token, esDirectivaOAdmin]);
+  }, [token, esDirectivaOAdmin, viewMode]);
 
   // Handlers de formularios
   const handlePostular = async (e: React.FormEvent) => {

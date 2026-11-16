@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useAuth } from '@/context/AuthContext';
 import { SolicitudReembolso, TIPO_PRESTACION_LABELS } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { getEstadoBadge } from './TablaSolicitudes';
@@ -82,6 +83,7 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
   onIniciarAprobar,
   onIniciarRechazar,
 }) => {
+  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -90,8 +92,21 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
 
   if (!solicitud || !mounted) return null;
   const badge = getEstadoBadge(solicitud.estado);
+  const esSolicitudPropia = Boolean(
+    user &&
+      (solicitud.socio_id === Number(user.id) ||
+        (solicitud.socio_rut &&
+          user.rut &&
+          solicitud.socio_rut.replace(/[^0-9kK]/gi, '').toUpperCase() ===
+            user.rut.replace(/[^0-9kK]/gi, '').toUpperCase()))
+  );
+  const esAuditor = user?.rol === 'auditor';
   const puedeResolver =
-    solicitud.estado === 'en_revision' && Boolean(onIniciarAprobar) && Boolean(onIniciarRechazar);
+    solicitud.estado === 'en_revision' &&
+    Boolean(onIniciarAprobar) &&
+    Boolean(onIniciarRechazar) &&
+    !esSolicitudPropia &&
+    !esAuditor;
 
   return createPortal(
     <div
@@ -192,6 +207,12 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
             >
               Cerrar
             </button>
+
+            {solicitud.estado === 'en_revision' && esSolicitudPropia && Boolean(onIniciarAprobar) && (
+              <span className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
+                🔒 Solicitud Propia: Inhabilitado para auto-aprobar (Principio de Probidad)
+              </span>
+            )}
 
             {puedeResolver && (
               <div className="flex flex-wrap items-center gap-2">

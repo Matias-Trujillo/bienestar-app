@@ -34,6 +34,7 @@ from app.schemas.beneficios import (
     EjecutarNominaRequest,
     SimularNominaItem,
 )
+from app.services.audit_service import registrar_auditoria
 from app.services.beneficios_service import BeneficiosService
 
 router = APIRouter()
@@ -98,16 +99,21 @@ def _to_solicitud_out(s: SolicitudBeneficio, socio: Optional[User] = None) -> So
 # [ESTUDIANTE INFORMÁTICA] Retorna el conteo de solicitudes de beneficios/bonos pendientes para badges del menú lateral y notificaciones.
 @router.get("/conteo-pendientes", summary="Obtener cantidad de solicitudes de beneficios / bonos pendientes")
 async def get_beneficios_conteo_pendientes(
+    modo: Optional[str] = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, int]:
-    es_directiva_o_admin = user.is_superuser or user.rol in (
-        UserRole.ADMIN,
-        UserRole.SUPERUSUARIO,
-        UserRole.PRESIDENTE,
-        UserRole.SECRETARIO,
-        UserRole.TESORERO,
-        UserRole.AUDITOR,
+    es_directiva_o_admin = modo != "socio" and (
+        user.is_superuser
+        or user.rol
+        in (
+            UserRole.ADMIN,
+            UserRole.SUPERUSUARIO,
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.AUDITOR,
+        )
     )
     if es_directiva_o_admin:
         query = select(func.count(SolicitudBeneficio.id)).where(SolicitudBeneficio.estado == "PENDIENTE")
@@ -145,6 +151,7 @@ async def update_parametro(
     db: AsyncSession = Depends(get_db),
 ):
     param = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == payload.clave))
+    valor_anterior = param.valor if param else None
     if not param:
         param = ParametroSistema(clave=payload.clave, valor=payload.valor, descripcion=payload.descripcion or "")
         db.add(param)
@@ -152,6 +159,15 @@ async def update_parametro(
         param.valor = payload.valor
         if payload.descripcion:
             param.descripcion = payload.descripcion
+    await registrar_auditoria(
+        db=db,
+        usuario=user,
+        modulo="CONFIGURACION",
+        accion="ACTUALIZAR_PARAMETRO_BENEFICIO",
+        recurso_tipo="ParametroSistema",
+        recurso_id=payload.clave,
+        detalles=f"Parámetro '{payload.clave}' actualizado de '{valor_anterior}' a '{payload.valor}'.",
+    )
     await db.commit()
     return {"message": f"Parámetro {payload.clave} actualizado correctamente a {payload.valor}."}
 
@@ -161,17 +177,18 @@ async def get_solicitudes(
     socio_id: Optional[int] = None,
     estado: Optional[str] = None,
     tipo_bono: Optional[str] = None,
+    modo: Optional[str] = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Si es socio regular: obtiene exclusivamente sus postulaciones y liquidaciones (su Hoja de Beneficios).
-    Si es Directiva / Administrador: puede ver todas o filtrar por socio_id, estado o tipo de bono.
+    Si es socio regular o se solicita en Vista Usuario (modo=socio): obtiene exclusivamente sus postulaciones y liquidaciones (su Hoja de Beneficios).
+    Si es Directiva / Administrador en Vista Admin: puede ver todas o filtrar por socio_id, estado o tipo de bono.
     """
     query = select(SolicitudBeneficio).options(selectinload(SolicitudBeneficio.socio)).order_by(desc(SolicitudBeneficio.id))
     
-    # Restricción de permisos: socio común solo ve sus registros
-    if user.rol == UserRole.SOCIO and not user.is_superuser:
+    # Restricción de permisos: socio común o cuenta de 2 vistas operando en Vista Usuario ('socio') solo ve sus registros
+    if (user.rol == UserRole.SOCIO and not user.is_superuser) or modo == "socio":
         query = query.where(SolicitudBeneficio.socio_id == user.id)
     elif socio_id:
         query = query.where(SolicitudBeneficio.socio_id == socio_id)
@@ -384,28 +401,22 @@ async def exportar_tesoreria(
     }
 
 
-# Compatibilidad retroactiva con el dashboard general
-@router.get("/movimientos", summary="Movimientos para el dashboard")
+# Compatibilidad retroactiva con el dashboard general (filtrado estrictamente por el socio autenticado para evitar fuga BOLA)
+@router.get("/movimientos", summary="Movimientos personales de beneficios para la Hoja de Socio")
 async def get_movimientos_compat(
-    user: Optional[User] = Depends(get_current_user),
+    modo: Optional[str] = None,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    solicitudes = (await db.scalars(
-        select(SolicitudBeneficio).order_by(desc(SolicitudBeneficio.id)).limit(10)
-    )).all()
-    
+    stmt = (
+        select(SolicitudBeneficio)
+        .where(SolicitudBeneficio.socio_id == user.id)
+        .order_by(desc(SolicitudBeneficio.id))
+        .limit(10)
+    )
+    solicitudes = (await db.scalars(stmt)).all()
     if not solicitudes:
-        return [
-            {
-                "id": "MOV-002",
-                "fecha": "2026-03-15",
-                "concepto": "Bono de Vacaciones Anual (15% Grado 15)",
-                "modulo": "Beneficios Sociales",
-                "monto": 112500,
-                "estado": "Pagado",
-                "comprobante_url": "/docs/decretos/DEC-1042-2026.pdf",
-            }
-        ]
+        return []
         
     return [
         {

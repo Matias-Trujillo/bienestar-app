@@ -82,7 +82,7 @@ export function playNotificationChime(force: boolean = false): void {
     } else {
       emitChime(ctx);
     }
-  } catch (err) {
+  } catch (err: unknown) {
     // En caso de que el navegador bloquee audio, se degrada elegantemente sin interrumpir la UX
     console.debug('Aviso sonoro no disponible en este contexto:', err);
   }

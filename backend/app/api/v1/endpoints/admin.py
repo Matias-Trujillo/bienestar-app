@@ -8,6 +8,7 @@ from sqlalchemy import func, select, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_roles
+from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.session import get_db
 from app.models import (
@@ -17,6 +18,7 @@ from app.models import (
     SolicitudAfiliacion,
     SolicitudReembolso,
     SolicitudBeneficio,
+    NominaMasiva,
     ParametroSistema,
     EstadoSolicitud,
 )
@@ -26,6 +28,7 @@ from app.api.v1.endpoints.auth import (
     obtener_seguridad_usuario,
 )
 from app.models.beneficios import BonoCatalogo
+from app.services.audit_service import registrar_auditoria
 from app.services.email_service import (
     actualizar_config_smtp_runtime,
     enviar_correo_prueba_smtp,
@@ -66,8 +69,8 @@ class CrearUsuarioIn(BaseModel):
     antiguedad: str = "12 Meses"
     meses_antiguedad: int = 12
     estado_previsional: str = "Al día"
-    saldo_salud_disponible: float = 150000.0
-    saldo_salud_total_anual: float = 150000.0
+    saldo_salud_disponible: int = 150000
+    saldo_salud_total_anual: int = 150000
     cargas_registradas: int = 0
 
 
@@ -78,7 +81,7 @@ class EditarUsuarioIn(BaseModel):
     nueva_password: Optional[str] = None
     password_bloqueada: Optional[bool] = None
     debe_cambiar_password: Optional[bool] = None
-    saldo_salud_disponible: Optional[float] = None
+    saldo_salud_disponible: Optional[int] = None
     meses_antiguedad: Optional[int] = None
     estado_previsional: Optional[str] = None
 
@@ -95,32 +98,6 @@ class SmtpConfigIn(BaseModel):
     smtp_user: str
     smtp_password: str
     destinatario_prueba: Optional[str] = None
-
-
-# Helper para registrar auditoría inmutable
-async def registrar_auditoria(
-    db: AsyncSession,
-    usuario: User,
-    modulo: str,
-    accion: str,
-    recurso_tipo: str,
-    recurso_id: Optional[str],
-    detalles: str,
-    ip_origen: str = "127.0.0.1",
-):
-    log = AuditLog(
-        usuario_id=usuario.id,
-        usuario_nombre=usuario.nombre_completo,
-        usuario_rut=usuario.rut,
-        usuario_rol=usuario.rol.value,
-        modulo=modulo,
-        accion=accion,
-        recurso_tipo=recurso_tipo,
-        recurso_id=recurso_id,
-        detalles=detalles,
-        ip_origen=ip_origen,
-    )
-    db.add(log)
 
 
 # ---------------------------------------------------------------------------
@@ -404,12 +381,12 @@ async def eliminar_usuario(
 async def listar_parametros(
     _: User = Depends(require_roles(*ROLES_ADMIN)), db: AsyncSession = Depends(get_db)
 ):
-    # Asegurar que existan los parámetros SMTP para configuración rápida desde la interfaz
+    # Asegurar que existan los parámetros SMTP para configuración rápida desde la interfaz (sin exponer claves en duro)
     defaults_smtp = [
-        ("SMTP_HOST", "smtp.gmail.com", "Servidor de correo saliente (ej: smtp.gmail.com o smtp.office365.com)"),
-        ("SMTP_PORT", "587", "Puerto SMTP (587 para STARTTLS, 465 para SSL)"),
-        ("SMTP_USER", "bperalillo@gmail.com", "Correo electrónico remitente para envío real de correos (ej: tucorreo@gmail.com)"),
-        ("SMTP_PASSWORD", "xgsnewzymyqjumgc", "Contraseña de Aplicación de 16 letras (Google App Password) o clave SMTP"),
+        ("SMTP_HOST", settings.SMTP_HOST or "smtp.gmail.com", "Servidor de correo saliente (ej: smtp.gmail.com o smtp.office365.com)"),
+        ("SMTP_PORT", str(settings.SMTP_PORT or 587), "Puerto SMTP (587 para STARTTLS, 465 para SSL)"),
+        ("SMTP_USER", settings.SMTP_USER or settings.SMTP_FROM_EMAIL or "bperalillo@gmail.com", "Correo electrónico remitente para envío real de correos"),
+        ("SMTP_PASSWORD", settings.SMTP_PASSWORD or "", "Contraseña de Aplicación de 16 letras (Google App Password) o clave SMTP"),
     ]
     hubo_nuevos = False
     for clave_def, val_def, desc_def in defaults_smtp:
@@ -702,16 +679,23 @@ async def eliminar_bono_admin(
         raise HTTPException(status_code=404, detail="Bono no encontrado.")
 
     solicitudes_asociadas = await db.scalar(
-        select(func.count(SolicitudBeneficio.id)).where(SolicitudBeneficio.tipo_bono == bono.codigo)
+        select(func.count(SolicitudBeneficio.id)).where(
+            (SolicitudBeneficio.bono_id == bono.id) | (SolicitudBeneficio.tipo_bono == bono.codigo)
+        )
+    ) or 0
+    nominas_asociadas = await db.scalar(
+        select(func.count(NominaMasiva.id)).where(
+            (NominaMasiva.bono_id == bono.id) | (NominaMasiva.tipo_bono == bono.codigo)
+        )
     ) or 0
 
-    if solicitudes_asociadas > 0:
+    if (solicitudes_asociadas + nominas_asociadas) > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"No se puede eliminar el beneficio '{bono.nombre}' porque cuenta con "
-                f"{solicitudes_asociadas} solicitud(es) registradas en el historial de los socios. "
-                "Para ocultarlo del portal de socios sin romper la integridad contable, utilice la opción 'Desactivar'."
+                f"{solicitudes_asociadas + nominas_asociadas} registro(s) en el historial contable de los socios. "
+                "Para ocultarlo del portal de socios sin romper la integridad referencial, utilice la opción 'Desactivar'."
             ),
         )
 

@@ -166,10 +166,11 @@ async def get_nomina_retenciones(
 # [ESTUDIANTE INFORMÁTICA] Permite al socio ver sus cargas o a la administración listar todas las cargas registradas.
 @router.get("/mis-cargas", summary="Listar cargas familiares (propias o generales)")
 async def get_mis_cargas(
+    modo: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
-    return await AfiliacionService.obtener_mis_cargas(db, current_user)
+    return await AfiliacionService.obtener_mis_cargas(db, current_user, modo=modo)
 
 
 # [ESTUDIANTE INFORMÁTICA] Permite a un socio activo solicitar la incorporación de una nueva carga adjuntando certificado civil.

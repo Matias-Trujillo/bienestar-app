@@ -11,10 +11,10 @@ def normalizar_run(value: str) -> str:
     """Normaliza y valida un RUN con módulo 11 chileno."""
     limpio = re.sub(r"[^0-9kK]", "", value or "").upper()
     if len(limpio) < 8 or len(limpio) > 9:
-        raise ValueError("RUN inválido (debe tener entre 7 y 8 dígitos más dígito verificador)")
+        raise ValueError("RUN inválido.")
     cuerpo, dv = limpio[:-1], limpio[-1]
     if not cuerpo.isdigit():
-        raise ValueError("RUN inválido")
+        raise ValueError("RUN inválido.")
     suma, mult = 0, 2
     for d in reversed(cuerpo):
         suma += int(d) * mult
@@ -22,7 +22,7 @@ def normalizar_run(value: str) -> str:
     resto = 11 - (suma % 11)
     esperado = "0" if resto == 11 else "K" if resto == 10 else str(resto)
     if dv != esperado:
-        raise ValueError("RUN inválido (dígito verificador incorrecto)")
+        raise ValueError("RUN inválido.")
     return f"{int(cuerpo)}-{dv}"
 
 
@@ -177,7 +177,7 @@ class CargaMasivaSocioIn(BaseModel):
     departamento: Optional[str] = "Departamento Municipal"
     mesesAntiguedad: Optional[int] = 12
     rol: Optional[str] = "socio"
-    saldoSaludDisponible: Optional[float] = 150000.0
+    saldoSaludDisponible: Optional[int] = 150000
     cargas: List[CargaMasivaDependienteIn] = Field(default_factory=list)
 
 

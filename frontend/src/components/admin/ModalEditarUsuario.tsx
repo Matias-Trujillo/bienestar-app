@@ -107,6 +107,60 @@ export const ModalEditarUsuario: React.FC<ModalEditarUsuarioProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          {/* Selector explícito de Modalidad de Vistas (1 Vista vs 2 Vistas) para el Superadmin */}
+          <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-200/80 space-y-2.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-purple-800 block">
+              Modalidad de Cuenta y Vistas Asignadas por Superadmin
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setRol('socio')}
+                className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                  rol === 'socio'
+                    ? 'bg-white border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                    : 'bg-white/70 border-slate-200 hover:bg-white'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">👤 1 Vista (Trabajador)</span>
+                  {rol === 'socio' && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      Activo
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                  Solo pide sus vacaciones, bonos y reembolsos. Cero acceso a aprobaciones ni historiales.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (rol === 'socio') setRol('admin');
+                }}
+                className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                  rol !== 'socio'
+                    ? 'bg-white border-purple-600 ring-2 ring-purple-600/20 shadow-xs'
+                    : 'bg-white/70 border-slate-200 hover:bg-white'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-900">🛡️👤 2 Vistas (Admin + Socio)</span>
+                  {rol !== 'socio' && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+                      Activo
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                  Pestaña en perfil para alternar Vista Admin y Vista Usuario (prohibido auto-aprobarse).
+                </p>
+              </button>
+            </div>
+          </div>
+
           {/* 1. Estado del Socio y Rol */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -129,20 +183,20 @@ export const ModalEditarUsuario: React.FC<ModalEditarUsuarioProps> = ({
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Rol Asignado
+                Cargo / Rol Específico
               </label>
               <select
                 value={rol}
                 onChange={(e) => setRol(e.target.value as UserRole)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value="socio">Socio Activo</option>
-                <option value="presidente">Presidente(a)</option>
-                <option value="secretario">Secretario(a)</option>
-                <option value="tesorero">Tesorero(a)</option>
-                <option value="admin">Administrador / Directiva</option>
-                <option value="auditor">Revisor / Auditor</option>
-                <option value="superusuario">Superusuario</option>
+                <option value="socio">Trabajador Normal (1 Vista: Socio)</option>
+                <option value="admin">Administrador (2 Vistas: Admin + Socio)</option>
+                <option value="presidente">Presidente(a) (2 Vistas: Directiva + Socio)</option>
+                <option value="secretario">Secretario(a) (2 Vistas: Directiva + Socio)</option>
+                <option value="tesorero">Tesorero(a) (2 Vistas: Directiva + Socio)</option>
+                <option value="auditor">Auditor(a) (2 Vistas: Lectura + Socio)</option>
+                <option value="superusuario">Superadministrador (Control Total)</option>
               </select>
             </div>
           </div>

@@ -3,10 +3,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
-import { User } from '@/types';
+import { User, ViewMode } from '@/types';
 import {
   playNotificationChime,
   isSoundEnabled,
@@ -309,12 +309,14 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   </div>
 );
 
-// [ESTUDIANTE INFORMÁTICA] Header institucional con alerta animada en tiempo real, sonido Web Audio API y sincronización.
+// [ESTUDIANTE INFORMÁTICA] Header institucional con pestaña de Doble Vista (Vista Admin <-> Vista Usuario), alerta animada en tiempo real y sonido Web Audio API.
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
-  const { user, token, logout } = useAuth();
+  const { user, token, logout, viewMode, setViewMode, tieneDobleVista, isAdminView } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [reembolsosPendientes, setReembolsosPendientes] = useState(0);
   const [afiliacionPendientes, setAfiliacionPendientes] = useState(0);
   const [beneficiosPendientes, setBeneficiosPendientes] = useState(0);
@@ -324,6 +326,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const [sonidoHabilitado, setSonidoHabilitado] = useState(true);
 
   const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const bellAnimTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevTotalAlertasRef = useRef<number | null>(null);
@@ -331,8 +334,17 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const prevReembolsosRef = useRef<number | null>(null);
   const prevBeneficiosRef = useRef<number | null>(null);
 
-  const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
-  const esDirectiva = Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
+  const esAdminOSuper = isAdminView && (user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser));
+  const esDirectiva = isAdminView && Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
+
+  const handleSwitchViewMode = (nuevoModo: ViewMode) => {
+    setViewMode(nuevoModo);
+    setProfileMenuOpen(false);
+    setNotifOpen(false);
+    if (nuevoModo === 'socio' && ['/aprobaciones', '/finanzas', '/admin'].includes(pathname)) {
+      router.push('/');
+    }
+  };
 
   // Inicializa la preferencia de sonido desde localStorage
   useEffect(() => {
@@ -565,13 +577,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
   // Cierre de menús contextuales al hacer clic fuera o presionar escape
   useEffect(() => {
-    if (!notifOpen) return;
+    if (!notifOpen && !profileMenuOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileMenuOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [notifOpen]);
+  }, [notifOpen, profileMenuOpen]);
 
   useEffect(() => {
     if (!confirmOpen) return;
@@ -683,26 +696,182 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
         <div className="hidden sm:block w-px h-7 bg-slate-200" />
 
-        <div className="flex items-center gap-2.5">
-          <div className="relative shrink-0">
-            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-[#0c2b45] to-[#006799] text-white font-semibold text-xs shadow-xs">
-              {getInitials(user?.nombreCompleto)}
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#166534] ring-2 ring-white" />
+        {/* Pestaña Rápida de Doble Vista (Vista Admin <-> Vista Usuario) para cuentas con 2 vistas */}
+        {tieneDobleVista && (
+          <div
+            className="inline-flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200/90 shadow-inner"
+            role="tablist"
+            aria-label="Cambiar entre Vista Admin y Vista Usuario"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === 'admin'}
+              onClick={() => handleSwitchViewMode('admin')}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'admin'
+                  ? 'bg-[#0c2b45] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Vista Administrador / Directiva: Revisar y aprobar solicitudes de otros trabajadores"
+            >
+              <span>🛡️</span>
+              <span className="hidden lg:inline">Vista Admin</span>
+              <span className="lg:hidden">Admin</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === 'socio'}
+              onClick={() => handleSwitchViewMode('socio')}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'socio'
+                  ? 'bg-[#166534] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Vista Usuario (Trabajador): Solicitar mis propias vacaciones, beneficios, cargas y reembolsos"
+            >
+              <span>👤</span>
+              <span className="hidden lg:inline">Vista Usuario</span>
+              <span className="lg:hidden">Usuario</span>
+            </button>
           </div>
-          <div className="text-left hidden md:block leading-tight">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-slate-900 max-w-[160px] truncate">
-                {user?.nombreCompleto || 'Socio'}
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-[#006799] border border-sky-200/80">
-                {user?.rolLabel || 'Socio Activo'}
+        )}
+
+        {/* Perfil del Usuario en Esquina Superior Derecha con Menú Desplegable de Selección de Vista */}
+        <div className="relative" ref={profileRef}>
+          <button
+            type="button"
+            onClick={() => setProfileMenuOpen((prev) => !prev)}
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-slate-100/80 transition-colors cursor-pointer border border-transparent hover:border-slate-200/80"
+            title={tieneDobleVista ? 'Abrir menú de perfil y cambio de vista (Admin / Usuario)' : 'Perfil de Socio'}
+          >
+            <div className="relative shrink-0">
+              <div
+                className={`flex items-center justify-center w-9 h-9 rounded-xl text-white font-semibold text-xs shadow-xs ${
+                  viewMode === 'socio' && tieneDobleVista
+                    ? 'bg-gradient-to-br from-[#166534] to-emerald-600'
+                    : 'bg-gradient-to-br from-[#0c2b45] to-[#006799]'
+                }`}
+              >
+                {getInitials(user?.nombreCompleto)}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#166534] ring-2 ring-white" />
+            </div>
+            <div className="text-left hidden md:block leading-tight">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-900 max-w-[150px] truncate">
+                  {user?.nombreCompleto || 'Socio'}
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                    tieneDobleVista && viewMode === 'socio'
+                      ? 'bg-emerald-50 text-[#166534] border-emerald-200'
+                      : 'bg-sky-50 text-[#006799] border-sky-200/80'
+                  }`}
+                >
+                  {tieneDobleVista
+                    ? viewMode === 'socio'
+                      ? 'Modo Usuario (Socio)'
+                      : user?.rolLabel || 'Vista Admin'
+                    : 'Socio Activo'}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 tabular-nums font-normal block">
+                RUT {user?.rut || 'Sin especificar'}
               </span>
             </div>
-            <span className="text-xs text-slate-500 tabular-nums font-normal">
-              RUT {user?.rut || 'Sin especificar'}
-            </span>
-          </div>
+          </button>
+
+          {profileMenuOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden z-50 animate-scale-in">
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/90">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#0c2b45] truncate">
+                    {user?.nombreCompleto}
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-500 tabular-nums">
+                    {user?.rut}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                  {user?.email} • {user?.departamento}
+                </p>
+              </div>
+
+              {tieneDobleVista ? (
+                <div className="p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#006799]">
+                      Cuenta con 2 Vistas Habilitadas
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                      {user?.rolLabel}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchViewMode('admin')}
+                      className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        viewMode === 'admin'
+                          ? 'bg-sky-50/90 border-[#006799] ring-1 ring-[#006799]/30'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#0c2b45]">
+                          🛡️ Vista Administrador / Directiva
+                        </span>
+                        {viewMode === 'admin' && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#006799] text-white">
+                            Activa
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-1 leading-snug">
+                        Evaluar reembolsos, bonos, afiliaciones y nóminas de otros funcionarios (sin auto-aprobar solicitudes propias).
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchViewMode('socio')}
+                      className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        viewMode === 'socio'
+                          ? 'bg-emerald-50/90 border-[#166534] ring-1 ring-[#166534]/30'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#166534]">
+                          👤 Vista Usuario (Trabajador Socio)
+                        </span>
+                        {viewMode === 'socio' && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#166534] text-white">
+                            Activa
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-1 leading-snug">
+                        Pedir mis propias vacaciones, beneficios, reembolsos médicos y cargas familiares como trabajador.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 text-xs text-slate-600">
+                  <span className="font-bold text-slate-800 block">
+                    👤 Perfil Trabajador (Socio Activo)
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Cuenta personal para solicitar beneficios, vacaciones, cargas familiares y reembolsos médicos.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <button

@@ -79,6 +79,13 @@ CUENTAS_AUTORIZADAS_CARGA_MASIVA: Set[str] = {
 
 RUTS_AUTORIZADOS_CARGA_MASIVA: Set[str] = {
     "11111111-1",
+    "12345678-5",
+    "13456789-9",
+    "14982112-0",
+    "16234567-2",
+    "17345678-6",
+    "15489123-4",
+    # Compatibilidad retroactiva de semillas históricas
     "12345678-9",
     "13456789-0",
     "14982112-4",
@@ -110,38 +117,11 @@ def _fmt_fecha(v: Any) -> Optional[str]:
     return str(v)
 
 
-# [ESTUDIANTE INFORMÁTICA] Asegura que la tabla de cargas familiares exista e incluya los campos para certificados digitales y FKs.
+# [ESTUDIANTE INFORMÁTICA] No-op de compatibilidad: las migraciones residen exclusivamente en init_db.py.
 async def asegurar_tabla_cargas(db: AsyncSession) -> None:
     global _TABLA_CARGAS_LISTA
-    if _TABLA_CARGAS_LISTA:
-        return
-    try:
-        bind = db.get_bind()
-        if bind and "sqlite" in getattr(bind.dialect, "name", ""):
-            _TABLA_CARGAS_LISTA = True
-            return
-    except Exception:
-        pass
-    try:
-        for col_sql in (
-            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
-            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
-            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
-            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS carga_id INTEGER REFERENCES cargas_familiares(id) ON DELETE SET NULL;",
-            "ALTER TABLE solicitudes_cargas_familiares ADD COLUMN IF NOT EXISTS resuelto_por_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;",
-            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS socio_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;",
-            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_nombre VARCHAR(255);",
-            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_tipo VARCHAR(120);",
-            "ALTER TABLE cargas_familiares ADD COLUMN IF NOT EXISTS certificado_data TEXT;",
-        ):
-            try:
-                await db.execute(text(col_sql))
-            except Exception:
-                pass
-        await db.commit()
-    except Exception:
-        pass
     _TABLA_CARGAS_LISTA = True
+    return
 
 
 def texto_carencia() -> str:
@@ -515,6 +495,17 @@ class AfiliacionService:
             if not solicitud:
                 raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
 
+            # [ESTUDIANTE INFORMÁTICA] Principio de Probidad Administrativa: prohibido resolver su propia postulación.
+            rut_sol_clean = re.sub(r"[^0-9kK]", "", solicitud.run or "").upper()
+            rut_eval_clean = re.sub(r"[^0-9kK]", "", evaluador.rut or "").upper()
+            if (rut_sol_clean and rut_sol_clean == rut_eval_clean) or (
+                solicitud.socio_creado_id and solicitud.socio_creado_id == evaluador.id
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Por principio de probidad administrativa (Ley N° 19.754), usted no puede aprobar ni rechazar su propia solicitud de afiliación.",
+                )
+
             if _val(solicitud.estado) != _val(EstadoSolicitud.PENDIENTE):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -582,21 +573,6 @@ class AfiliacionService:
 
                 if socio_id:
                     solicitud.socio_creado_id = socio_id
-                    # Marcar cambio obligatorio de contraseña en primer inicio de sesión (retrocompatibilidad)
-                    sec_param = await db.scalar(
-                        select(ParametroSistema).where(ParametroSistema.clave == f"SEC_USR_{socio_id}")
-                    )
-                    sec_val = json.dumps({"i": 0, "b": False, "c": True, "u": None})
-                    if sec_param:
-                        sec_param.valor = sec_val
-                    else:
-                        db.add(
-                            ParametroSistema(
-                                clave=f"SEC_USR_{socio_id}",
-                                valor=sec_val,
-                                descripcion=f"Seguridad usuario {solicitud.run}",
-                            )
-                        )
 
                     # Derivación automática de cargas familiares declaradas en el formulario hacia solicitudes_cargas_familiares
                     await asegurar_tabla_cargas(db)
@@ -998,21 +974,45 @@ class AfiliacionService:
     async def obtener_nomina_retenciones(db: AsyncSession) -> Dict[str, Any]:
         socios = (
             await db.scalars(
-                select(User).where(User.rol == UserRole.SOCIO, User.is_active == True)
+                select(User).where(User.rol == UserRole.SOCIO, User.is_active == True).order_by(User.id)
             )
         ).all()
+        solicitudes_aprobadas = (
+            await db.scalars(
+                select(SolicitudAfiliacion).where(SolicitudAfiliacion.estado == EstadoSolicitud.APROBADA)
+            )
+        ).all()
+        mapa_af: Dict[str, SolicitudAfiliacion] = {}
+        for sa in solicitudes_aprobadas:
+            r_clean = re.sub(r"[^0-9kK]", "", sa.run or "").upper()
+            if r_clean:
+                mapa_af[r_clean] = sa
+
         periodo_actual = date.today().strftime("%Y-%m")
         items = []
         for s in socios:
+            r_socio = re.sub(r"[^0-9kK]", "", s.rut or "").upper()
+            sa_match = mapa_af.get(r_socio)
+            f_sesion = _fmt_fecha(sa_match.fecha_sesion) if sa_match and sa_match.fecha_sesion else "Incorporación Histórica"
+            acta = (sa_match.numero_acta if sa_match and sa_match.numero_acta else None) or "Acta Ordinaria"
+            f_carencia = (
+                _fmt_fecha(sa_match.fecha_fin_carencia)
+                if sa_match and sa_match.fecha_fin_carencia
+                else ("Habilitado (>=6m)" if (s.meses_antiguedad or 0) >= 6 else "En Carencia (<6m)")
+            )
+            calidad = _val(sa_match.calidad_contractual) if sa_match else "Planta / Contrata"
+            grado_val = sa_match.grado if sa_match and sa_match.grado else (s.departamento or "Grado Municipal")
             items.append({
-                "folio": f"RET-{s.id:04d}",
+                "folio": sa_match.folio if sa_match else f"RET-{s.id:04d}",
                 "run": formatear_run(s.rut),
                 "nombreCompleto": s.nombre_completo,
-                "grado": s.departamento or "Grado Municipal",
-                "calidadContractual": "Planta / Contrata",
+                "grado": grado_val,
+                "calidadContractual": calidad,
                 "porcentajeRetencion": settings.AFILIACION_PORCENTAJE_DESCUENTO,
+                "fechaSesionAprobacion": f_sesion,
+                "numeroActa": acta,
                 "inicioDescuento": periodo_actual,
-                "finCarencia": "Vigente",
+                "finCarencia": f_carencia,
                 "cargasLegales": s.cargas_registradas or 0,
             })
         return {
@@ -1044,6 +1044,8 @@ class AfiliacionService:
         socios_actualizados = 0
         cargas_creadas = 0
         errores = []
+        anio_actual = date.today().year
+        ahora_dt = datetime.now(timezone.utc)
 
         for item in payload.registros:
             try:
@@ -1067,12 +1069,55 @@ class AfiliacionService:
                         antiguedad=f"{item.mesesAntiguedad or 12} Meses",
                         meses_antiguedad=item.mesesAntiguedad or 12,
                         estado_previsional="Al día",
-                        saldo_salud_disponible=item.saldoSaludDisponible or 150000,
+                        saldo_salud_disponible=int(item.saldoSaludDisponible or 150000),
                         cargas_registradas=len(item.cargas),
+                        intentos_fallidos=0,
+                        password_bloqueada=False,
+                        debe_cambiar_password=True,
                     )
                     db.add(user)
+                    await db.flush()
                     socios_creados += 1
-                cargas_creadas += len(item.cargas)
+
+                # Persistir efectivamente cada carga dependiente en SolicitudCargaFamiliar (estado APROBADA)
+                for dep in (item.cargas or []):
+                    dep_run = normalizar_run(dep.run)
+                    ya_reg = await db.scalar(
+                        select(SolicitudCargaFamiliar.id).where(
+                            SolicitudCargaFamiliar.socio_id == user.id,
+                            SolicitudCargaFamiliar.run == dep_run,
+                        )
+                    )
+                    if not ya_reg:
+                        corr_c = await db.scalar(select(func.count(SolicitudCargaFamiliar.id)))
+                        next_c = (corr_c or 0) + 1
+                        folio_cf = f"CF-{anio_actual}-{next_c:05d}"
+                        while await db.scalar(select(SolicitudCargaFamiliar.id).where(SolicitudCargaFamiliar.folio == folio_cf)):
+                            next_c += 1
+                            folio_cf = f"CF-{anio_actual}-{next_c:05d}"
+                        db.add(
+                            SolicitudCargaFamiliar(
+                                folio=folio_cf,
+                                socio_id=user.id,
+                                socio_nombre=user.nombre_completo,
+                                socio_rut=formatear_run(user.rut),
+                                socio_email=user.email,
+                                nombre_completo=dep.nombreCompleto.strip(),
+                                run=dep_run,
+                                parentesco=(dep.parentesco or "Hijo/a").strip(),
+                                observacion_socio=f"Ingresada por Nómina Masiva ({payload.numeroActa or 'Directiva'})",
+                                certificado_tipo="Nómina Oficial RRHH",
+                                estado=EstadoSolicitud.APROBADA,
+                                fecha_sesion=date.today(),
+                                numero_acta=payload.numeroActa or "Nómina Masiva Muni Peralillo",
+                                observaciones_resolucion="Aprobada en carga masiva de padrón municipal",
+                                resuelto_por=evaluador.nombre_completo,
+                                resuelto_por_id=evaluador.id,
+                                resuelto_at=ahora_dt,
+                            )
+                        )
+                        cargas_creadas += 1
+                user.cargas_registradas = max(int(user.cargas_registradas or 0), len(item.cargas or []))
             except Exception as e:
                 errores.append(f"Error procesando {item.rut}: {str(e)}")
 
@@ -1099,10 +1144,16 @@ class AfiliacionService:
         }
 
     @staticmethod
-    async def obtener_mis_cargas(db: AsyncSession, current_user: User) -> Dict[str, Any]:
+    async def obtener_mis_cargas(
+        db: AsyncSession, current_user: User, modo: Optional[str] = None
+    ) -> Dict[str, Any]:
         await asegurar_tabla_cargas(db)
         es_admin_o_super = bool(
-            current_user.is_superuser or current_user.rol in (UserRole.ADMIN, UserRole.SUPERUSUARIO)
+            modo != "socio"
+            and (
+                current_user.is_superuser
+                or _val(current_user.rol) != UserRole.SOCIO.value
+            )
         )
         cargas_list: List[Dict[str, Any]] = []
         runs_vistos: set[str] = set()
@@ -1116,10 +1167,11 @@ class AfiliacionService:
 
             for sc in todas_solicitudes_extra:
                 run_norm = re.sub(r"[^0-9kK]", "", sc.run or "").upper()
+                if run_norm:
+                    runs_vistos.add(run_norm)
                 estado_val = sc.estado.value if isinstance(sc.estado, EstadoSolicitud) else str(sc.estado)
                 if estado_val == EstadoSolicitud.APROBADA.value:
                     estado_mostrar = "Vigente"
-                    runs_vistos.add(run_norm)
                 elif estado_val == EstadoSolicitud.PENDIENTE.value:
                     estado_mostrar = "Pendiente de Revisión"
                 elif estado_val == EstadoSolicitud.RECHAZADA.value:
@@ -1185,10 +1237,11 @@ class AfiliacionService:
         ).all()
         for sc in solicitudes_extra:
             run_norm = re.sub(r"[^0-9kK]", "", sc.run or "").upper()
+            if run_norm:
+                runs_vistos.add(run_norm)
             estado_val = sc.estado.value if isinstance(sc.estado, EstadoSolicitud) else str(sc.estado)
             if estado_val == EstadoSolicitud.APROBADA.value:
                 estado_mostrar = "Vigente"
-                runs_vistos.add(run_norm)
             elif estado_val == EstadoSolicitud.PENDIENTE.value:
                 estado_mostrar = "Pendiente de Revisión"
             elif estado_val == EstadoSolicitud.RECHAZADA.value:
@@ -1212,6 +1265,42 @@ class AfiliacionService:
                 "fechaSolicitud": sc.created_at.strftime("%Y-%m-%d") if sc.created_at else None,
                 "observacionesResolucion": sc.observaciones_resolucion,
             })
+
+        # Incluir también las cargas declaradas en su Solicitud de Afiliación Inicial aprobada (CargaFamiliar)
+        user_rut_clean = re.sub(r"[^0-9kK]", "", current_user.rut or "").upper()
+        iniciales_socio = (
+            await db.scalars(
+                select(CargaFamiliar)
+                .join(SolicitudAfiliacion, CargaFamiliar.solicitud_id == SolicitudAfiliacion.id)
+                .where(
+                    SolicitudAfiliacion.estado == EstadoSolicitud.APROBADA,
+                    or_(
+                        CargaFamiliar.socio_id == current_user.id,
+                        SolicitudAfiliacion.socio_creado_id == current_user.id,
+                        func.replace(func.replace(func.upper(SolicitudAfiliacion.run), ".", ""), "-", "") == user_rut_clean,
+                    ),
+                )
+                .order_by(CargaFamiliar.id.desc())
+            )
+        ).all()
+        for ci in iniciales_socio:
+            run_norm = re.sub(r"[^0-9kK]", "", ci.run or "").upper()
+            if run_norm and run_norm not in runs_vistos:
+                runs_vistos.add(run_norm)
+                cargas_list.append({
+                    "id": f"af-{ci.id}",
+                    "folio": ci.solicitud.folio if ci.solicitud else "AF-INICIAL",
+                    "nombre": ci.nombre_completo,
+                    "parentesco": ci.parentesco or "Carga Familiar",
+                    "rut": formatear_run(ci.run),
+                    "observacion": "Carga declarada en Solicitud de Incorporación inicial",
+                    "certificadoNombre": getattr(ci, "certificado_nombre", None),
+                    "certificadoTipo": getattr(ci, "certificado_tipo", None) or "Incorporación Inicial",
+                    "certificadoData": getattr(ci, "certificado_data", None),
+                    "estado": "Vigente",
+                    "fechaSolicitud": ci.created_at.strftime("%Y-%m-%d") if ci.created_at else None,
+                    "observacionesResolucion": "Aprobada en sesión de Directorio",
+                })
         return {"modoVista": "socio", "cargas": cargas_list}
 
     @staticmethod
@@ -1343,6 +1432,19 @@ class AfiliacionService:
         sc = await db.scalar(select(SolicitudCargaFamiliar).where(SolicitudCargaFamiliar.folio == folio))
         if not sc:
             raise HTTPException(status_code=404, detail="Solicitud de carga familiar no encontrada.")
+
+        # [ESTUDIANTE INFORMÁTICA] Principio de Probidad Administrativa: ningún directivo/admin puede resolver sus propias cargas.
+        rut_sc_clean = re.sub(r"[^0-9kK]", "", sc.socio_rut or "").upper()
+        rut_eval_clean = re.sub(r"[^0-9kK]", "", evaluador.rut or "").upper()
+        if sc.socio_id == evaluador.id or (rut_sc_clean and rut_sc_clean == rut_eval_clean):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Por principio de probidad administrativa (Ley N° 19.754), usted no puede aprobar "
+                    "ni rechazar sus propias solicitudes de cargas familiares. Debe ser resuelta por otro miembro habilitado."
+                ),
+            )
+
         if _val(sc.estado) != _val(EstadoSolicitud.PENDIENTE):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

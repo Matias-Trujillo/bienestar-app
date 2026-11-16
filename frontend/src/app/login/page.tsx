@@ -125,7 +125,7 @@ const LoginIdentifierField: React.FC<LoginIdentifierFieldProps> = ({
           value={value}
           maxLength={mode === 'rut' ? MAX_RUN_FORMATTED_CHARS : MAX_EMAIL_CHARS}
           onChange={handleChange}
-          placeholder={placeholder || 'Ej: 12.345.678-9 o usuario@mperalillo.cl'}
+          placeholder={placeholder || 'Ej: 12.345.678-5 o usuario@mperalillo.cl'}
           className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] focus:border-[#006799] transition-all"
         />
         {value && !disabled && (

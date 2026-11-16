@@ -410,35 +410,13 @@ def main():
 
     t_live, e_live, l_live = build_live_spec(db_metadata, highlight_new_fks=False)
     diag1 = render_diagram_xml(
-        'mer_1_esquema_oficial_3fn',
-        '1. MER Oficial Integrado en PostgreSQL (3FN)',
+        'mer_esquema_oficial_3fn',
+        'MER Oficial PostgreSQL 15 (3FN)',
         'COMITE DE BIENESTAR - I. MUNICIPALIDAD DE PERALILLO&#xa;MODELO ENTIDAD-RELACION FISICO EN POSTGRESQL 15 (3FN: 11 TABLAS, 201 COLUMNAS, 18 FKs)',
         '#0c2b45',
         t_live, e_live, l_live
     )
-    save_single_drawio(diag1, 'bienestar-app/docs/evidencias_bd/bienestar_mer_1_COMO_ESTA_ACTUAL.drawio')
-
-    t_comp, e_comp, l_comp = build_live_spec(db_metadata, highlight_new_fks=True)
-    diag2 = render_diagram_xml(
-        'mer_2_trazabilidad_mejoras',
-        '2. Trazabilidad de Mejoras Integradas (FKs Destacadas)',
-        'COMITE DE BIENESTAR - I. MUNICIPALIDAD DE PERALILLO&#xa;TRAZABILIDAD DE INTEGRACION RELACIONAL: 9 FKs ORIGINALES (AZUL) + 9 NUEVAS FKs (VERDE)',
-        '#166534',
-        t_comp, e_comp, l_comp
-    )
-    save_single_drawio(diag2, 'bienestar-app/docs/evidencias_bd/bienestar_mer_2_COMO_DEBERIA_ESTAR_IDEAL.drawio')
-
-    mxfile_multi = ET.Element('mxfile', {
-        'host': 'app.diagrams.net',
-        'modified': '2026-11-15T14:48:00.000Z',
-        'agent': 'Antigravity Peralillo Engine',
-        'version': '21.0.0',
-        'type': 'device'
-    })
-    mxfile_multi.append(diag1)
-    mxfile_multi.append(diag2)
-    ET.ElementTree(mxfile_multi).write('bienestar-app/docs/evidencias_bd/bienestar_mer_oficial.drawio', encoding='utf-8', xml_declaration=True)
-    print("Archivo maestro multipágina guardado: bienestar-app/docs/evidencias_bd/bienestar_mer_oficial.drawio")
+    save_single_drawio(diag1, 'bienestar-app/docs/evidencias_bd/bienestar_mer_oficial.drawio')
 
 
 if __name__ == '__main__':

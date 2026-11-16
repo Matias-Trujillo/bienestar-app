@@ -63,22 +63,19 @@ def _parse_sec_json(raw: Optional[str]) -> Dict[str, Any]:
 
 async def obtener_seguridad_usuario(db: AsyncSession, user_id: int) -> Dict[str, Any]:
     u = await db.get(User, user_id)
-    clave = _clave_seguridad_usr(user_id)
-    param = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave))
-    sec_param = _parse_sec_json(param.valor if param else None)
     if u is not None:
         ult_str = (
             u.ultimo_cambio_password.strftime("%Y-%m-%d %H:%M")
             if getattr(u, "ultimo_cambio_password", None)
-            else sec_param.get("u")
+            else None
         )
         return {
-            "i": int(getattr(u, "intentos_fallidos", 0) or sec_param.get("i", 0) or 0),
-            "b": bool(getattr(u, "password_bloqueada", False) or sec_param.get("b", False)),
-            "c": bool(getattr(u, "debe_cambiar_password", False) or sec_param.get("c", False)),
+            "i": int(getattr(u, "intentos_fallidos", 0) or 0),
+            "b": bool(getattr(u, "password_bloqueada", False)),
+            "c": bool(getattr(u, "debe_cambiar_password", False)),
             "u": ult_str,
         }
-    return sec_param
+    return {"i": 0, "b": False, "c": False, "u": None}
 
 
 async def guardar_seguridad_usuario(
@@ -90,11 +87,7 @@ async def guardar_seguridad_usuario(
     ultimo_cambio: Optional[str] = None,
 ) -> Dict[str, Any]:
     u = await db.get(User, user_id)
-    clave = _clave_seguridad_usr(user_id)
-    param = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave))
-    actual = _parse_sec_json(param.valor if param else None)
-
-    ult_str = ultimo_cambio if ultimo_cambio is not None else actual.get("u")
+    ult_str = ultimo_cambio
     if u is not None:
         u.intentos_fallidos = int(intentos)
         u.password_bloqueada = bool(bloqueada)
@@ -108,26 +101,18 @@ async def guardar_seguridad_usuario(
             ult_str = u.ultimo_cambio_password.strftime("%Y-%m-%d %H:%M")
         db.add(u)
 
-    nuevo_estado = {
+    # Limpiar registro residual en ParametroSistema si existiera (Cumplimiento 1FN/3FN)
+    clave = _clave_seguridad_usr(user_id)
+    param = await db.scalar(select(ParametroSistema).where(ParametroSistema.clave == clave))
+    if param:
+        await db.delete(param)
+
+    return {
         "i": int(intentos),
         "b": bool(bloqueada),
         "c": bool(debe_cambiar),
         "u": ult_str,
     }
-    raw_val = json.dumps(nuevo_estado, separators=(",", ":"))
-
-    if not param:
-        param = ParametroSistema(
-            clave=clave,
-            valor=raw_val,
-            descripcion=f"Estado de seguridad de contraseña usuario #{user_id}",
-        )
-        db.add(param)
-    else:
-        param.valor = raw_val
-        db.add(param)
-
-    return nuevo_estado
 
 
 class LoginRequest(BaseModel):
@@ -164,6 +149,7 @@ class UserOut(BaseModel):
     ultimoCambioPassword: Optional[str] = None
     puedeEliminar: bool = False
     motivoNoEliminable: Optional[str] = None
+    tieneDobleVista: bool = False
 
 
 class TokenResponse(BaseModel):
@@ -283,6 +269,7 @@ def to_out(
         ultimoCambioPassword=ult_cambio_val,
         puedeEliminar=puede_eliminar,
         motivoNoEliminable=motivo_no_eliminable,
+        tieneDobleVista=bool(u.is_superuser or rol_str != UserRole.SOCIO.value),
     )
 
 
@@ -462,22 +449,12 @@ async def cambiar_password_propia(
 
 @router.get("/usuarios", response_model=List[UserOut])
 async def listar_usuarios(
-    _: User = Depends(require_roles(UserRole.ADMIN)), db: AsyncSession = Depends(get_db)
+    _: User = Depends(require_roles(UserRole.SUPERUSUARIO, UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Listado completo de usuarios con su estado de cuenta, rol, estado de contraseña y si puede eliminarse."""
+    """Listado completo de usuarios con su estado de cuenta, rol, doble vista, estado de contraseña y si puede eliminarse."""
     result = await db.scalars(select(User).order_by(User.id))
     users = list(result)
-
-    params_sec = await db.scalars(
-        select(ParametroSistema).where(ParametroSistema.clave.like("SEC_USR_%"))
-    )
-    mapa_sec: Dict[int, Dict[str, Any]] = {}
-    for p in params_sec:
-        try:
-            uid = int(p.clave.replace("SEC_USR_", ""))
-            mapa_sec[uid] = _parse_sec_json(p.valor)
-        except ValueError:
-            pass
 
     salida: List[UserOut] = []
     for u in users:
@@ -485,7 +462,7 @@ async def listar_usuarios(
         salida.append(
             to_out(
                 u,
-                mapa_sec.get(u.id),
+                None,
                 puede_eliminar=puede_elim,
                 motivo_no_eliminable=motivo_no_elim,
             )

@@ -246,16 +246,13 @@ async def test_resolver_solicitud_aprobada_despacha_correo_credenciales_temporal
     assert res.notificacionEmail["estadoResolucion"] == "ACEPTADA"
     assert "Contraseña Temporal inicial: ********" in str(res.notificacionEmail["pasosSeguir"])
 
-    # Verificar parámetro de seguridad SEC_USR_<id> con cambio obligatorio activo
+    # Verificar que la columna tipada debe_cambiar_password en usuarios tenga cambio obligatorio activo (3FN)
     user_creado = await db_session.scalar(select(User).where(User.rut == "18234567-9"))
     assert user_creado is not None
     from app.core.security import verify_password
     assert verify_password("Peralillo#1823", user_creado.hashed_password)
-    sec = await db_session.scalar(
-        select(ParametroSistema).where(ParametroSistema.clave == f"SEC_USR_{user_creado.id}")
-    )
-    assert sec is not None
-    assert '"c": true' in sec.valor
+    assert user_creado.debe_cambiar_password is True
+    assert user_creado.password_bloqueada is False
 
 
 # [ESTUDIANTE INFORMÁTICA] Valida que al rechazar la solicitud se despache el Correo #2B con la causal y sin crear cuenta de socio.

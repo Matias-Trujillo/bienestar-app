@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { SolicitudReembolso } from '@/types';
 import { IndicadorTramoBadge } from './IndicadorTramoBadge';
@@ -23,6 +24,17 @@ export const TablaAprobaciones: React.FC<TablaAprobacionesProps> = ({
   onIniciarAprobar,
   onIniciarRechazar,
 }) => {
+  const { user } = useAuth();
+  const esPropia = (sol: SolicitudReembolso): boolean =>
+    Boolean(
+      user &&
+        (sol.socio_id === Number(user.id) ||
+          (sol.socio_rut &&
+            user.rut &&
+            sol.socio_rut.replace(/[^0-9kK]/gi, '').toUpperCase() ===
+              user.rut.replace(/[^0-9kK]/gi, '').toUpperCase()))
+    );
+
   if (cargando) {
     return <div className="p-8 text-center text-xs text-slate-500">Cargando solicitudes de reembolso...</div>;
   }
@@ -118,8 +130,18 @@ export const TablaAprobaciones: React.FC<TablaAprobacionesProps> = ({
                   </div>
                 </td>
                 <td className="py-3 px-4 align-middle">
-                  <div className="font-medium text-slate-900 truncate" title={sol.socio_nombre || 'Socio'}>
-                    {sol.socio_nombre || 'Socio'}
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-slate-900 truncate" title={sol.socio_nombre || 'Socio'}>
+                      {sol.socio_nombre || 'Socio'}
+                    </span>
+                    {esPropia(sol) && (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
+                        title="Principio de Probidad: No puede auto-resolver su propia solicitud"
+                      >
+                        🔒 Propia
+                      </span>
+                    )}
                   </div>
                   <div className="text-slate-500 font-normal tabular-nums truncate mt-0.5">
                     RUT {sol.socio_rut}

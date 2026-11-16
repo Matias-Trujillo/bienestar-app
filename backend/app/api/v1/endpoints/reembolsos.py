@@ -284,6 +284,19 @@ async def post_subir_comprobante(
             detail="Formato no soportado. Debe ser PDF, JPG, PNG o WebP.",
         )
 
+    contenido = await archivo.read()
+    max_bytes = 10 * 1024 * 1024  # 10 MB máximo
+    if len(contenido) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El archivo adjunto se encuentra vacío.",
+        )
+    if len(contenido) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="El archivo supera el tamaño máximo permitido de 10 MB.",
+        )
+
     # Eliminar archivo previo de esta solicitud si existiera
     for archivo_previo in UPLOAD_DIR.glob(f"{solicitud.id}_*"):
         try:
@@ -294,8 +307,7 @@ async def post_subir_comprobante(
     archivo_id = f"{solicitud.id}_{uuid.uuid4().hex[:8]}{extension}"
     destino = UPLOAD_DIR / archivo_id
 
-    with open(destino, "wb") as buffer:
-        shutil.copyfileobj(archivo.file, buffer)
+    destino.write_bytes(contenido)
 
     solicitud.comprobante_filename = archivo.filename or archivo_id
     solicitud.comprobante_url = f"/api/v1/reembolsos/solicitud/{solicitud.id}/comprobante"
@@ -372,6 +384,15 @@ ROLES_GESTION_REEMBOLSOS = (
     UserRole.AUDITOR,
 )
 
+# Roles con facultad ejecutiva para aprobar/rechazar (excluye a AUDITOR que es solo fiscalización)
+ROLES_RESOLUTIVOS_REEMBOLSOS = (
+    UserRole.ADMIN,
+    UserRole.SUPERUSUARIO,
+    UserRole.PRESIDENTE,
+    UserRole.SECRETARIO,
+    UserRole.TESORERO,
+)
+
 
 # ---------- GET /reembolsos/conteo-pendientes ----------
 
@@ -381,11 +402,12 @@ ROLES_GESTION_REEMBOLSOS = (
     summary="Obtener cantidad de solicitudes de reembolso pendientes",
 )
 async def get_conteo_pendientes(
+    modo: Optional[str] = Query(None, description="Modo de vista ('socio' o 'admin')"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     await asegurar_columnas_reembolso(db)
-    if user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS:
+    if modo != "socio" and (user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS):
         total = await contar_solicitudes_pendientes_admin(db)
     else:
         from app.models.reembolso import EstadoReembolso
@@ -454,10 +476,10 @@ async def patch_resolver_solicitud(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not (user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS):
+    if not (user.is_superuser or user.rol in ROLES_RESOLUTIVOS_REEMBOLSOS):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido a Directiva y Administradores.",
+            detail="Acceso restringido: solo miembros resolutivos de la Directiva o Administración pueden aprobar o rechazar reembolsos.",
         )
     try:
         solicitud = await resolver_solicitud_reembolso(
@@ -468,6 +490,11 @@ async def patch_resolver_solicitud(
             db=db,
         )
         return solicitud_to_out(solicitud)
+    except PermissionError as pe:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(pe),
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

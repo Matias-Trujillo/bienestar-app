@@ -2,28 +2,55 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
+import { NominaResponse } from '@/types';
 
-interface SocioNomina {
-  folio: string;
-  run: string;
-  nombreCompleto: string;
-  grado: string;
-  calidadContractual: string;
-  porcentajeRetencion: number;
-  fechaSesionAprobacion: string;
-  numeroActa?: string | null;
-  inicioDescuento: string;
-  finCarencia: string;
-  cargasLegales: number;
-}
-
-interface NominaResponse {
-  periodo: string;
-  totalSociosEnNomina: number;
-  porcentajeAplicado: string;
-  socios: SocioNomina[];
+// [ESTUDIANTE INFORMÁTICA] Genera y descarga en tiempo real la planilla CSV compatible con Excel (UTF-8 BOM) para Recursos Humanos.
+function exportarNominaRetencionesCsv(nomina: NominaResponse | null): void {
+  const filas = nomina?.socios || [];
+  const headers = [
+    'Folio',
+    'RUN',
+    'Funcionario Municipal',
+    'Grado / Unidad',
+    'Calidad Contractual',
+    'Porcentaje Retencion',
+    'Fecha Sesion Aprobacion',
+    'Numero Acta',
+    'Inicio Descuento',
+    'Fin Carencia (6m)',
+    'Cargas Legales',
+  ];
+  const csvRows = [
+    headers.join(';'),
+    ...filas.map((s) =>
+      [
+        s.folio,
+        s.run,
+        `"${(s.nombreCompleto || '').replace(/"/g, '""')}"`,
+        `"${(s.grado || '').replace(/"/g, '""')}"`,
+        s.calidadContractual,
+        `${s.porcentajeRetencion}%`,
+        s.fechaSesionAprobacion,
+        `"${(s.numeroActa || 'Acta Ordinaria').replace(/"/g, '""')}"`,
+        s.inicioDescuento,
+        s.finCarencia,
+        String(s.cargasLegales ?? 0),
+      ].join(';')
+    ),
+  ];
+  const contenido = '\uFEFF' + csvRows.join('\r\n');
+  const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `Nomina_Retenciones_4pct_Peralillo_${nomina?.periodo || '2026'}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 // [ESTUDIANTE INFORMÁTICA] Tarjetas de resumen financiero modernas para la recaudación del 4%.
@@ -75,11 +102,11 @@ const FinanzasSummarySection: React.FC<{ nomina: NominaResponse | null }> = ({ n
       </div>
       <div className="pt-4 mt-4 border-t border-slate-100">
         <button
-          onClick={() => alert('Generando y descargando Nómina de Retenciones RRHH en formato oficial...')}
-          className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95 text-white flex items-center justify-between text-xs font-semibold shadow-sm transition-all"
+          onClick={() => exportarNominaRetencionesCsv(nomina)}
+          className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95 text-white flex items-center justify-between text-xs font-semibold shadow-sm transition-all cursor-pointer"
         >
           <span>Exportar Planilla de Retención 4%</span>
-          <span className="text-xs bg-white/20 px-2.5 py-0.5 rounded-lg tabular-nums">XLS / PDF</span>
+          <span className="text-xs bg-white/20 px-2.5 py-0.5 rounded-lg tabular-nums">CSV / Excel</span>
         </button>
       </div>
     </div>
@@ -88,13 +115,18 @@ const FinanzasSummarySection: React.FC<{ nomina: NominaResponse | null }> = ({ n
 
 // [ESTUDIANTE INFORMÁTICA] Módulo 4 de Control Financiero con estética moderna y tabla libre de desbordes.
 export default function FinanzasPage() {
-  const { token } = useAuth();
+  const { user, token, isAdminView, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [nomina, setNomina] = useState<NominaResponse | null>(null);
   const [cargandoNomina, setCargandoNomina] = useState(false);
   const [filtroSocio, setFiltroSocio] = useState('');
 
   useEffect(() => {
-    if (!token) return;
+    if (!authLoading && user && !isAdminView) {
+      router.replace('/');
+      return;
+    }
+    if (!token || !isAdminView) return;
     setCargandoNomina(true);
     fetchFromApi<NominaResponse>('/afiliacion/nomina-retenciones', {
       headers: { Authorization: `Bearer ${token}` },
@@ -102,7 +134,7 @@ export default function FinanzasPage() {
       .then(setNomina)
       .catch(() => setNomina(null))
       .finally(() => setCargandoNomina(false));
-  }, [token]);
+  }, [token, authLoading, user, isAdminView, router]);
 
   const sociosFiltrados = useMemo(() => {
     if (!nomina?.socios) return [];

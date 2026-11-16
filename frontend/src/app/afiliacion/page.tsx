@@ -74,10 +74,19 @@ interface SolicitudCargaItem {
 }
 
 export default function AfiliacionPage() {
-  const { user, token } = useAuth();
-  const esDirectiva = !!user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol));
-  const puedeResolver = !!user && (user.isSuperuser || ROLES_RESOLUTIVOS.includes(user.rol));
-  const esAdminOSuper = !!user && (user.isSuperuser || user.rol === 'admin' || user.rol === 'superusuario');
+  const { user, token, isAdminView, viewMode } = useAuth();
+  const esDirectiva = !!user && isAdminView && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol));
+  const puedeResolver = !!user && isAdminView && (user.isSuperuser || ROLES_RESOLUTIVOS.includes(user.rol));
+  const esAdminOSuper = !!user && isAdminView && (user.isSuperuser || user.rol === 'admin' || user.rol === 'superusuario');
+  const esCargaPropia = (sc: SolicitudCargaItem): boolean =>
+    Boolean(
+      user &&
+        (sc.socioId === Number(user.id) ||
+          (sc.socioRut &&
+            user.rut &&
+            sc.socioRut.replace(/[^0-9kK]/gi, '').toUpperCase() ===
+              user.rut.replace(/[^0-9kK]/gi, '').toUpperCase()))
+    );
 
   const [solicitudes, setSolicitudes] = useState<SolicitudResumen[] | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -139,13 +148,14 @@ export default function AfiliacionPage() {
   const cargarMisCargas = useCallback(() => {
     if (!token) return;
     setCargandoMisCargas(true);
-    fetchFromApi<{ cargas: CargaSocioItem[] }>('/afiliacion/mis-cargas', {
+    const modoParam = isAdminView ? '?modo=admin' : '?modo=socio';
+    fetchFromApi<{ cargas: CargaSocioItem[] }>(`/afiliacion/mis-cargas${modoParam}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => setMisCargas(res.cargas || []))
       .catch(() => setMisCargas([]))
       .finally(() => setCargandoMisCargas(false));
-  }, [token]);
+  }, [token, isAdminView, viewMode]);
 
   const cargarSolicitudesCargas = useCallback(() => {
     if (!esDirectiva || !token) return;
@@ -230,7 +240,7 @@ export default function AfiliacionPage() {
       return;
     }
     if (!isValidRun(nuevaCargaRun)) {
-      setErrorNuevaCarga('El RUN ingresado no es válido (verifique el dígito verificador Módulo 11).');
+      setErrorNuevaCarga('RUN inválido.');
       return;
     }
     if (!certificadoData || !certificadoNombre) {
@@ -660,31 +670,55 @@ export default function AfiliacionPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {solicitudesCargas.map((sc) => (
+                  {solicitudesCargas.map((sc) => {
+                    const propia = esCargaPropia(sc);
+                    return (
                     <tr
                       key={sc.folio}
-                      onClick={() => abrirFichaCarga(sc, 'aprobar')}
-                      className="hover:bg-sky-50/40 transition align-middle cursor-pointer group"
+                      onClick={() => {
+                        if (propia) return;
+                        abrirFichaCarga(sc, 'aprobar');
+                      }}
+                      className={`transition align-middle group ${
+                        propia ? 'bg-amber-50/20 cursor-not-allowed' : 'hover:bg-sky-50/40 cursor-pointer'
+                      }`}
                     >
                       <td className="py-3.5 px-4 align-middle">
                         <button
                           type="button"
+                          disabled={propia}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (propia) return;
                             abrirFichaCarga(sc, 'aprobar');
                           }}
-                          className="inline-flex items-center gap-1.5 font-mono font-bold text-[#006799] bg-sky-50 group-hover:bg-[#006799] group-hover:text-white border border-sky-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                          title="Pinche aquí para abrir la solicitud, ver el certificado y resolver"
+                          className={`inline-flex items-center gap-1.5 font-mono font-bold px-2.5 py-1 rounded-lg transition border ${
+                            propia
+                              ? 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed'
+                              : 'text-[#006799] bg-sky-50 group-hover:bg-[#006799] group-hover:text-white border-sky-200 cursor-pointer'
+                          }`}
+                          title={
+                            propia
+                              ? 'Principio de Probidad: No puede resolver su propia solicitud de carga familiar'
+                              : 'Pinche aquí para abrir la solicitud, ver el certificado y resolver'
+                          }
                         >
                           <span>{sc.folio}</span>
-                          <span className="text-[10px]">→</span>
+                          {!propia && <span className="text-[10px]">→</span>}
                         </button>
                         <div className="text-[11px] text-slate-400 mt-1 pl-0.5 tabular-nums">
                           {new Date(sc.fechaIngreso).toLocaleDateString('es-CL')}
                         </div>
                       </td>
                       <td className="py-3.5 px-4 align-middle min-w-0">
-                        <div className="font-bold text-slate-800 truncate" title={sc.socioNombre}>{sc.socioNombre}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-800 truncate" title={sc.socioNombre}>{sc.socioNombre}</span>
+                          {propia && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                              🔒 Propia
+                            </span>
+                          )}
+                        </div>
                         <div className="font-mono text-[11px] text-slate-500 truncate mt-0.5">
                           RUN {sc.socioRut}
                         </div>
@@ -737,7 +771,8 @@ export default function AfiliacionPage() {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -996,7 +1031,7 @@ export default function AfiliacionPage() {
                     />
                     {runCargaInvalido && (
                       <span className="text-[10px] text-rose-600 font-semibold mt-0.5 block">
-                        Dígito verificador inválido
+                        RUN inválido
                       </span>
                     )}
                     {runCargaValido && (

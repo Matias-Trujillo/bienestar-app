@@ -432,19 +432,32 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                       {/* RUT */}
                       <td className="py-3.5 px-4 font-mono text-slate-600">{u.rut}</td>
 
-                      {/* Rol Asignado */}
+                      {/* Rol Asignado y Modalidad de Vistas */}
                       <td className="py-3.5 px-4">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                            u.rol === 'superusuario'
-                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                              : u.rol === 'socio'
-                              ? 'bg-slate-100 text-slate-700'
-                              : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                          }`}
-                        >
-                          {u.rolLabel}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                              u.rol === 'superusuario'
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : u.rol === 'socio'
+                                ? 'bg-slate-100 text-slate-700'
+                                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            }`}
+                          >
+                            {u.rolLabel}
+                          </span>
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                              u.rol === 'socio'
+                                ? 'bg-slate-50 text-slate-500 border-slate-200'
+                                : 'bg-sky-50 text-[#006799] border-sky-200'
+                            }`}
+                          >
+                            {u.rol === 'socio'
+                              ? '👤 1 Vista (Solo Trabajador)'
+                              : '🛡️👤 2 Vistas (Admin + Usuario)'}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Estado del Socio (Activo / Inactivo) */}
@@ -507,6 +520,34 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                           >
                             🔑 Restablecer Clave
                           </button>
+
+                          {u.rol !== 'superusuario' && (
+                            <button
+                              type="button"
+                              disabled={procesandoId === u.id}
+                              onClick={() =>
+                                ejecutarAccionRapida(
+                                  u,
+                                  { rol: u.rol === 'socio' ? 'admin' : 'socio' },
+                                  u.rol === 'socio'
+                                    ? `Asignada Cuenta de 2 Vistas (Admin + Usuario) a ${u.nombreCompleto}.`
+                                    : `${u.nombreCompleto} cambiado a Cuenta de 1 Vista (Trabajador Socio).`
+                                )
+                              }
+                              className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer ${
+                                u.rol === 'socio'
+                                  ? 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200'
+                                  : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border-slate-200'
+                              }`}
+                              title={
+                                u.rol === 'socio'
+                                  ? 'Habilitar Cuenta con 2 Vistas (Vista Admin + Vista Usuario)'
+                                  : 'Pasar a Cuenta de 1 sola vista (Trabajador Normal)'
+                              }
+                            >
+                              {u.rol === 'socio' ? '🛡️ + Dar 2 Vistas' : '👤 Pasar a 1 Vista'}
+                            </button>
+                          )}
 
                           <button
                             type="button"

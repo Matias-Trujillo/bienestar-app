@@ -26,8 +26,12 @@ from app.models import (
     NominaMasiva,
     AuditLog,
 )
-from app.schemas.afiliacion import SolicitudIn, CargaIn, ResolucionSolicitudIn
-from app.schemas.beneficios import PostulacionBeneficioCreate
+from app.schemas.afiliacion import SolicitudIn, CargaIn, ResolucionSolicitudIn, NuevaCargaIn
+from app.schemas.beneficios import (
+    PostulacionBeneficioCreate,
+    ValidarSolicitudRequest,
+    AsignacionDirectaVacacionesCreate,
+)
 from app.services.afiliacion_service import AfiliacionService
 from app.services.beneficios_service import BeneficiosService
 from app.services.reembolso_service import crear_solicitud, resolver_solicitud_reembolso
@@ -193,3 +197,201 @@ async def test_reembolso_y_beneficio_pueblan_revisado_por_id_y_bono_id(
     rmb_res = await resolver_solicitud_reembolso(rmb.id, "APROBAR", "", usuario_admin, db_session)
     assert rmb_res.revisado_por_id == usuario_admin.id
     assert isinstance(rmb_res.fecha_revision, datetime)
+
+
+@pytest.mark.asyncio
+async def test_probidad_admin_no_puede_aprobar_su_propio_reembolso(
+    db_session: AsyncSession,
+    usuario_admin: User,
+    socio_habilitado: User,
+):
+    """[ESTUDIANTE INFORMÁTICA] Valida que un funcionario con Cuenta de 2 Vistas (Admin + Socio)
+    pueda solicitar su propio reembolso médico, pero tenga estrictamente prohibido auto-aprobarlo."""
+    hoy = date.today()
+    rmb_propio = await crear_solicitud(
+        usuario_admin,
+        ReembolsoCreateRequest(
+            tipo_prestacion="consulta",
+            descripcion="Consulta oftalmológica personal del administrador",
+            beneficiario_nombre=usuario_admin.nombre_completo,
+            beneficiario_parentesco="Titular",
+            monto_boleta=40000,
+            monto_copago=20000,
+            fecha_atencion=hoy,
+            fecha_boleta=hoy,
+            tipo_documento="bono_copago",
+            comprobante_filename="boleta_admin.pdf",
+            declaracion_aceptada=True,
+        ),
+        db_session,
+    )
+    assert rmb_propio.socio_id == usuario_admin.id
+
+    with pytest.raises(PermissionError, match="probidad administrativa"):
+        await resolver_solicitud_reembolso(rmb_propio.id, "APROBAR", "", usuario_admin, db_session)
+
+
+@pytest.mark.asyncio
+async def test_probidad_admin_no_puede_validar_ni_autoasignar_su_propio_beneficio(
+    db_session: AsyncSession,
+    usuario_admin: User,
+    param_grado_15,
+):
+    """[ESTUDIANTE INFORMÁTICA] Valida que un administrador pueda postular a sus vacaciones/bonos
+    como trabajador, pero reciba 403 Forbidden si intenta auto-aprobarlos o auto-asignárselos."""
+    from fastapi import HTTPException
+
+    sol_propia = await BeneficiosService.postular_beneficio(
+        db_session,
+        usuario_admin,
+        PostulacionBeneficioCreate(
+            tipo_bono="vacaciones",
+            motivo="Feriado legal anual como funcionario municipal",
+            documento_tipo="Decreto Alcaldicio",
+            decreto_numero="DEC-2026-888",
+            decreto_fecha="2026-02-10",
+            dias_habiles_feriado=15,
+        ),
+    )
+    assert sol_propia.socio_id == usuario_admin.id
+
+    # Intento de auto-aprobación debe lanzar 403 Forbidden
+    with pytest.raises(HTTPException) as exc_info:
+        await BeneficiosService.validar_o_liquidar(
+            db_session,
+            usuario_admin,
+            sol_propia.id,
+            ValidarSolicitudRequest(accion="APROBAR", observaciones="Auto-aprobación inválida"),
+        )
+    assert exc_info.value.status_code == 403
+    assert "probidad administrativa" in exc_info.value.detail.lower()
+
+    # Intento de auto-asignación directa también debe lanzar 403 Forbidden
+    with pytest.raises(HTTPException) as exc_asig:
+        await BeneficiosService.asignar_directamente_vacaciones(
+            db_session,
+            usuario_admin,
+            AsignacionDirectaVacacionesCreate(
+                socio_id=usuario_admin.id,
+                decreto_numero="DEC-2026-999",
+                decreto_fecha="2026-02-15",
+                dias_habiles_feriado=15,
+            ),
+        )
+    assert exc_asig.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_probidad_admin_no_puede_resolver_su_propia_carga_y_modo_socio_aisla_datos(
+    db_session: AsyncSession,
+    usuario_admin: User,
+    socio_habilitado: User,
+):
+    """[ESTUDIANTE INFORMÁTICA] Verifica que un directivo/admin no pueda auto-aprobar su propia
+    carga familiar y que al consultar con modo='socio' solo vea sus propias cargas."""
+    from fastapi import HTTPException
+
+    # Socio regular solicita una carga
+    await AfiliacionService.solicitar_nueva_carga(
+        db_session,
+        socio_habilitado,
+        NuevaCargaIn(
+            nombreCompleto="Hijo de Socio Regular",
+            run="18.567.890-3",
+            parentesco="Hijo/a",
+            certificadoNombre="cedula_hijo_socio.jpg",
+            certificadoData="data:image/jpeg;base64,dGVzdA==",
+        ),
+    )
+
+    # Admin (en su calidad de trabajador) solicita su propia carga
+    carga_admin = await AfiliacionService.solicitar_nueva_carga(
+        db_session,
+        usuario_admin,
+        NuevaCargaIn(
+            nombreCompleto="Hija de Administrador",
+            run="19.876.543-0",
+            parentesco="Hijo/a",
+            certificadoNombre="cedula_hija_admin.jpg",
+            certificadoData="data:image/jpeg;base64,dGVzdA==",
+        ),
+    )
+
+    # En Vista Admin ve ambas (2 cargas en total)
+    vista_admin = await AfiliacionService.obtener_mis_cargas(db_session, usuario_admin, modo="admin")
+    assert vista_admin["modoVista"] == "admin"
+    assert len(vista_admin["cargas"]) == 2
+
+    # En Vista Usuario (modo='socio') el Admin solo ve su propia carga (1 carga)
+    vista_usuario = await AfiliacionService.obtener_mis_cargas(db_session, usuario_admin, modo="socio")
+    assert vista_usuario["modoVista"] == "socio"
+    assert len(vista_usuario["cargas"]) == 1
+    assert vista_usuario["cargas"][0]["nombre"] == "Hija de Administrador"
+
+    # Si el Admin intenta aprobar su propia carga familiar -> 403 Forbidden
+    with pytest.raises(HTTPException) as exc_carga:
+        await AfiliacionService.resolver_solicitud_carga(
+            db_session,
+            carga_admin.folio,
+            ResolucionSolicitudIn(
+                accion="aprobar",
+                fechaSesion="2026-04-01",
+                numeroActa="Acta 08/2026",
+            ),
+            usuario_admin,
+        )
+    assert exc_carga.value.status_code == 403
+    assert "probidad administrativa" in exc_carga.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_postular_bono_dinamico_bonos_catalogo_y_auditoria(
+    db_session: AsyncSession,
+    socio_habilitado: User,
+    usuario_admin: User,
+    param_grado_15,
+):
+    """[ESTUDIANTE INFORMÁTICA] Verifica que un bono nuevo creado en bonos_catalogo pueda ser
+    postulado inmediatamente por un socio y que toda acción de beneficios genere AuditLog."""
+    bono_nuevo = BonoCatalogo(
+        codigo="matrimonio_civil",
+        nombre="Bono por Matrimonio o Acuerdo de Unión Civil",
+        porcentaje=18.0,
+        categoria="Asignación Familiar",
+        requisitos="Matrimonio civil o AUC acreditado.",
+        documentacion_requerida="Certificado de Matrimonio o AUC.",
+        permite_postulacion_socio=True,
+        activo=True,
+    )
+    db_session.add(bono_nuevo)
+    await db_session.commit()
+    await db_session.refresh(bono_nuevo)
+
+    sol = await BeneficiosService.postular_beneficio(
+        db_session,
+        socio_habilitado,
+        PostulacionBeneficioCreate(
+            tipo_bono="matrimonio_civil",
+            motivo="Matrimonio civil celebrado en marzo 2026",
+            documento_tipo="Certificado de Matrimonio",
+        ),
+    )
+    assert sol.bono_id == bono_nuevo.id
+    assert sol.monto_calculado == int(round(750000 * 0.18))
+
+    await BeneficiosService.validar_o_liquidar(
+        db_session,
+        usuario_admin,
+        sol.id,
+        ValidarSolicitudRequest(accion="APROBAR", observaciones="Certificado verificado"),
+    )
+
+    logs = (
+        await db_session.scalars(
+            select(AuditLog).where(AuditLog.modulo == "BENEFICIOS").order_by(AuditLog.id.asc())
+        )
+    ).all()
+    acciones = [l.accion for l in logs]
+    assert "POSTULAR_BENEFICIO" in acciones
+    assert "APROBAR_BENEFICIO" in acciones
+

@@ -161,10 +161,16 @@ Cualquier código nuevo o modificación generada por la IA DEBE respetar estas r
 2. **Subvención Municipal:** Cálculo anual sobre padrón cerrado al 31 de diciembre:  
    $$\text{Aporte Anual} = \text{Socios Activos al 31-Dic} \times 4\text{ UTM} \times \text{Valor UTM vigencia decreto}$$
 
-### Módulo 5: Seguridad, Perfiles y Auditoría (HU-09 y HU-10)
+### Módulo 5: Seguridad, Perfiles, Doble Vista y Auditoría (HU-09 y HU-10)
 1. **Roles del Sistema:** `superusuario`, `presidente`, `secretario`, `tesorero`, `admin`, `auditor`, `socio`.
-2. **Máximo Directivo:** La directiva opera con un número restringido de hasta 7 cuentas directivas ejecutivas con voz y voto.
-3. **Auditoría Inmutable:** Toda acción sensible (aprobar/rechazar incorporaciones, reembolsos, bonos, edición de saldos o creación de usuarios) DEBE invocar a `registrar_auditoria()` para insertar un registro en la tabla `audit_logs` con RUN, IP, módulo y acción. **Bajo ninguna circunstancia se debe eliminar ni modificar un registro de audit_logs**.
+2. **Arquitectura de Cuentas de 1 Vista vs. 2 Vistas:**
+   - **Cuenta de 1 Vista (Trabajador Normal — `socio`):** Acceso exclusivo a sus trámites personales (`Hoja de Socio`, `Mis Cargas`, `Mis Reembolsos`, `Catálogo y Mis Beneficios`). Cero acceso a bandejas de aprobación, historiales de terceros, finanzas o administración.
+   - **Cuenta de 2 Vistas (Directiva / Administración — `admin`, `presidente`, `secretario`, `tesorero`, `auditor`):** Asignada por el `superusuario` desde `/admin`. Cuenta con un conmutador en el perfil superior derecho (`Header`) para cambiar entre **`Vista Admin`** (evaluación y gestión del Comité) y **`Vista Usuario`** (autogestión como trabajador para pedir vacaciones, bonos, reembolsos y cargas).
+3. **Principio de Probidad Administrativa (Prohibición de Auto-Aprobación):**
+   - Ningún funcionario con cuenta de 2 vistas puede aprobar, rechazar, validar ni liquidar sus propias solicitudes (reembolsos, bonos/vacaciones, afiliación o cargas). El Backend bloquea cualquier intento con `403 Forbidden` (`solicitud.socio_id == current_user.id` o mismo RUN) y la UI bloquea los botones con el estado `Solicitud Propia (Inhabilitado por Probidad)`.
+   - El rol `auditor` es exclusivamente fiscalizador (solo lectura) y no puede aprobar ni rechazar solicitudes.
+4. **Máximo Directivo:** La directiva opera con un número restringido de hasta 7 cuentas directivas ejecutivas con voz y voto.
+5. **Auditoría Inmutable:** Toda acción sensible (ingresar o aprobar/rechazar incorporaciones, reembolsos, bonos, nóminas masivas, edición de parámetros/saldos o creación de usuarios) DEBE invocar a `registrar_auditoria()` (`app/services/audit_service.py`) para insertar un registro en la tabla `audit_logs` con RUN, IP, módulo y acción. **Bajo ninguna circunstancia se debe eliminar ni modificar un registro de audit_logs**.
 
 ---
 

@@ -78,6 +78,7 @@ export const navigationItems: NavItem[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
+    adminOnly: true,
   },
   {
     name: 'Administración',
@@ -202,21 +203,22 @@ const SidebarBrandHeader: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 // [ESTUDIANTE INFORMÁTICA] Sidebar moderno con contadores en tiempo real por módulo y sincronización multiventana.
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
-  const { user, token } = useAuth();
+  const { user, token, isAdminView, viewMode } = useAuth();
   const [afiliacionCount, setAfiliacionCount] = useState<number | null>(null);
   const [reembolsosCount, setReembolsosCount] = useState<number | null>(null);
   const [beneficiosCount, setBeneficiosCount] = useState<number | null>(null);
 
-  const esAdminOSuper = user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
-  const esDirectiva = Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
+  const esAdminOSuper = isAdminView && (user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser));
+  const esDirectiva = isAdminView && Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
   const itemsVisibles = navigationItems.filter((item) => !item.adminOnly || esAdminOSuper || esDirectiva);
 
   const cargarConteoPendientes = useCallback(async () => {
     if (!token) return;
+    const queryModo = `?modo=${viewMode}`;
 
     // 1. Reembolsos pendientes
     try {
-      const dataReembolsos = await fetchFromApi<{ pendientes: number }>('/reembolsos/conteo-pendientes', {
+      const dataReembolsos = await fetchFromApi<{ pendientes: number }>(`/reembolsos/conteo-pendientes${queryModo}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (typeof dataReembolsos?.pendientes === 'number') {
@@ -228,7 +230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
     // 2. Beneficios / Bonos pendientes
     try {
-      const dataBeneficios = await fetchFromApi<{ pendientes: number }>('/beneficios/conteo-pendientes', {
+      const dataBeneficios = await fetchFromApi<{ pendientes: number }>(`/beneficios/conteo-pendientes${queryModo}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (typeof dataBeneficios?.pendientes === 'number') {
@@ -238,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       // Ignorar error puntual
     }
 
-    // 3. Afiliación y Cargas (Directiva)
+    // 3. Afiliación y Cargas (Directiva en Vista Admin)
     if (esDirectiva) {
       try {
         const dataAf = await fetchFromApi<{ pendientes: number }>('/afiliacion/conteo-pendientes', {
@@ -250,8 +252,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       } catch {
         // Ignorar error puntual
       }
+    } else {
+      setAfiliacionCount(null);
     }
-  }, [esDirectiva, token]);
+  }, [esDirectiva, token, viewMode]);
 
   // Sondeo cada 4 segundos con sincronización multiventana
   useEffect(() => {

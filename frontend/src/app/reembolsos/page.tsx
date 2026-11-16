@@ -40,7 +40,7 @@ const EMPTY_RESUMEN: ResumenSaludSocio = {
 
 // [ESTUDIANTE INFORMÁTICA] Componente principal de la vista del socio para el Módulo 2 (HU-03); orquesta la presentación del saldo de salud, historial de reembolsos y el formulario de ingreso.
 export default function ReembolsosPage() {
-  const { user, token, refreshUser } = useAuth();
+  const { user, token, refreshUser, isAdminView } = useAuth();
 
   // [ESTUDIANTE INFORMÁTICA] Estados de React: guardan la información reactiva traída desde la API (resumen financiero y lista de solicitudes) y controlan la visibilidad de los modales.
   const [resumen, setResumen] = useState<ResumenSaludSocio>(EMPTY_RESUMEN);
@@ -115,7 +115,7 @@ export default function ReembolsosPage() {
           beneficiario_run: prev.beneficiario_run || bens[0].rut,
         }));
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'No se pudo cargar el historial de reembolsos.');
     } finally {
       setCargando(false);
@@ -261,7 +261,7 @@ export default function ReembolsosPage() {
       });
       setSuccessMsg(`¡Comprobante "${file.name}" cargado con éxito en la solicitud ${previewComprobante.codigo}!`);
       setTimeout(() => setSuccessMsg(null), 5000);
-    } catch (err) {
+    } catch (err: unknown) {
       setPreviewError(err instanceof Error ? err.message : 'No se pudo subir el archivo.');
     } finally {
       setSubiendoArchivoDirecto(false);
@@ -294,7 +294,7 @@ export default function ReembolsosPage() {
       }
       setSuccessMsg(`Socio titular "${resumenAsistido.socio_nombre}" cargado para atención asistida.`);
       setTimeout(() => setSuccessMsg(null), 4000);
-    } catch (err) {
+    } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'No se pudo cargar al socio asistido.');
     }
   };
@@ -374,7 +374,7 @@ export default function ReembolsosPage() {
         formArchivo.append('archivo', uploadedFile);
         try {
           await subirArchivoApi(`/reembolsos/solicitud/${nueva.id}/comprobante`, formArchivo);
-        } catch (uploadErr) {
+        } catch (uploadErr: unknown) {
           console.error('Error al subir archivo adjunto:', uploadErr);
         }
       }
@@ -414,7 +414,7 @@ export default function ReembolsosPage() {
       setFechaValidacion(null);
       setSuccessMsg(`¡Solicitud ${nueva.codigo} ingresada con éxito! Su estado es "${nueva.estado_label}".`);
       setTimeout(() => setSuccessMsg(null), 6000);
-    } catch (err) {
+    } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'No se pudo ingresar la solicitud.');
     } finally {
       setEnviando(false);
@@ -524,8 +524,9 @@ export default function ReembolsosPage() {
         usuarioNombre={user?.nombreCompleto}
         beneficiarios={beneficiarios}
         esDirectiva={Boolean(
-          user?.isSuperuser ||
-          ['ADMIN', 'SUPERUSUARIO', 'PRESIDENTE', 'TESORERO'].includes((user?.rol || '').toUpperCase())
+          isAdminView &&
+            (user?.isSuperuser ||
+              ['ADMIN', 'SUPERUSUARIO', 'PRESIDENTE', 'TESORERO'].includes((user?.rol || '').toUpperCase()))
         )}
         errorMsg={errorMsg}
         setErrorMsg={setErrorMsg}

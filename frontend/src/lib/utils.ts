@@ -115,7 +115,7 @@ export function validateRunLive(value: string): {
     return {
       isValid: false,
       cleanLength: clean.length,
-      error: `RUN incompleto (${clean.length}/8 dígitos mínimos, ej: 12.345.678-9).`,
+      error: 'RUN inválido.',
       successMsg: null,
     };
   }
@@ -125,7 +125,7 @@ export function validateRunLive(value: string): {
     return {
       isValid: false,
       cleanLength: clean.length,
-      error: 'Formato de RUN inválido (solo números y dígito verificador).',
+      error: 'RUN inválido.',
       successMsg: null,
     };
   }
@@ -141,7 +141,7 @@ export function validateRunLive(value: string): {
     return {
       isValid: false,
       cleanLength: clean.length,
-      error: `RUN inválido (dígito verificador no corresponde).`,
+      error: 'RUN inválido.',
       successMsg: null,
     };
   }
@@ -225,7 +225,7 @@ export function validateLoginIdentifier(value: string): LoginValidationResult {
       return {
         mode: 'email',
         isValid: false,
-        error: 'El formato de correo electrónico ingresado no es válido.',
+        error: 'Correo inválido.',
       };
     }
     return { mode: 'email', isValid: true, error: null };
@@ -233,19 +233,11 @@ export function validateLoginIdentifier(value: string): LoginValidationResult {
 
   // Modo RUN: requiere al menos 7 dígitos base + 1 DV (mínimo 8 caracteres limpios)
   const clean = trimmed.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (clean.length < 8) {
+  if (clean.length < 8 || !isValidRun(clean)) {
     return {
       mode: 'rut',
       isValid: false,
-      error: 'El RUN ingresado debe contener al menos 8 dígitos (ej: 12.345.678-9).',
-    };
-  }
-
-  if (!isValidRun(clean)) {
-    return {
-      mode: 'rut',
-      isValid: false,
-      error: 'El RUN ingresado no es válido (dígito verificador no corresponde).',
+      error: 'RUN inválido.',
     };
   }
 

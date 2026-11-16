@@ -229,28 +229,10 @@ _COLUMNAS_REEMBOLSO_LISTAS = False
 
 
 async def asegurar_columnas_reembolso(db: AsyncSession) -> None:
-    """Asegura de forma idempotente que las columnas opcionales existan en PostgreSQL."""
+    """No-op de compatibilidad: las migraciones de esquema residen exclusivamente en init_db.py."""
     global _COLUMNAS_REEMBOLSO_LISTAS
-    if _COLUMNAS_REEMBOLSO_LISTAS:
-        return
-    try:
-        bind = db.get_bind()
-        if bind and "sqlite" in getattr(bind.dialect, "name", ""):
-            _COLUMNAS_REEMBOLSO_LISTAS = True
-            return
-    except Exception:
-        pass
-    try:
-        for sql_col in (
-            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS beneficiario_run VARCHAR(20) DEFAULT ''",
-            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS revisado_por_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL",
-            "ALTER TABLE solicitudes_reembolso ADD COLUMN IF NOT EXISTS fecha_revision TIMESTAMPTZ",
-        ):
-            await db.execute(text(sql_col))
-        await db.commit()
-        _COLUMNAS_REEMBOLSO_LISTAS = True
-    except Exception:
-        await db.rollback()
+    _COLUMNAS_REEMBOLSO_LISTAS = True
+    return
 
 
 async def obtener_beneficiarios_socio(user: User, db: AsyncSession) -> List[BeneficiarioReembolso]:
@@ -394,15 +376,15 @@ async def obtener_resumen_socio(
         if s.estado in (EstadoReembolso.APROBADO, EstadoReembolso.PAGADO)
     ]
 
-    monto_en_revision = sum(float(s.monto_reembolso or 0) for s in en_revision_list)
-    total_reembolsado = sum(float(s.monto_reembolso or 0) for s in aprobadas_list)
+    monto_en_revision = sum(int(s.monto_reembolso or 0) for s in en_revision_list)
+    total_reembolsado = sum(int(s.monto_reembolso or 0) for s in aprobadas_list)
     en_revision_count = len(en_revision_list)
     aprobadas_count = len(aprobadas_list)
 
-    total_anual = float(TOPE_ANUAL_SALUD)
-    total_comprometido = float(monto_en_revision + total_reembolsado)
-    disponible = float(max(0.0, total_anual - total_comprometido))
-    pct = ((total_anual - disponible) / total_anual * 100) if total_anual > 0 else 0
+    total_anual = int(TOPE_ANUAL_SALUD)
+    total_comprometido = int(monto_en_revision + total_reembolsado)
+    disponible = int(max(0, total_anual - total_comprometido))
+    pct = ((total_anual - disponible) / total_anual * 100.0) if total_anual > 0 else 0.0
 
     # Sincronizar en la BD el saldo_salud_disponible y el tope anual ($150.000) del año calendario actual
     if anio_calendario == date.today().year:
@@ -430,7 +412,7 @@ async def obtener_resumen_socio(
         saldo_salud_disponible=disponible,
         saldo_salud_total_anual=total_anual,
         porcentaje_utilizado=round(pct, 1),
-        total_reembolsado_periodo=float(total_reembolsado),
+        total_reembolsado_periodo=int(total_reembolsado),
         solicitudes_en_revision=en_revision_count,
         solicitudes_aprobadas=aprobadas_count,
         anio_calendario=anio_calendario,
@@ -570,6 +552,23 @@ async def crear_solicitud(
     )
 
     db.add(solicitud)
+    db.add(
+        AuditLog(
+            usuario_id=socio_actual.id,
+            usuario_nombre=socio_actual.nombre_completo,
+            usuario_rut=socio_actual.rut,
+            usuario_rol=socio_actual.rol.value if hasattr(socio_actual.rol, "value") else str(socio_actual.rol),
+            modulo="REEMBOLSOS",
+            accion="INGRESAR_REEMBOLSO_MEDICO",
+            recurso_tipo="SolicitudReembolso",
+            recurso_id=f"{codigo}:INGRESO",
+            detalles=(
+                f"Solicitud {codigo} ingresada para {socio_a_evaluar.nombre_completo} "
+                f"(Beneficiario: {payload.beneficiario_nombre}, Copago: ${monto_copago_int:,.0f})."
+            ),
+            ip_origen="127.0.0.1",
+        )
+    )
     await db.commit()
     await db.refresh(solicitud)
 
@@ -715,9 +714,6 @@ async def listar_todas_solicitudes_admin(
     db: AsyncSession, estado: Optional[str] = None
 ) -> List[SolicitudReembolso]:
     """Lista todas las solicitudes de reembolso de los socios para la bandeja de administración."""
-    await asegurar_columnas_reembolso(db)
-    await _asegurar_semillas_sla_demo(db)
-
     query = (
         select(SolicitudReembolso)
         .options(selectinload(SolicitudReembolso.socio))
@@ -737,9 +733,6 @@ async def listar_todas_solicitudes_admin(
 # [ESTUDIANTE INFORMÁTICA] Esto cuenta las solicitudes en estado 'en_revision'; permite mostrar el globito de alerta roja con la cantidad de pendientes en el menú.
 async def contar_solicitudes_pendientes_admin(db: AsyncSession) -> int:
     """Retorna la cantidad de solicitudes de reembolso en estado EN_REVISION."""
-    await asegurar_columnas_reembolso(db)
-    await _asegurar_semillas_sla_demo(db)
-
     count = await db.scalar(
         select(func.count(SolicitudReembolso.id)).where(
             SolicitudReembolso.estado == EstadoReembolso.EN_REVISION
@@ -761,12 +754,34 @@ async def resolver_solicitud_reembolso(
     if not solicitud:
         raise ValueError("Solicitud de reembolso no encontrada.")
 
+    # [ESTUDIANTE INFORMÁTICA] Principio de Probidad Administrativa (Ley N° 19.754): prohibido auto-aprobar o auto-rechazar solicitudes propias.
+    if solicitud.socio_id == admin_user.id:
+        raise PermissionError(
+            "Por principio de probidad administrativa (Ley N° 19.754), usted no puede aprobar ni rechazar "
+            "sus propias solicitudes de reembolso médico. Debe ser evaluada por otro miembro habilitado de la Directiva."
+        )
+
+    if solicitud.estado != EstadoReembolso.EN_REVISION:
+        estado_val = solicitud.estado.value if hasattr(solicitud.estado, "value") else str(solicitud.estado)
+        raise ValueError(f"La solicitud {solicitud.codigo} ya fue resuelta previamente ({estado_val}).")
+
     accion_upper = accion.upper().strip()
     if accion_upper not in ("APROBAR", "RECHAZAR"):
         raise ValueError("Acción no válida. Debe ser 'APROBAR' o 'RECHAZAR'.")
 
+    if accion_upper == "RECHAZAR" and not (motivo_rechazo or "").strip():
+        raise ValueError("Debe indicar el motivo de rechazo de forma obligatoria.")
+
     # Obtener el socio para actualizar saldos si se rechaza
     socio = await db.get(User, solicitud.socio_id)
+    if socio:
+        rut_socio_clean = re.sub(r"[^0-9kK]", "", socio.rut or "").upper()
+        rut_admin_clean = re.sub(r"[^0-9kK]", "", admin_user.rut or "").upper()
+        if rut_socio_clean and rut_socio_clean == rut_admin_clean:
+            raise PermissionError(
+                "Por principio de probidad administrativa (Ley N° 19.754), usted no puede aprobar ni rechazar "
+                "sus propias solicitudes de reembolso médico."
+            )
 
     if accion_upper == "APROBAR":
         solicitud.estado = EstadoReembolso.APROBADO

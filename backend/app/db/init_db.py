@@ -328,12 +328,25 @@ async def init_db() -> None:
             """))
 
     async with AsyncSessionLocal() as db:
-        # 1. Cargar Usuarios
+        # 1. Cargar Usuarios y sincronizar RUTs Módulo 11 de cuentas semilla canónicas
         for data in SEED_USERS:
             exists = await db.scalar(select(User).where(User.email == data["email"]))
             if exists:
                 if not hasattr(exists, "meses_antiguedad") or exists.meses_antiguedad is None:
                     exists.meses_antiguedad = data.get("meses_antiguedad", 12)
+                if exists.rut != data["rut"]:
+                    colision = await db.scalar(
+                        select(User.id).where(User.rut == data["rut"], User.id != exists.id)
+                    )
+                    if not colision:
+                        logger.info(
+                            "Sincronizando RUT Módulo 11 de %s: %s -> %s",
+                            exists.email,
+                            exists.rut,
+                            data["rut"],
+                        )
+                        exists.rut = data["rut"]
+                        db.add(exists)
                 continue
             data = dict(data)
             password = data.pop("password")
@@ -484,7 +497,7 @@ async def init_db() -> None:
             db.add_all([
                 AuditLog(
                     usuario_nombre="María Elena Soto",
-                    usuario_rut="12.345.678-9",
+                    usuario_rut="12.345.678-5",
                     usuario_rol="Presidente",
                     modulo="AFILIACION",
                     accion="APROBAR_INCORPORACION",
@@ -495,7 +508,7 @@ async def init_db() -> None:
                 ),
                 AuditLog(
                     usuario_nombre="Roberto Morales P.",
-                    usuario_rut="14.982.112-4",
+                    usuario_rut="14.982.112-0",
                     usuario_rol="Tesorero",
                     modulo="BENEFICIOS",
                     accion="LIQUIDAR_BONO",
@@ -506,7 +519,7 @@ async def init_db() -> None:
                 ),
                 AuditLog(
                     usuario_nombre="Jorge Contreras L.",
-                    usuario_rut="16.234.567-8",
+                    usuario_rut="16.234.567-2",
                     usuario_rol="Admin",
                     modulo="CONFIGURACION",
                     accion="ACTUALIZAR_PARAMETRO",
@@ -518,6 +531,13 @@ async def init_db() -> None:
             ])
             await db.commit()
             logger.info("Registros de auditoría iniciales creados")
+
+        # 4.1 Semillas iniciales de Reembolsos SLA (solo si la tabla está vacía al primer arranque)
+        from app.models.reembolso import SolicitudReembolso
+        from app.services.reembolso_service import _asegurar_semillas_sla_demo
+        reembolsos_count = await db.scalar(select(func.count(SolicitudReembolso.id)))
+        if not reembolsos_count:
+            await _asegurar_semillas_sla_demo(db)
 
         # 5. Sincronización retroactiva (Backfill) de Claves Foráneas en registros existentes
         if engine.dialect.name == "postgresql":
@@ -585,7 +605,7 @@ async def init_db() -> None:
                 WHERE al.usuario_id IS NULL
                   AND LOWER(TRIM(al.usuario_nombre)) = LOWER(TRIM(u.nombre_completo));
                 """,
-                # Sincronizar seguridad desde SEC_USR_ en parametros_sistema hacia columnas tipadas de usuarios
+                # Sincronizar seguridad desde SEC_USR_ en parametros_sistema hacia columnas tipadas de usuarios y limpiar residuos 1FN
                 """
                 UPDATE usuarios u
                 SET
@@ -595,6 +615,8 @@ async def init_db() -> None:
                 FROM parametros_sistema p
                 WHERE p.clave = ('SEC_USR_' || u.id::text);
                 """,
+                "DELETE FROM parametros_sistema WHERE clave LIKE 'SEC_USR_%';",
+                "UPDATE parametros_sistema SET valor = '' WHERE clave = 'SMTP_PASSWORD' AND valor = 'xgsnewzymyqjumgc';",
             ]
             for b_sql in backfill_sqls:
                 await db.execute(text(b_sql))

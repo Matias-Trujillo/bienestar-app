@@ -16,8 +16,8 @@ class ReembolsoCreateRequest(BaseModel):
     beneficiario_nombre: str = Field(..., description="Nombre del beneficiario")
     beneficiario_parentesco: str = Field("Titular", description="Parentesco con el socio")
     beneficiario_run: Optional[str] = Field(None, description="RUN del beneficiario (carga o titular)")
-    monto_boleta: float = Field(..., gt=0, description="Monto total de la boleta en CLP")
-    monto_copago: float = Field(0, ge=0, description="Copago a solicitar reembolso")
+    monto_boleta: int = Field(..., gt=0, description="Monto total de la boleta en CLP")
+    monto_copago: int = Field(0, ge=0, description="Copago a solicitar reembolso")
     fecha_atencion: date = Field(..., description="Fecha de la atención médica")
     fecha_boleta: date = Field(..., description="Fecha del documento tributario")
     tipo_documento: str = Field(..., description="Tipo de documento de respaldo adjunto")
@@ -96,9 +96,9 @@ class ReembolsoOut(BaseModel):
     beneficiario_nombre: str
     beneficiario_parentesco: str
     beneficiario_run: Optional[str] = ""
-    monto_boleta: float
-    monto_copago: float
-    monto_reembolso: float
+    monto_boleta: int
+    monto_copago: int
+    monto_reembolso: int
     fecha_atencion: str
     fecha_boleta: str
     tipo_documento: str = ""
@@ -128,10 +128,10 @@ class ResumenSaludSocio(BaseModel):
     puede_solicitar: bool
     fecha_habilitacion: Optional[str] = None
     mensaje_carencia: Optional[str] = None
-    saldo_salud_disponible: float
-    saldo_salud_total_anual: float
+    saldo_salud_disponible: int
+    saldo_salud_total_anual: int
     porcentaje_utilizado: float
-    total_reembolsado_periodo: float
+    total_reembolsado_periodo: int
     solicitudes_en_revision: int
     solicitudes_aprobadas: int
     anio_calendario: int = 2026

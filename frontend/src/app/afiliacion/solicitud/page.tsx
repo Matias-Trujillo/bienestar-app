@@ -328,7 +328,7 @@ export default function SolicitudAfiliacionPage() {
       } catch {
         // Silencioso
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setApiError(parseApiError(err));
     } finally {
       setSubmitting(false);

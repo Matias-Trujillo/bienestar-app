@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { SolicitudBeneficio } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -21,6 +22,17 @@ export const GestionDirectivaTable: React.FC<GestionDirectivaTableProps> = ({
   onResolverSolicitud,
   onVerDocumento,
 }) => {
+  const { user } = useAuth();
+  const esPropia = (sol: SolicitudBeneficio): boolean =>
+    Boolean(
+      user &&
+        (sol.socio_id === Number(user.id) ||
+          (sol.socio_rut &&
+            user.rut &&
+            sol.socio_rut.replace(/[^0-9kK]/gi, '').toUpperCase() ===
+              user.rut.replace(/[^0-9kK]/gi, '').toUpperCase()))
+    );
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -116,12 +128,18 @@ export const GestionDirectivaTable: React.FC<GestionDirectivaTableProps> = ({
                     </button>
                   </div>
 
-                  <button
-                    onClick={() => onResolverSolicitud(sol)}
-                    className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition shadow-sm"
-                  >
-                    Resolver
-                  </button>
+                  {esPropia(sol) ? (
+                    <span className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">
+                      🔒 Solicitud Propia (Inhabilitado)
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => onResolverSolicitud(sol)}
+                      className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition shadow-sm"
+                    >
+                      Resolver
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -144,21 +162,36 @@ export const GestionDirectivaTable: React.FC<GestionDirectivaTableProps> = ({
               {solicitudes.map((sol) => (
                 <tr
                   key={sol.id}
-                  onClick={() => onResolverSolicitud(sol)}
-                  className="hover:bg-sky-50/40 cursor-pointer transition-colors group"
+                  onClick={() => {
+                    if (esPropia(sol)) return;
+                    onResolverSolicitud(sol);
+                  }}
+                  className={`transition-colors group ${
+                    esPropia(sol) ? 'bg-amber-50/20 cursor-not-allowed' : 'hover:bg-sky-50/40 cursor-pointer'
+                  }`}
                 >
                   <td className="py-3 px-4 align-middle tabular-nums">
                     <button
                       type="button"
+                      disabled={esPropia(sol)}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (esPropia(sol)) return;
                         onResolverSolicitud(sol);
                       }}
-                      className="inline-flex items-center gap-1.5 font-semibold text-[#006799] group-hover:text-[#0c2b45] group-hover:underline truncate"
-                      title="Pinchar para revisar respaldo y resolver solicitud"
+                      className={`inline-flex items-center gap-1.5 font-semibold truncate ${
+                        esPropia(sol)
+                          ? 'text-slate-400 cursor-not-allowed'
+                          : 'text-[#006799] group-hover:text-[#0c2b45] group-hover:underline'
+                      }`}
+                      title={
+                        esPropia(sol)
+                          ? 'Inhabilitado por Probidad: No puede resolver su propia solicitud'
+                          : 'Pinchar para revisar respaldo y resolver solicitud'
+                      }
                     >
                       <span>BEN-{String(sol.id).padStart(4, '0')}</span>
-                      <span className="text-[11px] opacity-75">→</span>
+                      {!esPropia(sol) && <span className="text-[11px] opacity-75">→</span>}
                     </button>
                     <div className="mt-1">
                       <span
@@ -174,9 +207,19 @@ export const GestionDirectivaTable: React.FC<GestionDirectivaTableProps> = ({
                     </div>
                   </td>
                   <td className="py-3 px-4 align-middle">
-                    <span className="font-medium text-slate-900 block truncate" title={sol.socio_nombre}>
-                      {sol.socio_nombre}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-slate-900 truncate" title={sol.socio_nombre}>
+                        {sol.socio_nombre}
+                      </span>
+                      {esPropia(sol) && (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
+                          title="Principio de Probidad: Solicitud propia no auto-resoluble"
+                        >
+                          🔒 Propia
+                        </span>
+                      )}
+                    </div>
                     <span className="text-slate-500 font-normal tabular-nums block truncate mt-0.5">
                       {sol.socio_rut} • {sol.socio_departamento}
                     </span>

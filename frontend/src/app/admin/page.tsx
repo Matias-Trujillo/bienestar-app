@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
 import { getErrorMessage } from '@/lib/utils';
@@ -20,7 +21,8 @@ import {
 type TabAdmin = 'usuarios' | 'bonos' | 'auditoria' | 'parametros';
 
 export default function AdminPage() {
-  const { user, token } = useAuth();
+  const { user, token, isAdminView, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [tab, setTab] = useState<TabAdmin>('usuarios');
 
   // Estados de datos
@@ -155,11 +157,16 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    if (!authLoading && user && !isAdminView) {
+      router.replace('/');
+      return;
+    }
+    if (!isAdminView) return;
     cargarUsuarios();
     cargarBonos();
     cargarStats();
     cargarParametros();
-  }, [cargarUsuarios, cargarBonos, cargarStats, cargarParametros]);
+  }, [authLoading, user, isAdminView, router, cargarUsuarios, cargarBonos, cargarStats, cargarParametros]);
 
   useEffect(() => {
     if (tab === 'auditoria') {

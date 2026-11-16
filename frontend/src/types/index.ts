@@ -34,7 +34,10 @@ export interface User {
   ultimoCambioPassword?: string | null;
   puedeEliminar?: boolean;
   motivoNoEliminable?: string | null;
+  tieneDobleVista?: boolean;
 }
+
+export type ViewMode = 'admin' | 'socio';
 
 export interface BonoCatalogoItem {
   id: string;
@@ -426,5 +429,27 @@ export interface KpiMetricItem {
   variant?: UIStatusVariant;
   mono?: boolean;
 }
+
+export interface SocioNomina {
+  folio: string;
+  run: string;
+  nombreCompleto: string;
+  grado: string;
+  calidadContractual: string;
+  porcentajeRetencion: number;
+  fechaSesionAprobacion: string;
+  numeroActa?: string | null;
+  inicioDescuento: string;
+  finCarencia: string;
+  cargasLegales: number;
+}
+
+export interface NominaResponse {
+  periodo: string;
+  totalSociosEnNomina: number;
+  porcentajeAplicado: string;
+  socios: SocioNomina[];
+}
+
 
 

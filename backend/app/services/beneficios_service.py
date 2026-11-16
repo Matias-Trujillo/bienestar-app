@@ -5,6 +5,7 @@ HU-05 (Postulaciones por contingencia) y HU-06 (Liquidación masiva de calendari
 import csv
 import io
 import logging
+import re
 from datetime import date, datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -21,6 +22,7 @@ from app.models import (
     NominaMasiva,
     DetalleNominaMasiva,
 )
+from app.services.audit_service import registrar_auditoria
 from app.schemas.beneficios import (
     BonoCatalogoItem,
     CatalogoBeneficiosResponse,
@@ -300,16 +302,32 @@ class BeneficiosService:
                 detail=f"Requisito no cumplido: Para postular a beneficios sociales debe contar con al menos 6 meses de permanencia en el Comité de Bienestar. ({motivo_ant})",
             )
         
-        # 2. Localizar definición del bono
-        bono_def = next((b for b in CATALOGO_DEFINICION if b["id"] == payload.tipo_bono), None)
-        if not bono_def:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"El tipo de beneficio '{payload.tipo_bono}' no es válido en el catálogo.",
+        # 2. Localizar definición del bono en bonos_catalogo (PostgreSQL) con fallback a CATALOGO_DEFINICION
+        bono_db = await db.scalar(
+            select(BonoCatalogo).where(
+                BonoCatalogo.codigo == payload.tipo_bono,
+                BonoCatalogo.activo == True,
             )
+        )
+        if bono_db:
+            bono_def = {
+                "id": bono_db.codigo,
+                "nombre": bono_db.nombre,
+                "porcentaje": bono_db.porcentaje,
+                "documentacion_requerida": bono_db.documentacion_requerida,
+            }
+            bono_id = bono_db.id
+        else:
+            bono_def = next((b for b in CATALOGO_DEFINICION if b["id"] == payload.tipo_bono), None)
+            if not bono_def:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"El tipo de beneficio '{payload.tipo_bono}' no es válido o no se encuentra activo en el catálogo.",
+                )
+            bono_id = await cls._resolver_bono_id(db, payload.tipo_bono)
         
         base_g15 = await cls.get_sueldo_base_grado_15(db)
-        porcentaje = bono_def["porcentaje"]
+        porcentaje = float(bono_def["porcentaje"])
         
         # Si es escolaridad, validar edad y nombre de estudiante
         if payload.tipo_bono == "escolaridad":
@@ -328,7 +346,6 @@ class BeneficiosService:
                 )
 
         monto = int(round(base_g15 * (porcentaje / 100.0)))
-        bono_id = await cls._resolver_bono_id(db, payload.tipo_bono)
         
         solicitud = SolicitudBeneficio(
             socio_id=user.id,
@@ -355,6 +372,16 @@ class BeneficiosService:
         )
         
         db.add(solicitud)
+        await db.flush()
+        await registrar_auditoria(
+            db=db,
+            usuario=user,
+            modulo="BENEFICIOS",
+            accion="POSTULAR_BENEFICIO",
+            recurso_tipo="SolicitudBeneficio",
+            recurso_id=f"BEN-{solicitud.id:04d}",
+            detalles=f"Postulación ingresada a '{solicitud.titulo_bono}' ({porcentaje}% G15 = ${monto:,.0f}) por {user.nombre_completo}.",
+        )
         await db.commit()
         await db.refresh(solicitud)
         return solicitud
@@ -370,6 +397,18 @@ class BeneficiosService:
         socio = await db.get(User, payload.socio_id)
         if not socio:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Socio no encontrado.")
+
+        # [ESTUDIANTE INFORMÁTICA] Principio de Probidad Administrativa (Ley N° 19.754): prohibido auto-asignarse vacaciones directamente.
+        rut_socio_clean = re.sub(r"[^0-9kK]", "", socio.rut or "").upper()
+        rut_admin_clean = re.sub(r"[^0-9kK]", "", admin_user.rut or "").upper()
+        if socio.id == admin_user.id or (rut_socio_clean and rut_socio_clean == rut_admin_clean):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Por principio de probidad administrativa (Ley N° 19.754), usted no puede auto-asignarse "
+                    "directamente el Bono de Vacaciones. Debe postular desde su Vista Usuario para que otro directivo lo valide."
+                ),
+            )
         
         cumple, meses, motivo_ant = cls.verificar_antiguedad_socio(socio)
         if not cumple:
@@ -420,6 +459,19 @@ class BeneficiosService:
         )
         
         db.add(solicitud)
+        await db.flush()
+        await registrar_auditoria(
+            db=db,
+            usuario=admin_user,
+            modulo="BENEFICIOS",
+            accion="ASIGNACION_DIRECTA_VACACIONES",
+            recurso_tipo="SolicitudBeneficio",
+            recurso_id=f"BEN-{solicitud.id:04d}",
+            detalles=(
+                f"Asignación directa de Bono de Vacaciones (${monto:,.0f}) para {socio.nombre_completo} "
+                f"según Decreto N° {payload.decreto_numero} ({payload.dias_habiles_feriado} días hábiles)."
+            ),
+        )
         await db.commit()
         await db.refresh(solicitud)
         return solicitud
@@ -435,6 +487,16 @@ class BeneficiosService:
         solicitud = await db.get(SolicitudBeneficio, solicitud_id)
         if not solicitud:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+        # [ESTUDIANTE INFORMÁTICA] Principio de Probidad Administrativa: ningún administrador o directivo puede validar su propia solicitud.
+        if solicitud.socio_id == admin_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Por principio de probidad administrativa (Ley N° 19.754), usted no puede aprobar, "
+                    "rechazar ni liquidar sus propias solicitudes de beneficios sociales. Debe ser resuelta por otro miembro habilitado."
+                ),
+            )
         
         ahora = datetime.now(timezone.utc)
         accion = payload.accion.upper()
@@ -464,7 +526,20 @@ class BeneficiosService:
                 solicitud.observaciones_admin = (solicitud.observaciones_admin or "") + f" | Liquidación: {payload.observaciones}"
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Acción '{payload.accion}' inválida.")
-            
+
+        await registrar_auditoria(
+            db=db,
+            usuario=admin_user,
+            modulo="BENEFICIOS",
+            accion=f"{accion}_BENEFICIO",
+            recurso_tipo="SolicitudBeneficio",
+            recurso_id=f"BEN-{solicitud.id:04d}",
+            detalles=(
+                f"Solicitud BEN-{solicitud.id:04d} ({solicitud.titulo_bono} por ${solicitud.monto_calculado:,.0f}) "
+                f"procesada con acción {accion}."
+                + (f" Cheque: {solicitud.numero_cheque}" if accion == "LIQUIDAR" and solicitud.numero_cheque else "")
+            ),
+        )
         await db.commit()
         await db.refresh(solicitud)
         return solicitud
@@ -653,6 +728,18 @@ class BeneficiosService:
                     )
                 )
                 
+        await registrar_auditoria(
+            db=db,
+            usuario=admin_user,
+            modulo="BENEFICIOS",
+            accion="EJECUTAR_NOMINA_MASIVA",
+            recurso_tipo="NominaMasiva",
+            recurso_id=f"NOM-{nomina.id:04d}",
+            detalles=(
+                f"Formalizada nómina masiva '{nomina.titulo}' ({nomina.periodo}): "
+                f"{nomina.total_socios_beneficiados} socios beneficiados, monto total ${nomina.monto_total_liquidado:,.0f}."
+            ),
+        )
         await db.commit()
         await db.refresh(nomina)
         return nomina
