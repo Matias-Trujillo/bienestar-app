@@ -21,7 +21,9 @@ from app.api.v1.endpoints.auth import (
     login,
     obtener_seguridad_usuario,
 )
+from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
+from app.db.init_db import _sincronizar_usuario_semilla
 from app.models import AuditLog, ParametroSistema, User, UserRole
 
 
@@ -241,3 +243,57 @@ async def test_login_exitoso_reinicia_intentos_fallidos(
 
     sec_final = await obtener_seguridad_usuario(db_session, socio_temporal.id)
     assert sec_final["i"] == 0
+
+
+async def test_sincronizar_usuario_semilla_desbloquea_y_restaura_en_entorno_pruebas(
+    db_session: AsyncSession, socio_temporal: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Con SEED_ENSURE_DEFAULT_ACCESS=True desbloquea y resincroniza incluso si ENVIRONMENT='production'."""
+    await guardar_seguridad_usuario(
+        db_session, socio_temporal.id, intentos=5, bloqueada=True, debe_cambiar=True
+    )
+    await db_session.commit()
+    await db_session.refresh(socio_temporal)
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(settings, "SEED_ENSURE_DEFAULT_ACCESS", True)
+
+    await _sincronizar_usuario_semilla(
+        db_session,
+        socio_temporal,
+        {"rut": "13.579.246-2", "email": socio_temporal.email, "password": "Presi#2026"},
+    )
+    await db_session.commit()
+    await db_session.refresh(socio_temporal)
+
+    assert socio_temporal.password_bloqueada is False
+    assert socio_temporal.intentos_fallidos == 0
+    assert socio_temporal.debe_cambiar_password is False
+    assert verify_password("Presi#2026", socio_temporal.hashed_password) is True
+
+
+async def test_sincronizar_usuario_semilla_respeta_clave_en_produccion_real(
+    db_session: AsyncSession, socio_temporal: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Con ENVIRONMENT='production' y SEED_ENSURE_DEFAULT_ACCESS=False no pisa claves ni bloqueos."""
+    await guardar_seguridad_usuario(
+        db_session, socio_temporal.id, intentos=5, bloqueada=True, debe_cambiar=False
+    )
+    await db_session.commit()
+    await db_session.refresh(socio_temporal)
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(settings, "SEED_ENSURE_DEFAULT_ACCESS", False)
+
+    await _sincronizar_usuario_semilla(
+        db_session,
+        socio_temporal,
+        {"rut": "13.579.246-2", "email": socio_temporal.email, "password": "Presi#2026"},
+    )
+    await db_session.commit()
+    await db_session.refresh(socio_temporal)
+
+    assert socio_temporal.password_bloqueada is True
+    assert socio_temporal.intentos_fallidos == 5
+    assert verify_password("Peralillo#1357", socio_temporal.hashed_password) is True
+    assert verify_password("Presi#2026", socio_temporal.hashed_password) is False

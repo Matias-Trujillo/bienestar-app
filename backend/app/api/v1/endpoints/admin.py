@@ -963,6 +963,9 @@ async def reset_ambiente_pruebas(
             user_existente.saldo_salud_total_anual = c["saldo_salud_total_anual"]
             user_existente.cargas_registradas = c["cargas_registradas"]
             user_existente.estado_previsional = "Al día"
+            user_existente.intentos_fallidos = 0
+            user_existente.password_bloqueada = False
+            user_existente.debe_cambiar_password = False
             db.add(user_existente)
         else:
             nuevo_u = User(

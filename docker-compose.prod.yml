@@ -36,6 +36,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bienestar_admin}:${POSTGRES_PASSWORD:-PeralilloSeguro2026_Prod}@postgres:5432/${POSTGRES_DB:-bienestar_db_prod}
       SECRET_KEY: ${SECRET_KEY:-c9f18a45b73d2e1f6a09c84e27bb140f7d56e3a981c2f40b82e1d75a6c3f09ab}
       ENVIRONMENT: production
+      # En servidor compartido de pruebas mantiene cuentas semilla desbloqueadas y con su clave canónica
+      SEED_ENSURE_DEFAULT_ACCESS: ${SEED_ENSURE_DEFAULT_ACCESS:-true}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       # HU-01: en servidor de pruebas se permite postular fuera del período ene-jun
       AFILIACION_VALIDAR_PERIODO: ${AFILIACION_VALIDAR_PERIODO:-false}

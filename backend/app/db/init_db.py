@@ -2,9 +2,10 @@
 import logging
 from datetime import date, datetime, timezone
 from sqlalchemy import select, text, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, verify_password
 from app.db.session import AsyncSessionLocal, engine
 from app.models import (
     Base,
@@ -81,6 +82,54 @@ SEED_PARAMETROS = [
     {"clave": "BONO_ENFERMEDAD_CATASTROFICA_PORCENTAJE", "valor": "100.0", "descripcion": "Porcentaje Bono Enfermedad Catastrófica (100%)"},
     {"clave": "BONO_CATASTROFE_SINIESTRO_PORCENTAJE", "valor": "50.0", "descripcion": "Porcentaje Bono Catástrofe y Siniestros (50%)"},
 ]
+
+
+async def _sincronizar_usuario_semilla(
+    db: AsyncSession,
+    exists: User,
+    data: dict,
+) -> None:
+    """Sincroniza atributos canónicos y, en entornos de desarrollo o pruebas compartidas, garantiza acceso con credenciales semilla."""
+    cambiado = False
+
+    if not hasattr(exists, "meses_antiguedad") or exists.meses_antiguedad is None:
+        exists.meses_antiguedad = data.get("meses_antiguedad", 12)
+        cambiado = True
+
+    if exists.rut != data["rut"]:
+        colision = await db.scalar(
+            select(User.id).where(User.rut == data["rut"], User.id != exists.id)
+        )
+        if not colision:
+            logger.info(
+                "Sincronizando RUT Módulo 11 de %s: %s -> %s",
+                exists.email,
+                exists.rut,
+                data["rut"],
+            )
+            exists.rut = data["rut"]
+            cambiado = True
+
+    if settings.ENVIRONMENT == "development" or settings.SEED_ENSURE_DEFAULT_ACCESS:
+        if not exists.is_active:
+            exists.is_active = True
+            cambiado = True
+        if (
+            exists.password_bloqueada
+            or (exists.intentos_fallidos or 0) > 0
+            or exists.debe_cambiar_password
+        ):
+            exists.password_bloqueada = False
+            exists.intentos_fallidos = 0
+            exists.debe_cambiar_password = False
+            cambiado = True
+        if not verify_password(data["password"], exists.hashed_password):
+            logger.info("Restaurando clave canónica de cuenta semilla %s.", exists.email)
+            exists.hashed_password = get_password_hash(data["password"])
+            cambiado = True
+
+    if cambiado:
+        db.add(exists)
 
 
 async def init_db() -> None:
@@ -333,25 +382,7 @@ async def init_db() -> None:
         for data in SEED_USERS:
             exists = await db.scalar(select(User).where(User.email == data["email"]))
             if exists:
-                if not hasattr(exists, "meses_antiguedad") or exists.meses_antiguedad is None:
-                    exists.meses_antiguedad = data.get("meses_antiguedad", 12)
-                if exists.rut != data["rut"]:
-                    colision = await db.scalar(
-                        select(User.id).where(User.rut == data["rut"], User.id != exists.id)
-                    )
-                    if not colision:
-                        logger.info(
-                            "Sincronizando RUT Módulo 11 de %s: %s -> %s",
-                            exists.email,
-                            exists.rut,
-                            data["rut"],
-                        )
-                        exists.rut = data["rut"]
-                        db.add(exists)
-                if settings.ENVIRONMENT == "development" and (exists.password_bloqueada or (exists.intentos_fallidos or 0) > 0):
-                    exists.password_bloqueada = False
-                    exists.intentos_fallidos = 0
-                    db.add(exists)
+                await _sincronizar_usuario_semilla(db, exists, data)
                 continue
             data = dict(data)
             password = data.pop("password")

@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Comité de Bienestar API"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
+    SEED_ENSURE_DEFAULT_ACCESS: bool = False
 
     # Seguridad y JWT
     SECRET_KEY: str = "super_secret_jwt_key_bienestar_2026_change_in_production"
