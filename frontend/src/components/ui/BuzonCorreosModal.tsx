@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Inbox, KeyRound, ClipboardList, Mail } from 'lucide-react';
 import { fetchFromApi } from '@/lib/api';
 
 export interface CorreoBuzonItem {
@@ -91,8 +92,8 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
         {/* Cabecera estilo cliente de correo profesional */}
         <div className="bg-[#091e2e] text-white px-5 py-4 flex items-center justify-between gap-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-lg">
-              📬
+            <div className="w-10 h-10 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center">
+              <Inbox className="w-5 h-5 text-sky-300" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -165,10 +166,10 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
                     : 'bg-sky-100 text-sky-800 border-sky-200';
                 const badgeTxt =
                   c.estadoResolucion === 'ACEPTADA'
-                    ? '✔ Aprobación + Clave'
+                    ? 'Aprobación + Clave'
                     : c.estadoResolucion === 'RECHAZADA'
-                    ? '✕ Rechazo + Motivo'
-                    : '📩 Confirmación Ingreso';
+                    ? 'Rechazo + Motivo'
+                    : 'Confirmación Ingreso';
 
                 return (
                   <button
@@ -243,12 +244,15 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
                       : 'bg-sky-50 border-sky-200 text-sky-950'
                   }`}
                 >
-                  <p className="text-xs font-extrabold uppercase tracking-wider mb-1">
-                    {seleccionado.estadoResolucion === 'ACEPTADA'
-                      ? `✔ Su Solicitud N° ${seleccionado.folio} fue ACEPTADA`
-                      : seleccionado.estadoResolucion === 'RECHAZADA'
-                      ? `✕ Su Solicitud N° ${seleccionado.folio} fue RECHAZADA`
-                      : `📩 Su Solicitud N° ${seleccionado.folio} fue RECEPCIONADA Y ESTÁ EN GESTIÓN`}
+                  <p className="text-xs font-extrabold uppercase tracking-wider mb-1 inline-flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>
+                      {seleccionado.estadoResolucion === 'ACEPTADA'
+                        ? `Su Solicitud N° ${seleccionado.folio} fue ACEPTADA`
+                        : seleccionado.estadoResolucion === 'RECHAZADA'
+                        ? `Su Solicitud N° ${seleccionado.folio} fue RECHAZADA`
+                        : `Su Solicitud N° ${seleccionado.folio} fue RECEPCIONADA Y ESTÁ EN GESTIÓN`}
+                    </span>
                   </p>
                   <p className="text-xs leading-relaxed">
                     <strong>Motivo / Detalle:</strong> {seleccionado.motivo || seleccionado.resumenEstado}
@@ -260,8 +264,9 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
                   <div className="rounded-2xl bg-slate-900 text-white p-4 sm:p-5 space-y-3 shadow-md">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div>
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 block">
-                          🔑 Credenciales de Acceso Inicial al Portal
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 inline-flex items-center gap-1">
+                          <KeyRound className="w-3 h-3" />
+                          <span>Credenciales de Acceso Inicial al Portal</span>
                         </span>
                         <h5 className="text-sm font-bold text-white">
                           Utilice estos datos para iniciar sesión por primera vez
@@ -327,8 +332,9 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
 
                 {/* Pasos a seguir */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2">
-                  <p className="text-xs font-bold text-slate-800">
-                    📋 Pasos a seguir indicados en este correo:
+                  <p className="text-xs font-bold text-slate-800 inline-flex items-center gap-1.5">
+                    <ClipboardList className="w-3.5 h-3.5 text-[#006799]" />
+                    <span>Pasos a seguir indicados en este correo:</span>
                   </p>
                   <ol className="list-decimal pl-5 space-y-1.5 text-xs text-slate-700 leading-relaxed">
                     {seleccionado.pasosSeguir.map((paso, idx) => (

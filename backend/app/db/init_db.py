@@ -3,6 +3,7 @@ import logging
 from datetime import date, datetime, timezone
 from sqlalchemy import select, text, func
 
+from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.session import AsyncSessionLocal, engine
 from app.models import (
@@ -347,6 +348,10 @@ async def init_db() -> None:
                         )
                         exists.rut = data["rut"]
                         db.add(exists)
+                if settings.ENVIRONMENT == "development" and (exists.password_bloqueada or (exists.intentos_fallidos or 0) > 0):
+                    exists.password_bloqueada = False
+                    exists.intentos_fallidos = 0
+                    db.add(exists)
                 continue
             data = dict(data)
             password = data.pop("password")

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Calendar, AlertTriangle } from 'lucide-react';
 import { fetchFromApi } from '@/lib/api';
 import { formatRun, isValidRun, validateRunLive } from '@/lib/utils';
 
@@ -396,8 +397,9 @@ export default function SolicitudAfiliacionPage() {
                       : 'bg-amber-50 border-amber-200 text-amber-800'
                   }`}
                 >
-                  <span className="font-bold">
-                    📅 Período de postulación: {periodo.descripcion}
+                  <span className="font-bold inline-flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 shrink-0" />
+                    Período de postulación: {periodo.descripcion}
                     {periodo.enPeriodo ? ' — Abierto' : ' — Cerrado'}
                   </span>
                   {!periodo.enPeriodo && !periodo.validacionActiva && (
@@ -730,8 +732,9 @@ export default function SolicitudAfiliacionPage() {
                   id="clausula-carencia"
                   className="rounded-xl border-l-4 border-amber-500 bg-amber-50/90 px-3.5 py-2.5"
                 >
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800 mb-0.5">
-                    ⚠ Período de carencia — {periodo?.mesesCarencia ?? 6} meses
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800 mb-0.5 inline-flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    Período de carencia — {periodo?.mesesCarencia ?? 6} meses
                   </p>
                   <p className="text-xs text-amber-900 leading-relaxed">
                     {periodo?.textoCarencia ??

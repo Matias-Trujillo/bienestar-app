@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { CatalogoBeneficios, User } from '@/types';
 import { SettingsIcon } from './Icons';
@@ -64,8 +65,14 @@ export const BeneficiosHeader: React.FC<BeneficiosHeaderProps> = ({
               Permanencia
             </span>
             <span className="text-base font-extrabold text-white mt-1 tabular-nums">6 Meses Mín.</span>
-            <span className={`text-[10px] font-semibold truncate ${cumpleRequisito6Meses ? 'text-lime-300' : 'text-amber-300'}`}>
-              {user?.nombreCompleto ? (cumpleRequisito6Meses ? '✓ Socio Habilitado' : '⚠ En Carencia') : 'Regla activa'}
+            <span className={`text-[10px] font-semibold inline-flex items-center gap-1 truncate ${cumpleRequisito6Meses ? 'text-lime-300' : 'text-amber-300'}`}>
+              {user?.nombreCompleto ? (
+                cumpleRequisito6Meses ? (
+                  <><CheckCircle2 className="w-3 h-3 shrink-0" /> Socio Habilitado</>
+                ) : (
+                  <><AlertTriangle className="w-3 h-3 shrink-0" /> En Carencia</>
+                )
+              ) : 'Regla activa'}
             </span>
           </div>
 

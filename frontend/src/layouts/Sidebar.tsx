@@ -257,6 +257,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   }, [esDirectiva, token, viewMode]);
 
+  // Reiniciar contadores de badges al alternar entre Vista Admin y Vista Usuario antes de consultar la API
+  useEffect(() => {
+    setAfiliacionCount(null);
+    setReembolsosCount(null);
+    setBeneficiosCount(null);
+  }, [viewMode]);
+
   // Sondeo cada 4 segundos con sincronización multiventana
   useEffect(() => {
     cargarConteoPendientes();

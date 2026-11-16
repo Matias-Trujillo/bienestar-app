@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { AlertTriangle, Check, X } from 'lucide-react';
 import {
   TipoPrestacion,
   TIPO_PRESTACION_LABELS,
@@ -196,7 +197,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
         {errorMsg && (
           <div className="mx-5 mt-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between shadow-2xs">
             <div className="flex items-center gap-2">
-              <span className="text-rose-600 font-bold text-sm">⚠</span>
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{errorMsg}</span>
             </div>
             {setErrorMsg && (
@@ -250,8 +251,9 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               {copagoNum > 0 ? (
                 <div className="mt-1 flex items-center justify-between text-[11px]">
                   {excedeSaldo ? (
-                    <span className="font-semibold text-rose-600">
-                      ⚠ Excede el saldo disponible por {formatCurrency(copagoNum - saldoDisponible)}
+                    <span className="font-semibold text-rose-600 inline-flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      Excede el saldo disponible por {formatCurrency(copagoNum - saldoDisponible)}
                     </span>
                   ) : (
                     <span className="font-medium text-emerald-800">
@@ -422,7 +424,10 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                   : 'bg-rose-50 border-rose-200 text-rose-800'
               }`}>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold">{fechaValidacion.dentro ? '✓' : '✗'} Plazo 30 días:</span>
+                  <span className="font-bold inline-flex items-center gap-1">
+                    {fechaValidacion.dentro ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                    Plazo 30 días:
+                  </span>
                   <span>{fechaValidacion.mensaje}</span>
                 </div>
               </div>
@@ -477,8 +482,9 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                   id="input-monto-copago"
                 />
                 {excedeBoleta ? (
-                  <span className="text-[10px] font-semibold text-rose-600 mt-0.5 block">
-                    ⚠ El copago no puede ser mayor a la boleta ({formatCurrency(boletaNum)})
+                  <span className="text-[10px] font-semibold text-rose-600 mt-0.5 inline-flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    El copago no puede ser mayor a la boleta ({formatCurrency(boletaNum)})
                   </span>
                 ) : null}
               </div>
@@ -603,8 +609,9 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                 Monto a solicitar: {formatCurrency(copagoNum)}
               </span>
             ) : excedeBoleta ? (
-              <span className="text-rose-600 font-semibold">
-                ⚠ El copago no puede superar la boleta ({formatCurrency(boletaNum)})
+              <span className="text-rose-600 font-semibold inline-flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                El copago no puede superar la boleta ({formatCurrency(boletaNum)})
               </span>
             ) : (
               <span className="text-slate-400">Campos obligatorios marcados con (*)</span>

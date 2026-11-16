@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { SolicitudReembolso } from '@/types';
@@ -136,10 +137,11 @@ export const TablaAprobaciones: React.FC<TablaAprobacionesProps> = ({
                     </span>
                     {esPropia(sol) && (
                       <span
-                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
                         title="Principio de Probidad: No puede auto-resolver su propia solicitud"
                       >
-                        🔒 Propia
+                        <Lock className="w-2.5 h-2.5" />
+                        <span>Propia</span>
                       </span>
                     )}
                   </div>

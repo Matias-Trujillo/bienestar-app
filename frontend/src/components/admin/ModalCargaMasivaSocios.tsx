@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { fetchFromApi } from '@/lib/api';
 import { formatRun, isValidRun, getErrorMessage } from '@/lib/utils';
 
@@ -406,8 +407,10 @@ export const ModalCargaMasivaSocios: React.FC<ModalCargaMasivaSociosProps> = ({
               </p>
             </div>
             <label className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-white border border-dashed border-sky-300 hover:border-[#006799] cursor-pointer transition">
-              <span className="text-xs font-semibold text-slate-700 truncate">
-                {archivoNombre ? `✔ ${archivoNombre}` : 'Seleccionar archivo .CSV desde su equipo...'}
+              <span className="text-xs font-semibold text-slate-700 truncate inline-flex items-center gap-1.5">
+                {archivoNombre ? (
+                  <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> {archivoNombre}</>
+                ) : 'Seleccionar archivo .CSV desde su equipo...'}
               </span>
               <span className="px-3 py-1 rounded-lg bg-[#0f2942] text-white text-[11px] font-bold flex-shrink-0">
                 Examinar
@@ -562,7 +565,8 @@ export const ModalCargaMasivaSocios: React.FC<ModalCargaMasivaSociosProps> = ({
         {resultadoFinal && (
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1.5">
             <div className="font-extrabold text-xs text-emerald-900 flex items-center gap-2">
-              <span>✔ Carga Masiva Completada Exitosamente</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Carga Masiva Completada Exitosamente</span>
             </div>
             <p className="text-xs text-emerald-800">
               Se crearon <strong>{resultadoFinal.sociosCreados}</strong> nuevos socios únicos, se omitieron{' '}

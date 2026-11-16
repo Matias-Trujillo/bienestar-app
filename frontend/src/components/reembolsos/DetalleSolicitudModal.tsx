@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { SolicitudReembolso, TIPO_PRESTACION_LABELS } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -209,8 +210,9 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
             </button>
 
             {solicitud.estado === 'en_revision' && esSolicitudPropia && Boolean(onIniciarAprobar) && (
-              <span className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
-                🔒 Solicitud Propia: Inhabilitado para auto-aprobar (Principio de Probidad)
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
+                <Lock className="w-3.5 h-3.5 shrink-0" />
+                <span>Solicitud Propia: Inhabilitado para auto-aprobar (Principio de Probidad)</span>
               </span>
             )}
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { FileText, Check } from 'lucide-react';
 import { BonoCatalogoItem } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -202,15 +203,17 @@ export const BeneficioDetalleModal: React.FC<BeneficioDetalleModalProps> = ({
           {/* Grilla de Requisitos y Documentación */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-              <span className="text-xs font-semibold text-slate-900 block">
-                ✓ Requisitos para Acceder
+              <span className="text-xs font-semibold text-slate-900 inline-flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-[#166534]" />
+                <span>Requisitos para Acceder</span>
               </span>
               <p className="text-xs text-slate-600 leading-relaxed font-normal">{bono.requisitos}</p>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-              <span className="text-xs font-semibold text-slate-900 block">
-                📄 Documentación Requerida
+              <span className="text-xs font-semibold text-slate-900 inline-flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-[#006799]" />
+                <span>Documentación Requerida</span>
               </span>
               <p className="text-xs text-slate-600 leading-relaxed font-normal">
                 {bono.documentacion_requerida}

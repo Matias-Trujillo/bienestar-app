@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Mail, KeyRound, Send, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
 import { getErrorMessage } from '@/lib/utils';
@@ -482,8 +483,9 @@ export default function AdminPage() {
                 <span className="text-[10px] font-bold uppercase tracking-widest text-sky-400">
                   Despacho de Correos Reales a Internet (Gmail / Hotmail / Outlook)
                 </span>
-                <h2 className="text-base sm:text-lg font-extrabold text-white mt-0.5">
-                  ✉️ Configuración de Casilla Emisora del Sistema (SMTP)
+                <h2 className="text-base sm:text-lg font-extrabold text-white mt-0.5 inline-flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-sky-400" />
+                  <span>Configuración de Casilla Emisora del Sistema (SMTP)</span>
                 </h2>
                 <p className="text-xs text-slate-300 mt-0.5">
                   Para que los correos lleguen al buzón real (ej: <code>fabian_07915@hotmail.com</code>), ingrese aquí la cuenta emisora y su Contraseña de Aplicación.
@@ -493,9 +495,11 @@ export default function AdminPage() {
                 href="https://myaccount.google.com/apppasswords"
                 target="_blank"
                 rel="noreferrer"
-                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-sky-300 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-sky-300 transition"
               >
-                🔑 Crear Contraseña de Aplicación Google (16 letras) ↗
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Crear Contraseña de Aplicación Google (16 letras)</span>
+                <ExternalLink className="w-3 h-3" />
               </a>
             </div>
 
@@ -574,14 +578,18 @@ export default function AdminPage() {
 
             {resultadoSmtp && (
               <div
-                className={`p-3.5 rounded-xl text-xs font-semibold border ${
+                className={`p-3.5 rounded-xl text-xs font-semibold border flex items-center gap-2 ${
                   resultadoSmtp.ok
                     ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200'
                     : 'bg-rose-950/90 border-rose-500/50 text-rose-200'
                 }`}
               >
-                {resultadoSmtp.ok ? '✔ ' : '⚠ '}
-                {resultadoSmtp.msg}
+                {resultadoSmtp.ok ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                )}
+                <span>{resultadoSmtp.msg}</span>
               </div>
             )}
 
@@ -592,11 +600,14 @@ export default function AdminPage() {
               <button
                 type="submit"
                 disabled={probandoSmtp}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition shadow-md cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition shadow-md cursor-pointer disabled:opacity-50"
               >
-                {probandoSmtp
-                  ? 'Probando conexión y enviando correo...'
-                  : '📨 Guardar Todo y Enviar Correo de Prueba Ahora'}
+                <Send className="w-3.5 h-3.5" />
+                <span>
+                  {probandoSmtp
+                    ? 'Probando conexión y enviando correo...'
+                    : 'Guardar Todo y Enviar Correo de Prueba Ahora'}
+                </span>
               </button>
             </div>
           </form>

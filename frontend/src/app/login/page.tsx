@@ -12,6 +12,7 @@ import {
   ChevronUp,
   Sparkles,
   ArrowRight,
+  Zap,
 } from 'lucide-react';
 import { useAuth, LOGOUT_USER_KEY } from '@/context/AuthContext';
 import { PreLoginSplashIntro } from '@/components/ui/PreLoginSplashIntro';
@@ -550,7 +551,7 @@ export default function LoginPage() {
               className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white transition-colors"
             >
               <span className="flex items-center gap-2">
-                <span className="text-amber-400">⚡</span>
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
                 <span>Cuentas de Prueba para Desarrollo (7 roles)</span>
               </span>
               <span className="flex items-center gap-1.5 text-slate-400 text-[11px]">

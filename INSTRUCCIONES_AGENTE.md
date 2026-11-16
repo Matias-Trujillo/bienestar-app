@@ -100,9 +100,10 @@ Este sistema es una **herramienta de gestión operativa municipal (Data-Dense)**
   - Incluye líneas separadoras nítidas para delimitar claramente tablas, encabezados y paneles analíticos.
 * **Espaciado y Composición Asimétrica:**
   - Evita centrar todo en cajas flotantes idénticas. Emplea un diseño asimétrico estructurado con amplio espacio en blanco (*whitespace*) funcional que guíe el ojo del usuario a través de cifras financieras, RUTs y fechas críticas.
-* **Componentización Modular:**
+* **Componentización Modular e Iconografía Profesional (Cero Emojis):**
   - Cada componente debe residir en `src/components/` categorizado por módulo funcional (ej. `components/admin/`, `components/reembolsos/`, `components/afiliacion/`, `components/beneficios/`).
   - Prohibido crear archivos monolíticos gigantes de UI.
+  - **Cero Emojis en la Interfaz:** Queda estrictamente prohibido utilizar emojis Unicode (`🛡️`, `👤`, `🔒`, `🔑`, `🗑`, etc.) en componentes, botones, badges, tablas o diagramas. Usa siempre iconos vectoriales SVG consistentes de **`lucide-react`** (`ShieldCheck`, `User`, `Lock`, `KeyRound`, `Trash2`, etc.).
 
 ---
 

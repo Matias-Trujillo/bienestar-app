@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { Scale } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
 import { formatCurrency, getErrorMessage } from '@/lib/utils';
@@ -104,10 +105,12 @@ export default function BeneficiosPage() {
   }, [user, isAdminView]);
 
   useEffect(() => {
+    setSuccessMsg(null);
+    setErrorMsg(null);
     if (!esDirectivaOAdmin && (activeTab === 'gestion_directiva' || activeTab === 'liquidacion_masiva')) {
       setActiveTab('catalogo');
     }
-  }, [esDirectivaOAdmin, activeTab]);
+  }, [esDirectivaOAdmin, activeTab, viewMode]);
 
   const cargarDatos = async () => {
     setIsLoading(true);
@@ -601,8 +604,8 @@ export default function BeneficiosPage() {
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-amber-200 overflow-hidden animate-scale-in">
             <div className="bg-gradient-to-r from-[#0c2b45] to-[#006799] p-5 text-white flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-extrabold text-lg shadow-sm shrink-0">
-                ⚖
+              <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center shadow-sm shrink-0">
+                <Scale className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-white leading-tight">

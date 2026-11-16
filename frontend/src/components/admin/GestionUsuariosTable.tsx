@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ShieldCheck, User as UserIcon, Lock, Unlock, KeyRound, Trash2, CheckCircle2 } from 'lucide-react';
 import { User } from '@/types';
 
 interface GestionUsuariosTableProps {
@@ -339,17 +340,19 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                             `Contraseña de ${u.nombreCompleto} desbloqueada exitosamente.`
                           )
                         }
-                        className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
                       >
-                        🔓 Desbloquear
+                        <Unlock className="w-3.5 h-3.5" />
+                        <span>Desbloquear</span>
                       </button>
                     )}
                     <button
                       type="button"
                       onClick={() => onEditarUsuario(u, 'reset_password')}
-                      className="px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition"
                     >
-                      🔑 Restablecer Clave
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Restablecer Clave</span>
                     </button>
                     <button
                       type="button"
@@ -362,9 +365,10 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                       <button
                         type="button"
                         onClick={() => setUsuarioPorEliminar(u)}
-                        className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition"
                       >
-                        🗑 Eliminar
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Eliminar</span>
                       </button>
                     ) : (
                       <button
@@ -375,9 +379,10 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                               'Este usuario ya registra historial de descuentos o gestiones y no puede eliminarse.'
                           )
                         }
-                        className="px-2.5 py-1.5 text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200 rounded-lg"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200 rounded-lg"
                       >
-                        🔒 Con Historial
+                        <Lock className="w-3 h-3" />
+                        <span>Con Historial</span>
                       </button>
                     )}
                   </div>
@@ -447,15 +452,23 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                             {u.rolLabel}
                           </span>
                           <span
-                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
                               u.rol === 'socio'
                                 ? 'bg-slate-50 text-slate-500 border-slate-200'
                                 : 'bg-sky-50 text-[#006799] border-sky-200'
                             }`}
                           >
-                            {u.rol === 'socio'
-                              ? '👤 1 Vista (Solo Trabajador)'
-                              : '🛡️👤 2 Vistas (Admin + Usuario)'}
+                            {u.rol === 'socio' ? (
+                              <>
+                                <UserIcon className="w-3 h-3" />
+                                <span>1 Vista (Solo Trabajador)</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="w-3 h-3" />
+                                <span>2 Vistas (Admin + Usuario)</span>
+                              </>
+                            )}
                           </span>
                         </div>
                       </td>
@@ -505,20 +518,22 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                                   `Contraseña de ${u.nombreCompleto} desbloqueada y contador de intentos reiniciado.`
                                 )
                               }
-                              className="px-2.5 py-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
                               title="Desbloquear contraseña sin cambiarla"
                             >
-                              🔓 Desbloquear
+                              <Unlock className="w-3 h-3" />
+                              <span>Desbloquear</span>
                             </button>
                           )}
 
                           <button
                             type="button"
                             onClick={() => onEditarUsuario(u, 'reset_password')}
-                            className="px-2.5 py-1.5 text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition"
                             title="Asignar una contraseña temporal para que el socio la cambie al iniciar sesión"
                           >
-                            🔑 Restablecer Clave
+                            <KeyRound className="w-3 h-3" />
+                            <span>Restablecer Clave</span>
                           </button>
 
                           {u.rol !== 'superusuario' && (
@@ -534,7 +549,7 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                                     : `${u.nombreCompleto} cambiado a Cuenta de 1 Vista (Trabajador Socio).`
                                 )
                               }
-                              className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer ${
                                 u.rol === 'socio'
                                   ? 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200'
                                   : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border-slate-200'
@@ -545,7 +560,17 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                                   : 'Pasar a Cuenta de 1 sola vista (Trabajador Normal)'
                               }
                             >
-                              {u.rol === 'socio' ? '🛡️ + Dar 2 Vistas' : '👤 Pasar a 1 Vista'}
+                              {u.rol === 'socio' ? (
+                                <>
+                                  <ShieldCheck className="w-3 h-3" />
+                                  <span>Dar 2 Vistas</span>
+                                </>
+                              ) : (
+                                <>
+                                  <UserIcon className="w-3 h-3" />
+                                  <span>Pasar a 1 Vista</span>
+                                </>
+                              )}
                             </button>
                           )}
 
@@ -561,10 +586,11 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                             <button
                               type="button"
                               onClick={() => setUsuarioPorEliminar(u)}
-                              className="px-2.5 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition cursor-pointer"
                               title="Eliminar usuario (permitido porque no registra descuentos ni gestiones)"
                             >
-                              🗑 Eliminar
+                              <Trash2 className="w-3 h-3" />
+                              <span>Eliminar</span>
                             </button>
                           ) : (
                             <button
@@ -579,9 +605,10 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
                                 u.motivoNoEliminable ||
                                 'No eliminable por contar con historial contable o de gestiones'
                               }
-                              className="px-2.5 py-1.5 text-[11px] font-medium text-slate-400 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg transition cursor-help"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-slate-400 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg transition cursor-help"
                             >
-                              🔒 Con Historial
+                              <Lock className="w-3 h-3" />
+                              <span>Con Historial</span>
                             </button>
                           )}
                         </div>
@@ -601,8 +628,8 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100 space-y-5">
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-lg font-bold">
-                  🗑
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
@@ -638,7 +665,10 @@ export const GestionUsuariosTable: React.FC<GestionUsuariosTableProps> = ({
             </div>
 
             <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1">
-              <p className="font-bold">✔ Verificación de Historial Contable Superada:</p>
+              <p className="font-bold inline-flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Verificación de Historial Contable Superada:</span>
+              </p>
               <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
                 <li><strong>0 meses</strong> de descuentos por planilla ejecutados.</li>
                 <li><strong>0 solicitudes</strong> de reembolsos médicos o bonos gestionadas.</li>

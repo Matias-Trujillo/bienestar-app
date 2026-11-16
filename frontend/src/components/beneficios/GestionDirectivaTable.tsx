@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Lock, Check, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { SolicitudBeneficio } from '@/types';
 import { formatCurrency } from '@/lib/utils';
@@ -108,7 +109,7 @@ export const GestionDirectivaTable: React.FC<GestionDirectivaTableProps> = ({
                           : 'bg-rose-50 text-rose-700 font-bold'
                       }`}
                     >
-                      {sol.socio_meses_antiguedad >= 6 ? '✓ ' : '⚠ '}
+                      {sol.socio_meses_antiguedad >= 6 ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
                       {sol.socio_antiguedad || `${sol.socio_meses_antiguedad} Meses`}
                     </span>
                     <button
@@ -129,8 +130,9 @@ export const GestionDirectivaTable: React.FC<GestionDirectivaTableProps> = ({
                   </div>
 
                   {esPropia(sol) ? (
-                    <span className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">
-                      🔒 Solicitud Propia (Inhabilitado)
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">
+                      <Lock className="w-3 h-3" />
+                      <span>Solicitud Propia (Inhabilitado)</span>
                     </span>
                   ) : (
                     <button
@@ -201,7 +203,7 @@ export const GestionDirectivaTable: React.FC<GestionDirectivaTableProps> = ({
                             : 'bg-rose-50 text-rose-700 border border-rose-200'
                         }`}
                       >
-                        {sol.socio_meses_antiguedad >= 6 ? '✓ ' : '⚠ '}
+                        {sol.socio_meses_antiguedad >= 6 ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
                         {sol.socio_antiguedad || `${sol.socio_meses_antiguedad} Meses`}
                       </span>
                     </div>
@@ -213,10 +215,11 @@ export const GestionDirectivaTable: React.FC<GestionDirectivaTableProps> = ({
                       </span>
                       {esPropia(sol) && (
                         <span
-                          className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
                           title="Principio de Probidad: Solicitud propia no auto-resoluble"
                         >
-                          🔒 Propia
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>Propia</span>
                         </span>
                       )}
                     </div>

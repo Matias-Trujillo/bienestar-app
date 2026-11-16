@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { Lock, Scale } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi, API_BASE_URL, subirArchivoApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -40,7 +41,7 @@ const EMPTY_RESUMEN: ResumenSaludSocio = {
 
 // [ESTUDIANTE INFORMÁTICA] Componente principal de la vista del socio para el Módulo 2 (HU-03); orquesta la presentación del saldo de salud, historial de reembolsos y el formulario de ingreso.
 export default function ReembolsosPage() {
-  const { user, token, refreshUser, isAdminView } = useAuth();
+  const { user, token, refreshUser, isAdminView, viewMode } = useAuth();
 
   // [ESTUDIANTE INFORMÁTICA] Estados de React: guardan la información reactiva traída desde la API (resumen financiero y lista de solicitudes) y controlan la visibilidad de los modales.
   const [resumen, setResumen] = useState<ResumenSaludSocio>(EMPTY_RESUMEN);
@@ -123,6 +124,8 @@ export default function ReembolsosPage() {
   }, [token]);
 
   useEffect(() => {
+    setSuccessMsg(null);
+    setErrorMsg(null);
     cargarReembolsos();
     if (refreshUser) {
       refreshUser();
@@ -130,7 +133,7 @@ export default function ReembolsosPage() {
     if (typeof window !== 'undefined' && window.location.search.includes('nueva=1')) {
       setShowModal(true);
     }
-  }, [cargarReembolsos]);
+  }, [cargarReembolsos, viewMode]);
 
   const puedeSolicitar = Boolean(resumen.puede_solicitar);
 
@@ -460,7 +463,7 @@ export default function ReembolsosPage() {
                   : 'text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300'
               }`}
             >
-              {!puedeSolicitar && <span>🔒</span>}
+              {!puedeSolicitar && <Lock className="w-3.5 h-3.5" />}
               <span>+ Nueva Solicitud {!puedeSolicitar ? '(Carencia Activa)' : ''}</span>
             </button>
           </div>
@@ -547,8 +550,8 @@ export default function ReembolsosPage() {
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-amber-200 overflow-hidden animate-scale-in">
             {/* Cabecera institucional */}
             <div className="bg-gradient-to-r from-[#0c2b45] to-[#006799] p-5 text-white flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-extrabold text-lg shadow-sm shrink-0">
-                ⚖
+              <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center shadow-sm shrink-0">
+                <Scale className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-white leading-tight">

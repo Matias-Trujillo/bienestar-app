@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { ShieldCheck, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
 import { User, ViewMode } from '@/types';
@@ -337,10 +338,41 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const esAdminOSuper = isAdminView && (user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser));
   const esDirectiva = isAdminView && Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
 
-  const handleSwitchViewMode = (nuevoModo: ViewMode) => {
-    setViewMode(nuevoModo);
-    setProfileMenuOpen(false);
+  const limpiarNotificacionesVisuales = useCallback(() => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+    if (bellAnimTimeoutRef.current) {
+      clearTimeout(bellAnimTimeoutRef.current);
+      bellAnimTimeoutRef.current = null;
+    }
+    setToastActivo(null);
+    setAnimandoCampana(false);
+    setCampanaNuevaAlerta(false);
     setNotifOpen(false);
+    setProfileMenuOpen(false);
+    setReembolsosPendientes(0);
+    setAfiliacionPendientes(0);
+    setBeneficiosPendientes(0);
+    prevTotalAlertasRef.current = null;
+    prevAfiliacionRef.current = null;
+    prevReembolsosRef.current = null;
+    prevBeneficiosRef.current = null;
+  }, []);
+
+  // Limpia automáticamente toda notificación visual en ambos sentidos al cambiar entre Vista Admin y Vista Usuario
+  useEffect(() => {
+    limpiarNotificacionesVisuales();
+  }, [viewMode, limpiarNotificacionesVisuales]);
+
+  const handleSwitchViewMode = (nuevoModo: ViewMode) => {
+    if (nuevoModo === viewMode) {
+      setProfileMenuOpen(false);
+      return;
+    }
+    limpiarNotificacionesVisuales();
+    setViewMode(nuevoModo);
     if (nuevoModo === 'socio' && ['/aprobaciones', '/finanzas', '/admin'].includes(pathname)) {
       router.push('/');
     }
@@ -546,11 +578,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
     const handleUpdate = () => cargarNotificaciones();
 
-    // Sincronización entre pestañas mediante BroadcastChannel
+    // Sincronización entre pestañas mediante BroadcastChannel (solo cuando la vista activa corresponde)
     let bc: BroadcastChannel | null = null;
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       bc = new BroadcastChannel('bienestar_alertas_channel');
       bc.onmessage = (ev) => {
+        if (!isAdminView) return;
         if (ev.data?.type === 'SOLICITUD_CREADA') {
           cargarNotificaciones();
         } else if (ev.data?.type === 'SOLICITUD_APROBADA') {
@@ -573,7 +606,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       if (bellAnimTimeoutRef.current) clearTimeout(bellAnimTimeoutRef.current);
     };
-  }, [cargarNotificaciones, dispararAlertaAprobacion, esAdminOSuper, esDirectiva, pathname]);
+  }, [cargarNotificaciones, dispararAlertaAprobacion, esAdminOSuper, esDirectiva, isAdminView, pathname]);
 
   // Cierre de menús contextuales al hacer clic fuera o presionar escape
   useEffect(() => {
@@ -638,63 +671,65 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       </div>
 
       <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
-        <div className="relative" ref={notifRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setNotifOpen((prev) => !prev);
-              setCampanaNuevaAlerta(false);
-            }}
-            className={`relative p-2.5 rounded-xl border transition-all duration-300 cursor-pointer ${
-              animandoCampana || campanaNuevaAlerta
-                ? 'bg-amber-50/90 text-amber-600 border-amber-300 shadow-md ring-4 ring-amber-400/30'
-                : totalAlertas > 0
-                ? 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100'
-                : 'text-slate-600 rounded-xl hover:bg-slate-100 border border-slate-200/70'
-            }`}
-            aria-label="Notificaciones"
-            title={totalAlertas > 0 ? `${totalAlertas} solicitudes pendientes de atención` : 'Notificaciones'}
-          >
-            <svg
-              className={`w-4 h-4 transition-transform ${animandoCampana ? 'animate-bell-ring text-amber-600' : ''}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        {isAdminView && (
+          <div className="relative" ref={notifRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setNotifOpen((prev) => !prev);
+                setCampanaNuevaAlerta(false);
+              }}
+              className={`relative p-2.5 rounded-xl border transition-all duration-300 cursor-pointer ${
+                animandoCampana || campanaNuevaAlerta
+                  ? 'bg-amber-50/90 text-amber-600 border-amber-300 shadow-md ring-4 ring-amber-400/30'
+                  : totalAlertas > 0
+                  ? 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100'
+                  : 'text-slate-600 rounded-xl hover:bg-slate-100 border border-slate-200/70'
+              }`}
+              aria-label="Notificaciones"
+              title={totalAlertas > 0 ? `${totalAlertas} solicitudes pendientes de atención` : 'Notificaciones'}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            {totalAlertas > 0 && (
-              <span
-                className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[11px] font-bold tabular-nums flex items-center justify-center ring-2 ring-white shadow-xs transition-transform ${
-                  animandoCampana ? 'bg-amber-600 scale-110' : 'bg-amber-500'
-                }`}
+              <svg
+                className={`w-4 h-4 transition-transform ${animandoCampana ? 'animate-bell-ring text-amber-600' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                {totalAlertas > 99 ? '99+' : totalAlertas}
-              </span>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
+              </svg>
+              {totalAlertas > 0 && (
+                <span
+                  className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[11px] font-bold tabular-nums flex items-center justify-center ring-2 ring-white shadow-xs transition-transform ${
+                    animandoCampana ? 'bg-amber-600 scale-110' : 'bg-amber-500'
+                  }`}
+                >
+                  {totalAlertas > 99 ? '99+' : totalAlertas}
+                </span>
+              )}
+            </button>
+
+            {notifOpen && (
+              <NotificationsDropdown
+                esDirectiva={esDirectiva}
+                esAdminOSuper={esAdminOSuper}
+                afiliacionPendientes={afiliacionPendientes}
+                reembolsosPendientes={reembolsosPendientes}
+                beneficiosPendientes={beneficiosPendientes}
+                totalAlertas={totalAlertas}
+                sonidoHabilitado={sonidoHabilitado}
+                onToggleSonido={handleToggleSonido}
+                onClose={() => setNotifOpen(false)}
+              />
             )}
-          </button>
+          </div>
+        )}
 
-          {notifOpen && (
-            <NotificationsDropdown
-              esDirectiva={esDirectiva}
-              esAdminOSuper={esAdminOSuper}
-              afiliacionPendientes={afiliacionPendientes}
-              reembolsosPendientes={reembolsosPendientes}
-              beneficiosPendientes={beneficiosPendientes}
-              totalAlertas={totalAlertas}
-              sonidoHabilitado={sonidoHabilitado}
-              onToggleSonido={handleToggleSonido}
-              onClose={() => setNotifOpen(false)}
-            />
-          )}
-        </div>
-
-        <div className="hidden sm:block w-px h-7 bg-slate-200" />
+        {isAdminView && <div className="hidden sm:block w-px h-7 bg-slate-200" />}
 
         {/* Pestaña Rápida de Doble Vista (Vista Admin <-> Vista Usuario) para cuentas con 2 vistas */}
         {tieneDobleVista && (
@@ -715,7 +750,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               }`}
               title="Vista Administrador / Directiva: Revisar y aprobar solicitudes de otros trabajadores"
             >
-              <span>🛡️</span>
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden lg:inline">Vista Admin</span>
               <span className="lg:hidden">Admin</span>
             </button>
@@ -731,7 +766,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               }`}
               title="Vista Usuario (Trabajador): Solicitar mis propias vacaciones, beneficios, cargas y reembolsos"
             >
-              <span>👤</span>
+              <UserIcon className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden lg:inline">Vista Usuario</span>
               <span className="lg:hidden">Usuario</span>
             </button>
@@ -821,8 +856,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#0c2b45]">
-                          🛡️ Vista Administrador / Directiva
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0c2b45]">
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#006799]" />
+                          <span>Vista Administrador / Directiva</span>
                         </span>
                         {viewMode === 'admin' && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#006799] text-white">
@@ -845,8 +881,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#166534]">
-                          👤 Vista Usuario (Trabajador Socio)
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#166534]">
+                          <UserIcon className="w-3.5 h-3.5 text-[#166534]" />
+                          <span>Vista Usuario (Trabajador Socio)</span>
                         </span>
                         {viewMode === 'socio' && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#166534] text-white">
@@ -862,8 +899,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 </div>
               ) : (
                 <div className="p-3.5 text-xs text-slate-600">
-                  <span className="font-bold text-slate-800 block">
-                    👤 Perfil Trabajador (Socio Activo)
+                  <span className="inline-flex items-center gap-1.5 font-bold text-slate-800">
+                    <UserIcon className="w-3.5 h-3.5 text-[#006799]" />
+                    <span>Perfil Trabajador (Socio Activo)</span>
                   </span>
                   <p className="text-[11px] text-slate-500 mt-1 leading-snug">
                     Cuenta personal para solicitar beneficios, vacaciones, cargas familiares y reembolsos médicos.
