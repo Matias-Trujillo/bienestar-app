@@ -269,7 +269,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [farewellUser, setFarewellUser] = useState<string | null>(null);
-  const [showSplash, setShowSplash] = useState(true);
+  const [splashPhase, setSplashPhase] = useState<'loading' | 'entering' | 'ready'>('loading');
 
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [recoveryInput, setRecoveryInput] = useState('');
@@ -289,8 +289,12 @@ export default function LoginPage() {
     }
   }, []);
 
+  const handleStartExitSplash = () => {
+    setSplashPhase('entering');
+  };
+
   const handleFinishSplash = () => {
-    setShowSplash(false);
+    setSplashPhase('ready');
   };
 
   const handleRecoveryChange = (val: string) => {
@@ -377,9 +381,20 @@ export default function LoginPage() {
         />
       </div>
 
-      {showSplash && <PreLoginSplashIntro onFinish={handleFinishSplash} />}
+      {splashPhase !== 'ready' && (
+        <PreLoginSplashIntro
+          onStartExit={handleStartExitSplash}
+          onFinish={handleFinishSplash}
+        />
+      )}
 
-      <div className="relative z-10 w-full max-w-[430px] space-y-4 animate-reveal-card">
+      <div
+        className={`relative z-10 w-full max-w-[430px] space-y-4 transition-all duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[transform,opacity,filter] ${
+          splashPhase !== 'loading'
+            ? 'opacity-100 translate-y-0 scale-100 blur-0'
+            : 'opacity-0 translate-y-6 scale-[0.97] blur-[6px] pointer-events-none'
+        }`}
+      >
         {/* Cabecera institucional vertical centrada con Escudo Oficial */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center transition-transform hover:scale-105">
@@ -598,7 +613,7 @@ export default function LoginPage() {
           </p>
           <button
             type="button"
-            onClick={() => setShowSplash(true)}
+            onClick={() => setSplashPhase('loading')}
             className="text-[11px] text-slate-400 hover:text-sky-300 transition inline-flex items-center gap-1"
           >
             <span>↺</span> Ver presentación institucional

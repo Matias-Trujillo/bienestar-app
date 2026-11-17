@@ -156,11 +156,11 @@ table td {
   0% {
     width: 0%;
   }
-  25% {
-    width: 30%;
+  30% {
+    width: 40%;
   }
-  60% {
-    width: 72%;
+  65% {
+    width: 80%;
   }
   100% {
     width: 100%;
@@ -188,7 +188,7 @@ table td {
 
 .animate-splash-progress {
   width: 0%;
-  animation: progressLineSplash 2.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: progressLineSplash 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 .animate-reveal-card {
