@@ -66,7 +66,14 @@ export const TablaAprobaciones: React.FC<TablaAprobacionesProps> = ({
                 <span>{sol.codigo}</span>
                 <span>→</span>
               </button>
-              <IndicadorTramoBadge fechaIngreso={sol.created_at} fechaFallback={sol.fecha_boleta} />
+              <IndicadorTramoBadge
+                fechaIngreso={sol.created_at}
+                fechaFallback={sol.fecha_boleta}
+                estado={sol.estado}
+              />
+            </div>
+            <div className="text-[11px] text-slate-500 font-normal tabular-nums">
+              Ingreso: {formatDate(sol.created_at)}
             </div>
             <div className="flex items-center justify-between gap-2 text-xs">
               <div className="min-w-0">
@@ -126,8 +133,15 @@ export const TablaAprobaciones: React.FC<TablaAprobacionesProps> = ({
                     <span>{sol.codigo}</span>
                     <span className="text-[11px] opacity-75 group-hover:translate-x-0.5 transition-transform">→</span>
                   </button>
+                  <div className="text-[11px] text-slate-500 font-normal tabular-nums mt-0.5">
+                    Ingreso: {formatDate(sol.created_at)}
+                  </div>
                   <div className="mt-1">
-                    <IndicadorTramoBadge fechaIngreso={sol.created_at} fechaFallback={sol.fecha_boleta} />
+                    <IndicadorTramoBadge
+                      fechaIngreso={sol.created_at}
+                      fechaFallback={sol.fecha_boleta}
+                      estado={sol.estado}
+                    />
                   </div>
                 </td>
                 <td className="py-3 px-4 align-middle">

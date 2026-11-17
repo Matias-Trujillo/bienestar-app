@@ -144,7 +144,7 @@ export default function AprobacionesPage() {
 
   const solicitudesFiltradas = solicitudes.filter((sol) => {
     if (filtroEstado !== 'todos' && sol.estado !== filtroEstado) return false;
-    if (filtroDias !== 'todos' && obtenerIndicadorDias(sol.created_at, sol.fecha_boleta).tramo !== filtroDias) return false;
+    if (filtroDias !== 'todos' && obtenerIndicadorDias(sol.created_at, sol.fecha_boleta, sol.estado).tramo !== filtroDias) return false;
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase().trim();
       return (

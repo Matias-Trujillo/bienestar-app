@@ -10,11 +10,51 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
+ * [ESTUDIANTE INFORMÁTICA]
+ * Parsea de manera segura cadenas de fecha ISO o YYYY-MM-DD en la zona horaria local,
+ * evitando el desfase de 1 día provocado por new Date("YYYY-MM-DD") interpretado en UTC.
+ */
+export function parseLocalDate(dateString: string): Date {
+  if (!dateString) return new Date(NaN);
+  const trimmed = dateString.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (match) {
+    const [, y, m, d, hh, mm] = match;
+    if (hh !== undefined && mm !== undefined) {
+      return new Date(trimmed);
+    }
+    return new Date(Number(y), Number(m) - 1, Number(d), 12, 0, 0);
+  }
+  return new Date(trimmed);
+}
+
+/**
+ * [ESTUDIANTE INFORMÁTICA]
+ * Calcula la diferencia en días calendario entre una fecha objetivo y el día de hoy,
+ * normalizando ambas fechas a las 00:00:00 locales para que solicitudes de ayer
+ * cuenten como 1 día transcurrido independientemente de la hora del día.
+ */
+export function calcularDiasCalendario(fechaStr?: string): number {
+  if (!fechaStr) return 0;
+  const fecha = parseLocalDate(fechaStr);
+  if (isNaN(fecha.getTime())) return 0;
+
+  const ahora = new Date();
+  const hoyMedianoche = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
+  const fechaMedianoche = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()).getTime();
+
+  const diffMs = hoyMedianoche - fechaMedianoche;
+  const dias = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return Math.max(0, dias);
+}
+
+/**
  * Formatea una fecha ISO a formato local legible (ej. 28 mar 2026).
  */
 export function formatDate(dateString: string): string {
   if (!dateString) return '-';
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
+  if (isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('es-CL', {
     day: '2-digit',
     month: 'short',

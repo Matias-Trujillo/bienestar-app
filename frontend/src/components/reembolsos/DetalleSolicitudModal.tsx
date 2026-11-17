@@ -47,7 +47,7 @@ const DetalleInfoGrid: React.FC<{ solicitud: SolicitudReembolso }> = ({ solicitu
           <span className="block text-xs text-slate-500 font-medium">Tipo de Prestación y Fechas</span>
           <span className="block text-sm text-slate-900 font-semibold mt-0.5">{prestacionLabel}</span>
           <span className="block text-xs text-slate-500 tabular-nums mt-0.5">
-            Atención: {formatDate(solicitud.fecha_atencion)} • Boleta: {formatDate(solicitud.fecha_boleta)}
+            Ingreso: {formatDate(solicitud.created_at)} • Atención: {formatDate(solicitud.fecha_atencion)} • Boleta: {formatDate(solicitud.fecha_boleta)}
           </span>
         </div>
       </div>
