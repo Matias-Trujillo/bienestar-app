@@ -670,105 +670,40 @@ export default function AfiliacionPage() {
               No hay solicitudes adicionales de cargas familiares registradas.
             </div>
           ) : (
-            <div className="w-full overflow-hidden">
-              <table className="w-full table-fixed text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200/80 bg-slate-50/80 text-slate-500 font-semibold uppercase text-[11px]">
-                    <th className="w-[20%] py-3 px-4">N° Solicitud / Ingreso</th>
-                    <th className="w-[26%] py-3 px-4">Socio Titular</th>
-                    <th className="w-[24%] py-3 px-4">Nueva Carga / Vínculo</th>
-                    <th className="w-[18%] py-3 px-4">Certificado Adjunto</th>
-                    <th className="w-[12%] py-3 px-4 text-right">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {solicitudesCargas.map((sc) => {
-                    const propia = esCargaPropia(sc);
-                    return (
-                    <tr
+            <div className="w-full">
+              {/* [ESTUDIANTE INFORMÁTICA] Vista Dual Móvil: En pantallas móviles transformamos la tabla fija de 5 columnas en tarjetas responsivas independientes */}
+              <div className="block md:hidden space-y-3">
+                {solicitudesCargas.map((sc) => {
+                  const propia = esCargaPropia(sc);
+                  return (
+                    <div
                       key={sc.folio}
                       onClick={() => {
                         if (propia) return;
                         abrirFichaCarga(sc, 'aprobar');
                       }}
-                      className={`transition align-middle group ${
-                        propia ? 'bg-amber-50/20 cursor-not-allowed' : 'hover:bg-sky-50/40 cursor-pointer'
+                      className={`p-4 rounded-xl border transition ${
+                        propia
+                          ? 'bg-amber-50/20 border-amber-200/60 cursor-not-allowed'
+                          : 'bg-white border-slate-200/90 hover:border-sky-300 hover:shadow-xs cursor-pointer'
                       }`}
                     >
-                      <td className="py-3.5 px-4 align-middle">
-                        <button
-                          type="button"
-                          disabled={propia}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (propia) return;
-                            abrirFichaCarga(sc, 'aprobar');
-                          }}
-                          className={`inline-flex items-center gap-1.5 font-mono font-bold px-2.5 py-1 rounded-lg transition border ${
-                            propia
-                              ? 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed'
-                              : 'text-[#006799] bg-sky-50 group-hover:bg-[#006799] group-hover:text-white border-sky-200 cursor-pointer'
-                          }`}
-                          title={
-                            propia
-                              ? 'Principio de Probidad: No puede resolver su propia solicitud de carga familiar'
-                              : 'Pinche aquí para abrir la solicitud, ver el certificado y resolver'
-                          }
-                        >
-                          <span>{sc.folio}</span>
-                          {!propia && <span className="text-[10px]">→</span>}
-                        </button>
-                        <div className="text-[11px] text-slate-400 mt-1 pl-0.5 tabular-nums">
-                          {new Date(sc.fechaIngreso).toLocaleDateString('es-CL')}
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-[#006799] bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-200">
+                            {sc.folio}
+                          </span>
+                          <span className="text-[11px] text-slate-400 tabular-nums">
+                            {new Date(sc.fechaIngreso).toLocaleDateString('es-CL')}
+                          </span>
                         </div>
-                      </td>
-                      <td className="py-3.5 px-4 align-middle min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-800 truncate" title={sc.socioNombre}>{sc.socioNombre}</span>
-                          {propia && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                              <Lock className="w-2.5 h-2.5" />
-                              <span>Propia</span>
-                            </span>
-                          )}
-                        </div>
-                        <div className="font-mono text-[11px] text-slate-500 truncate mt-0.5">
-                          RUN {sc.socioRut}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 align-middle min-w-0">
-                        <div className="font-bold text-slate-800 truncate" title={sc.nombreCompleto}>{sc.nombreCompleto}</div>
-                        <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          <span className="font-mono">RUN {sc.run}</span>
-                          <span className="text-[#006799] font-semibold"> · {sc.parentesco || 'Hijo/a'}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 align-middle text-slate-600 text-xs min-w-0">
-                        <div className="font-semibold text-slate-700 truncate" title={sc.certificadoTipo || sc.observacionSocio || 'Certificado de respaldo'}>
-                          {sc.certificadoTipo || sc.observacionSocio || 'Certificado de respaldo'}
-                        </div>
-                        {sc.estado === 'Aprobada' && sc.fechaSesion ? (
-                          <div className="text-emerald-700 text-[11px] font-semibold truncate">
-                            {sc.numeroActa || 'Sesión Ordinaria'} ({sc.fechaSesion})
-                          </div>
-                        ) : sc.estado === 'Rechazada' && sc.observacionesResolucion ? (
-                          <div className="text-rose-600 text-[11px] truncate" title={sc.observacionesResolucion}>
-                            Motivo: {sc.observacionesResolucion}
-                          </div>
-                        ) : (
-                          <div className="text-[#006799] text-[11px] font-medium truncate">
-                            Pinche para revisar documento
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right align-middle whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                             sc.estado === 'Aprobada'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : sc.estado === 'Rechazada'
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
                           }`}
                         >
                           <span
@@ -780,14 +715,179 @@ export default function AfiliacionPage() {
                                 : 'bg-amber-500'
                             }`}
                           />
-                          {sc.estado === 'Aprobada' ? 'Aprobada' : sc.estado}
+                          {sc.estado}
                         </span>
-                      </td>
-                    </tr>
+                      </div>
+
+                      <div className="space-y-1.5 pt-1 text-xs">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Socio Titular</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-800">{sc.socioNombre}</span>
+                            {propia && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                                <Lock className="w-2.5 h-2.5" />
+                                <span>Propia</span>
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-mono text-[11px] text-slate-500">RUN {sc.socioRut}</span>
+                        </div>
+
+                        <div className="pt-0.5">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Carga a Incorporar</span>
+                          <p className="font-bold text-slate-800">{sc.nombreCompleto}</p>
+                          <p className="text-[11px] text-slate-500">
+                            <span className="font-mono">RUN {sc.run}</span>
+                            <span className="text-[#006799] font-semibold"> · {sc.parentesco || 'Hijo/a'}</span>
+                          </p>
+                        </div>
+
+                        <div className="pt-0.5 text-[11px]">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Certificado</span>
+                          <p className="font-medium text-slate-700">{sc.certificadoTipo || sc.observacionSocio || 'Certificado de respaldo'}</p>
+                          {sc.estado === 'Aprobada' && sc.fechaSesion && (
+                            <p className="text-emerald-700 font-semibold">{sc.numeroActa || 'Sesión Ordinaria'} ({sc.fechaSesion})</p>
+                          )}
+                          {sc.estado === 'Rechazada' && sc.observacionesResolucion && (
+                            <p className="text-rose-600 italic">Motivo: {sc.observacionesResolucion}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {!propia && (
+                        <div className="pt-2 border-t border-slate-100 flex justify-end">
+                          <span className="text-xs font-bold text-[#006799] inline-flex items-center gap-1">
+                            <span>Revisar y resolver</span>
+                            <span>→</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   );
-                  })}
-                </tbody>
-              </table>
+                })}
+              </div>
+
+              {/* Vista Desktop con overflow horizontal seguro */}
+              <div className="hidden md:block w-full overflow-x-auto">
+                <table className="w-full table-fixed text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200/80 bg-slate-50/80 text-slate-500 font-semibold uppercase text-[11px]">
+                      <th className="w-[20%] py-3 px-4">N° Solicitud / Ingreso</th>
+                      <th className="w-[26%] py-3 px-4">Socio Titular</th>
+                      <th className="w-[24%] py-3 px-4">Nueva Carga / Vínculo</th>
+                      <th className="w-[18%] py-3 px-4">Certificado Adjunto</th>
+                      <th className="w-[12%] py-3 px-4 text-right">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {solicitudesCargas.map((sc) => {
+                      const propia = esCargaPropia(sc);
+                      return (
+                      <tr
+                        key={sc.folio}
+                        onClick={() => {
+                          if (propia) return;
+                          abrirFichaCarga(sc, 'aprobar');
+                        }}
+                        className={`transition align-middle group ${
+                          propia ? 'bg-amber-50/20 cursor-not-allowed' : 'hover:bg-sky-50/40 cursor-pointer'
+                        }`}
+                      >
+                        <td className="py-3.5 px-4 align-middle">
+                          <button
+                            type="button"
+                            disabled={propia}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (propia) return;
+                              abrirFichaCarga(sc, 'aprobar');
+                            }}
+                            className={`inline-flex items-center gap-1.5 font-mono font-bold px-2.5 py-1 rounded-lg transition border ${
+                              propia
+                                ? 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed'
+                                : 'text-[#006799] bg-sky-50 group-hover:bg-[#006799] group-hover:text-white border-sky-200 cursor-pointer'
+                            }`}
+                            title={
+                              propia
+                                ? 'Principio de Probidad: No puede resolver su propia solicitud de carga familiar'
+                                : 'Pinche aquí para abrir la solicitud, ver el certificado y resolver'
+                            }
+                          >
+                            <span>{sc.folio}</span>
+                            {!propia && <span className="text-[10px]">→</span>}
+                          </button>
+                          <div className="text-[11px] text-slate-400 mt-1 pl-0.5 tabular-nums">
+                            {new Date(sc.fechaIngreso).toLocaleDateString('es-CL')}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 align-middle min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-800 truncate" title={sc.socioNombre}>{sc.socioNombre}</span>
+                            {propia && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                                <Lock className="w-2.5 h-2.5" />
+                                <span>Propia</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-mono text-[11px] text-slate-500 truncate mt-0.5">
+                            RUN {sc.socioRut}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 align-middle min-w-0">
+                          <div className="font-bold text-slate-800 truncate" title={sc.nombreCompleto}>{sc.nombreCompleto}</div>
+                          <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                            <span className="font-mono">RUN {sc.run}</span>
+                            <span className="text-[#006799] font-semibold"> · {sc.parentesco || 'Hijo/a'}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 align-middle text-slate-600 text-xs min-w-0">
+                          <div className="font-semibold text-slate-700 truncate" title={sc.certificadoTipo || sc.observacionSocio || 'Certificado de respaldo'}>
+                            {sc.certificadoTipo || sc.observacionSocio || 'Certificado de respaldo'}
+                          </div>
+                          {sc.estado === 'Aprobada' && sc.fechaSesion ? (
+                            <div className="text-emerald-700 text-[11px] font-semibold truncate">
+                              {sc.numeroActa || 'Sesión Ordinaria'} ({sc.fechaSesion})
+                            </div>
+                          ) : sc.estado === 'Rechazada' && sc.observacionesResolucion ? (
+                            <div className="text-rose-600 text-[11px] truncate" title={sc.observacionesResolucion}>
+                              Motivo: {sc.observacionesResolucion}
+                            </div>
+                          ) : (
+                            <div className="text-[#006799] text-[11px] font-medium truncate">
+                              Pinche para revisar documento
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right align-middle whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              sc.estado === 'Aprobada'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : sc.estado === 'Rechazada'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                sc.estado === 'Aprobada'
+                                  ? 'bg-emerald-600'
+                                  : sc.estado === 'Rechazada'
+                                  ? 'bg-rose-600'
+                                  : 'bg-amber-500'
+                              }`}
+                            />
+                            {sc.estado === 'Aprobada' ? 'Aprobada' : sc.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -829,141 +929,253 @@ export default function AfiliacionPage() {
           </button>
         </div>
 
-        <div className="w-full overflow-hidden">
-          <table className="w-full table-fixed text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase text-[11px]">
-                {esAdminOSuper && <th className="w-[20%] py-3 px-4">Socio Titular</th>}
-                <th className={esAdminOSuper ? "w-[22%] py-3 px-4" : "w-[28%] py-3 px-4"}>Nombre Completo de la Carga</th>
-                <th className={esAdminOSuper ? "w-[14%] py-3 px-4" : "w-[16%] py-3 px-4"}>Parentesco y RUN</th>
-                <th className={esAdminOSuper ? "w-[24%] py-3 px-4" : "w-[36%] py-3 px-4"}>Certificado / Antecedente</th>
-                <th className={esAdminOSuper ? "w-[20%] py-3 px-4 text-right" : "w-[20%] py-3 px-4 text-right"}>Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {cargandoMisCargas ? (
-                <tr>
-                  <td colSpan={esAdminOSuper ? 5 : 4} className="py-6 text-center text-slate-400">
-                    Cargando cargas familiares...
-                  </td>
-                </tr>
-              ) : misCargas.length === 0 ? (
-                <tr>
-                  <td colSpan={esAdminOSuper ? 5 : 4} className="py-6 text-center text-slate-400">
-                    No registra cargas familiares en su ficha. Use el botón «+ Agregar Nueva Carga Familiar» para inscribir una carga adjuntando su certificado.
-                  </td>
-                </tr>
-              ) : (
-                misCargas.map((carga) => (
-                  <tr key={carga.id} className="hover:bg-slate-50/50 transition">
-                    {esAdminOSuper && (
-                      <td className="py-3.5 px-4 align-middle min-w-0">
-                        <div className="font-semibold text-[#0f2942] truncate" title={carga.socioNombre || 'Socio Titular'}>
-                          {carga.socioNombre || 'Socio Titular'}
-                        </div>
-                        {carga.socioRut && (
-                          <div className="text-[11px] font-mono text-slate-400 truncate">RUN {carga.socioRut}</div>
-                        )}
-                      </td>
-                    )}
-                    <td className="py-3.5 px-4 font-semibold text-slate-800 align-middle min-w-0">
-                      <div className="truncate" title={carga.nombre}>{carga.nombre}</div>
-                    </td>
-                    <td className="py-3.5 px-4 align-middle min-w-0">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-sky-50 text-[#006799] border border-sky-200/70 font-semibold text-[11px] whitespace-nowrap">
-                        {carga.parentesco}
-                      </span>
-                      <div className="font-mono text-slate-600 text-[11px] mt-0.5 truncate">{carga.rut}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600 align-middle min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="truncate max-w-[200px]" title={carga.certificadoTipo || carga.observacion || 'Incorporación inicial'}>
-                          {carga.certificadoTipo || carga.observacion || 'Incorporación inicial'}
+        <div className="w-full">
+          {/* [ESTUDIANTE INFORMÁTICA] Vista Dual Móvil de Mis Cargas: Tarjetas en smartphone, tabla en desktop */}
+          <div className="block md:hidden space-y-3">
+            {cargandoMisCargas ? (
+              <div className="py-6 text-center text-xs text-slate-400">Cargando cargas familiares...</div>
+            ) : misCargas.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-400">
+                No registra cargas familiares en su ficha. Use el botón «+ Agregar Nueva Carga Familiar» para inscribir una carga adjuntando su certificado.
+              </div>
+            ) : (
+              misCargas.map((carga) => (
+                <div key={carga.id} className="p-4 rounded-xl border border-slate-200/90 bg-white space-y-2.5 shadow-2xs">
+                  <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-100">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-sm text-slate-800 truncate">{carga.nombre}</h3>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-sky-50 text-[#006799] border border-sky-200/70 font-semibold text-[10.5px]">
+                          {carga.parentesco}
                         </span>
-                        {carga.certificadoData && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCertificadoVisor({
-                                titulo: carga.certificadoTipo || 'Certificado de Respaldo',
-                                nombreArchivo: carga.certificadoNombre || 'certificado',
-                                dataUrl: carga.certificadoData!,
-                                cargaNombre: carga.nombre,
-                                socioNombre: carga.socioNombre,
-                              })
-                            }
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-sky-50 text-[#0f2942] hover:text-[#006799] border border-slate-200 hover:border-sky-300 text-[11px] font-semibold transition shadow-2xs cursor-pointer whitespace-nowrap"
-                          >
-                            <svg className="w-3.5 h-3.5 text-[#006799] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            <span>Ver Cédula Frontal</span>
-                          </button>
-                        )}
+                        <span className="font-mono text-slate-500 text-[11px]">RUN {carga.rut}</span>
                       </div>
-                      {carga.estado === 'Rechazada' && (
-                        <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-800 text-[11px] max-w-md">
-                          <div className="font-bold flex items-center gap-1.5 text-rose-700">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                            Motivo informado por Directorio:
-                          </div>
-                          <p className="mt-0.5 text-slate-700 italic truncate" title={carga.observacionesResolucion || 'Fotografía ilegible o antecedentes discordantes.'}>
-                            «{carga.observacionesResolucion || 'Fotografía ilegible o antecedentes discordantes.'}»
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => handleAbrirSubsanacion(carga)}
-                            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0f2942] hover:bg-[#006799] text-white font-bold text-[10.5px] transition shadow-xs cursor-pointer"
-                          >
-                            <span>↻</span>
-                            <span>Subsanar / Reintentar con nueva foto de carnet</span>
-                          </button>
-                        </div>
-                      )}
-                      {carga.estado === 'Pendiente de Revisión' && (
-                        <div className="mt-1 text-[11px] text-amber-700 font-medium flex items-center gap-1">
-                          <span>⏳</span>
-                          <span>En evaluación por el Directorio de Bienestar</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 align-middle text-right whitespace-nowrap">
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border shrink-0 ${
+                        carga.estado === 'Vigente'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : carga.estado === 'Rechazada'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-300'
+                      }`}
+                    >
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${
+                        className={`w-1.5 h-1.5 rounded-full ${
                           carga.estado === 'Vigente'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            ? 'bg-emerald-500'
                             : carga.estado === 'Rechazada'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-300'
+                            ? 'bg-rose-500'
+                            : 'bg-amber-500 animate-pulse'
                         }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            carga.estado === 'Vigente'
-                              ? 'bg-emerald-500'
-                              : carga.estado === 'Rechazada'
-                              ? 'bg-rose-500'
-                              : 'bg-amber-500 animate-pulse'
-                          }`}
-                        />
-                        {carga.estado}
+                      />
+                      {carga.estado}
+                    </span>
+                  </div>
+
+                  {esAdminOSuper && (
+                    <div className="text-xs">
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block">Socio Titular</span>
+                      <span className="font-semibold text-[#0f2942]">{carga.socioNombre || 'Socio Titular'}</span>
+                      {carga.socioRut && <span className="font-mono text-slate-400 text-[11px] ml-1.5">RUN {carga.socioRut}</span>}
+                    </div>
+                  )}
+
+                  <div className="text-xs space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Certificado / Antecedente</span>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-slate-600 text-xs truncate max-w-[200px]">
+                        {carga.certificadoTipo || carga.observacion || 'Incorporación inicial'}
                       </span>
+                      {carga.certificadoData && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCertificadoVisor({
+                              titulo: carga.certificadoTipo || 'Certificado de Respaldo',
+                              nombreArchivo: carga.certificadoNombre || 'certificado',
+                              dataUrl: carga.certificadoData!,
+                              cargaNombre: carga.nombre,
+                              socioNombre: carga.socioNombre,
+                            })
+                          }
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-sky-50 text-[#0f2942] hover:text-[#006799] border border-slate-200 text-[11px] font-semibold transition cursor-pointer"
+                        >
+                          <svg className="w-3.5 h-3.5 text-[#006799]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          <span>Ver Cédula Frontal</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {carga.estado === 'Rechazada' && (
+                      <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-800 text-[11px]">
+                        <div className="font-bold flex items-center gap-1.5 text-rose-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                          Motivo informado por Directorio:
+                        </div>
+                        <p className="mt-0.5 text-slate-700 italic">«{carga.observacionesResolucion || 'Fotografía ilegible o antecedentes discordantes.'}»</p>
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirSubsanacion(carga)}
+                          className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0f2942] hover:bg-[#006799] text-white font-bold text-xs transition cursor-pointer"
+                        >
+                          <span>↻ Subsanar / Reintentar con nueva foto de carnet</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {carga.estado === 'Pendiente de Revisión' && (
+                      <div className="text-[11px] text-amber-700 font-medium flex items-center gap-1">
+                        <span>⏳</span>
+                        <span>En evaluación por el Directorio de Bienestar</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Vista Desktop con overflow horizontal seguro */}
+          <div className="hidden md:block w-full overflow-x-auto">
+            <table className="w-full table-fixed text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-semibold uppercase text-[11px]">
+                  {esAdminOSuper && <th className="w-[20%] py-3 px-4">Socio Titular</th>}
+                  <th className={esAdminOSuper ? "w-[22%] py-3 px-4" : "w-[28%] py-3 px-4"}>Nombre Completo de la Carga</th>
+                  <th className={esAdminOSuper ? "w-[14%] py-3 px-4" : "w-[16%] py-3 px-4"}>Parentesco y RUN</th>
+                  <th className={esAdminOSuper ? "w-[24%] py-3 px-4" : "w-[36%] py-3 px-4"}>Certificado / Antecedente</th>
+                  <th className={esAdminOSuper ? "w-[20%] py-3 px-4 text-right" : "w-[20%] py-3 px-4 text-right"}>Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {cargandoMisCargas ? (
+                  <tr>
+                    <td colSpan={esAdminOSuper ? 5 : 4} className="py-6 text-center text-slate-400">
+                      Cargando cargas familiares...
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : misCargas.length === 0 ? (
+                  <tr>
+                    <td colSpan={esAdminOSuper ? 5 : 4} className="py-6 text-center text-slate-400">
+                      No registra cargas familiares en su ficha. Use el botón «+ Agregar Nueva Carga Familiar» para inscribir una carga adjuntando su certificado.
+                    </td>
+                  </tr>
+                ) : (
+                  misCargas.map((carga) => (
+                    <tr key={carga.id} className="hover:bg-slate-50/50 transition">
+                      {esAdminOSuper && (
+                        <td className="py-3.5 px-4 align-middle min-w-0">
+                          <div className="font-semibold text-[#0f2942] truncate" title={carga.socioNombre || 'Socio Titular'}>
+                            {carga.socioNombre || 'Socio Titular'}
+                          </div>
+                          {carga.socioRut && (
+                            <div className="text-[11px] font-mono text-slate-400 truncate">RUN {carga.socioRut}</div>
+                          )}
+                        </td>
+                      )}
+                      <td className="py-3.5 px-4 font-semibold text-slate-800 align-middle min-w-0">
+                        <div className="truncate" title={carga.nombre}>{carga.nombre}</div>
+                      </td>
+                      <td className="py-3.5 px-4 align-middle min-w-0">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-sky-50 text-[#006799] border border-sky-200/70 font-semibold text-[11px] whitespace-nowrap">
+                          {carga.parentesco}
+                        </span>
+                        <div className="font-mono text-slate-600 text-[11px] mt-0.5 truncate">{carga.rut}</div>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600 align-middle min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="truncate max-w-[200px]" title={carga.certificadoTipo || carga.observacion || 'Incorporación inicial'}>
+                            {carga.certificadoTipo || carga.observacion || 'Incorporación inicial'}
+                          </span>
+                          {carga.certificadoData && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCertificadoVisor({
+                                  titulo: carga.certificadoTipo || 'Certificado de Respaldo',
+                                  nombreArchivo: carga.certificadoNombre || 'certificado',
+                                  dataUrl: carga.certificadoData!,
+                                  cargaNombre: carga.nombre,
+                                  socioNombre: carga.socioNombre,
+                                })
+                              }
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-sky-50 text-[#0f2942] hover:text-[#006799] border border-slate-200 hover:border-sky-300 text-[11px] font-semibold transition shadow-2xs cursor-pointer whitespace-nowrap"
+                            >
+                              <svg className="w-3.5 h-3.5 text-[#006799] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              <span>Ver Cédula Frontal</span>
+                            </button>
+                          )}
+                        </div>
+                        {carga.estado === 'Rechazada' && (
+                          <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-800 text-[11px] max-w-md">
+                            <div className="font-bold flex items-center gap-1.5 text-rose-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              Motivo informado por Directorio:
+                            </div>
+                            <p className="mt-0.5 text-slate-700 italic truncate" title={carga.observacionesResolucion || 'Fotografía ilegible o antecedentes discordantes.'}>
+                              «{carga.observacionesResolucion || 'Fotografía ilegible o antecedentes discordantes.'}»
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirSubsanacion(carga)}
+                              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0f2942] hover:bg-[#006799] text-white font-bold text-[10.5px] transition shadow-xs cursor-pointer"
+                            >
+                              <span>↻</span>
+                              <span>Subsanar / Reintentar con nueva foto de carnet</span>
+                            </button>
+                          </div>
+                        )}
+                        {carga.estado === 'Pendiente de Revisión' && (
+                          <div className="mt-1 text-[11px] text-amber-700 font-medium flex items-center gap-1">
+                            <span>⏳</span>
+                            <span>En evaluación por el Directorio de Bienestar</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 align-middle text-right whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${
+                            carga.estado === 'Vigente'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : carga.estado === 'Rechazada'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                              carga.estado === 'Vigente'
+                                ? 'bg-emerald-500'
+                                : carga.estado === 'Rechazada'
+                                ? 'bg-rose-500'
+                                : 'bg-amber-500 animate-pulse'
+                            }`}
+                          />
+                          {carga.estado}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       {/* Modal: Solicitar Nueva Carga Familiar con Certificado Obligatorio según Parentesco */}
       {modalNuevaCargaOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden">
-            <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#0d9488] to-emerald-600" />
-            <form onSubmit={handleSolicitarNuevaCarga} className="p-6 space-y-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden max-h-[92vh] flex flex-col">
+            <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#0d9488] to-emerald-600 shrink-0" />
+            <form onSubmit={handleSolicitarNuevaCarga} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
                   <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-50 text-[#006799] border border-sky-200">
@@ -1148,18 +1360,18 @@ export default function AfiliacionPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalNuevaCargaOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer text-center"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={enviandoNuevaCarga}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#0f2942] hover:bg-[#006799] transition shadow-sm cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#0f2942] hover:bg-[#006799] transition shadow-sm cursor-pointer disabled:opacity-50 text-center"
                 >
                   {enviandoNuevaCarga ? 'Enviando solicitud...' : 'Enviar a Revisión de Directorio'}
                 </button>
@@ -1180,7 +1392,7 @@ export default function AfiliacionPage() {
                   : 'bg-gradient-to-r from-[#006799] via-[#0d9488] to-emerald-600'
               }`}
             />
-            <form onSubmit={handleResolverCarga} className="p-6 space-y-4 overflow-y-auto">
+            <form onSubmit={handleResolverCarga} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1340,21 +1552,21 @@ export default function AfiliacionPage() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
                     <button
                       type="button"
                       onClick={() => {
                         setCargaSeleccionada(null);
                         setModoResolucionCarga(null);
                       }}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                      className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer text-center"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={resolviendoCarga}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition shadow-sm cursor-pointer disabled:opacity-50 ${
+                      className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-white transition shadow-sm cursor-pointer disabled:opacity-50 text-center ${
                         modoResolucionCarga === 'aprobar'
                           ? 'bg-[#0f2942] hover:bg-[#006799]'
                           : 'bg-rose-700 hover:bg-rose-800'
@@ -1439,11 +1651,11 @@ export default function AfiliacionPage() {
                 />
               )}
             </div>
-            <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-2 bg-white">
+            <div className="p-3.5 sm:p-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-white">
               <a
                 href={certificadoVisor.dataUrl}
                 download={certificadoVisor.nombreArchivo}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200 transition"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200 transition text-center"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1453,7 +1665,7 @@ export default function AfiliacionPage() {
               <button
                 type="button"
                 onClick={() => setCertificadoVisor(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer text-center"
               >
                 Cerrar Visor
               </button>
@@ -1493,7 +1705,7 @@ export default function AfiliacionPage() {
               }`}
             />
 
-            <div className="p-6 space-y-4 overflow-y-auto">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               {/* Cabecera */}
               <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3.5">
                 <div>
@@ -1781,17 +1993,17 @@ export default function AfiliacionPage() {
               )}
 
               {/* Pie del modal: acciones según estado */}
-              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   disabled={reenviandoSmtp}
                   onClick={() => handleReenviarCorreoReal(solicitudCorreo.folio)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200/80 transition cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200/80 transition cursor-pointer disabled:opacity-50 text-center"
                 >
                   {reenviandoSmtp ? 'Reenviando...' : 'Reenviar notificación por correo'}
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2">
                   {solicitudCorreo.estado === 'Pendiente de aprobación' && puedeResolver && !panelResolucionFicha && (
                     <>
                       <button
@@ -1802,7 +2014,7 @@ export default function AfiliacionPage() {
                             'Inconsistencia en calidad contractual / antecedentes de cargas familiares incompletos para acreditar asignación.'
                           );
                         }}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                        className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer text-center"
                       >
                         ✕ Rechazar
                       </button>
@@ -1816,7 +2028,7 @@ export default function AfiliacionPage() {
                             'Cumple requisitos reglamentarios de Planta/Contrata Municipal y autorización de descuento del 4% por planilla.'
                           );
                         }}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition cursor-pointer shadow-sm"
+                        className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition cursor-pointer shadow-sm text-center"
                       >
                         ✓ Aprobar Incorporación
                       </button>
@@ -1828,7 +2040,7 @@ export default function AfiliacionPage() {
                       setSolicitudCorreo(null);
                       setPanelResolucionFicha(null);
                     }}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer text-center"
                   >
                     Cerrar
                   </button>

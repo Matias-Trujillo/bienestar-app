@@ -54,12 +54,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       <div className="flex-1 flex flex-col min-w-0 lg:pl-[268px] transition-all pb-16 lg:pb-0">
         <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1380px] w-full mx-auto min-w-0">
+        {/* [ESTUDIANTE INFORMÁTICA] pb-20 en móvil para evitar que la barra inferior flotante BottomNav tape el contenido */}
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-[1380px] w-full mx-auto min-w-0 pb-24 sm:pb-8 lg:pb-8">
           {children}
         </main>
-        <footer className="py-3.5 px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 border-t border-slate-200/80 bg-white/80 backdrop-blur-sm mb-14 lg:mb-0">
-          <span className="font-medium">Comité de Bienestar &copy; {new Date().getFullYear()} • I. Municipalidad de Peralillo</span>
-          <span className="text-[11px] font-mono text-slate-400">Portal Oficial de Socios y Funcionarios</span>
+        <footer className="py-3.5 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 border-t border-slate-200/80 bg-white/80 backdrop-blur-sm mb-16 lg:mb-0">
+          <span className="font-medium text-center sm:text-left">Comité de Bienestar &copy; {new Date().getFullYear()} • I. Municipalidad de Peralillo</span>
+          <span className="text-[11px] font-mono text-slate-400 text-center sm:text-right">Portal Oficial de Socios y Funcionarios</span>
         </footer>
       </div>
 

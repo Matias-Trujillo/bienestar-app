@@ -902,8 +902,8 @@ function ComprobanteView({ c }: { c: Comprobante }) {
           {c.cargas.length === 0 ? (
             <p className="text-[11px] text-slate-400 italic">Sin cargas familiares registradas en esta solicitud.</p>
           ) : (
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <table className="w-full text-left text-xs">
+            <div className="rounded-xl border border-slate-200 overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[280px]">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
                     <th className="py-1.5 px-3">Nombre</th>
@@ -942,10 +942,10 @@ function ComprobanteView({ c }: { c: Comprobante }) {
         </div>
 
         {/* Acciones inferiores */}
-        <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-between items-center pt-2 border-t border-slate-100 print:hidden">
+        <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-between items-stretch sm:items-center pt-2 border-t border-slate-100 print:hidden">
           <Link
             href="/login"
-            className="py-2 px-4 text-center text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            className="w-full sm:w-auto py-2 px-4 text-center text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
           >
             ← Volver al inicio de sesión
           </Link>
@@ -953,7 +953,7 @@ function ComprobanteView({ c }: { c: Comprobante }) {
             id="comprobante-imprimir"
             type="button"
             onClick={() => window.print()}
-            className="py-2 px-5 rounded-xl font-semibold text-xs text-white bg-[#0f2942] hover:bg-[#163a5c] transition cursor-pointer shadow-sm"
+            className="w-full sm:w-auto py-2 px-5 rounded-xl font-semibold text-xs text-white bg-[#0f2942] hover:bg-[#163a5c] transition cursor-pointer shadow-sm text-center"
           >
             Imprimir / Guardar PDF
           </button>

@@ -46,6 +46,7 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
   const [busqueda, setBusqueda] = useState(filtroInicial);
   const [correos, setCorreos] = useState<CorreoBuzonItem[]>([]);
   const [seleccionado, setSeleccionado] = useState<CorreoBuzonItem | null>(null);
+  const [vistaLecturaMobile, setVistaLecturaMobile] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
@@ -72,6 +73,7 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setBusqueda(filtroInicial);
+      setVistaLecturaMobile(false);
       cargarBuzon(filtroInicial);
     }
   }, [isOpen, filtroInicial]);
@@ -148,7 +150,7 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
         {/* Cuerpo dividido: Lista de correos a la izquierda + Vista de lectura a la derecha */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
           {/* Columna izquierda: Bandeja de entrada */}
-          <div className="md:col-span-5 border-r border-slate-200 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+          <div className={`md:col-span-5 border-r border-slate-200 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50 ${vistaLecturaMobile ? 'hidden md:block' : 'block'}`}>
             {cargando ? (
               <p className="p-6 text-center text-xs text-slate-400">Cargando bandeja de correos...</p>
             ) : correos.length === 0 ? (
@@ -175,7 +177,10 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => setSeleccionado(c)}
+                    onClick={() => {
+                      setSeleccionado(c);
+                      setVistaLecturaMobile(true);
+                    }}
                     className={`w-full text-left p-4 transition block cursor-pointer ${
                       activo
                         ? 'bg-white border-l-4 border-l-sky-600 shadow-sm'
@@ -203,13 +208,24 @@ export const BuzonCorreosModal: React.FC<BuzonCorreosModalProps> = ({
           </div>
 
           {/* Columna derecha: Lectura completa del correo seleccionado */}
-          <div className="md:col-span-7 overflow-y-auto p-5 sm:p-6 bg-white space-y-5">
+          <div className={`md:col-span-7 overflow-y-auto p-4 sm:p-6 bg-white space-y-4 sm:space-y-5 ${!vistaLecturaMobile ? 'hidden md:block' : 'block'}`}>
             {!seleccionado ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400 italic">
                 Seleccione un correo de la bandeja izquierda para leer su contenido.
               </div>
             ) : (
               <>
+                {/* [ESTUDIANTE INFORMÁTICA] Botón de retorno móvil para volver a la lista de correos en smartphones */}
+                <div className="block md:hidden pb-2 border-b border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setVistaLecturaMobile(false)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  >
+                    <span>← Volver a la lista de correos</span>
+                  </button>
+                </div>
+
                 <div className="border-b border-slate-100 pb-4 space-y-2">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded bg-slate-100 text-slate-700">

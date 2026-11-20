@@ -37,7 +37,7 @@ export const VisorComprobanteModal: React.FC<VisorComprobanteModalProps> = ({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden animate-scale-in">
         {/* Header del visor */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -87,8 +87,8 @@ export const VisorComprobanteModal: React.FC<VisorComprobanteModalProps> = ({
           </div>
         </div>
 
-        {/* Contenedor del documento */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center bg-slate-100/60 min-h-[450px]">
+        {/* Contenedor del documento responsivo */}
+        <div className="p-2 sm:p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center bg-slate-100/60 min-h-[260px] sm:min-h-[420px]">
           {previewError ? (
             <div className="p-6 text-center max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm animate-fade-in">
               <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 mx-auto flex items-center justify-center mb-3">
@@ -136,11 +136,11 @@ export const VisorComprobanteModal: React.FC<VisorComprobanteModalProps> = ({
                 src={previewComprobante.url}
                 alt={previewComprobante.filename}
                 onError={onErrorLoading}
-                className="max-h-[70vh] max-w-full object-contain rounded-lg"
+                className="max-h-[55vh] sm:max-h-[70vh] max-w-full object-contain rounded-lg"
               />
             </div>
           ) : previewComprobante.isPdf ? (
-            <div className="w-full h-[70vh] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="w-full h-[50vh] sm:h-[70vh] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <iframe
                 src={previewComprobante.url}
                 title={previewComprobante.filename}

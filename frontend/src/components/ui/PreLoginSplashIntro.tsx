@@ -15,7 +15,7 @@ const SplashEmblem: React.FC = () => (
       <img
         src="/escudo-peralillo.png"
         alt="Escudo Oficial de la I. Municipalidad de Peralillo"
-        className="h-36 sm:h-44 md:h-52 w-auto object-contain mx-auto drop-shadow-[0_16px_32px_rgba(0,0,0,0.65)]"
+        className="h-28 sm:h-44 md:h-52 max-h-[25vh] w-auto object-contain mx-auto drop-shadow-[0_16px_32px_rgba(0,0,0,0.65)]"
       />
     </div>
   </div>

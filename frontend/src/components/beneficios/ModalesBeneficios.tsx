@@ -271,17 +271,17 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalPostularBono(null)}
-                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                  className="w-full sm:w-auto px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition text-center"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition"
+                  className="w-full sm:w-auto px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition text-center"
                 >
                   Enviar Postulación a Evaluación
                 </button>
@@ -390,17 +390,17 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalAsignacionDirecta(false)}
-                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                  className="w-full sm:w-auto px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition text-center"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-sm transition"
+                  className="w-full sm:w-auto px-5 py-2 font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-sm transition text-center"
                 >
                   Asignar y Liquidar Bono
                 </button>
@@ -522,17 +522,17 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalValidarSolicitud(null)}
-                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                  className="w-full sm:w-auto px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition text-center"
                 >
                   Cerrar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-bold text-white bg-slate-900 hover:bg-black rounded-xl shadow-sm transition"
+                  className="w-full sm:w-auto px-5 py-2 font-bold text-white bg-slate-900 hover:bg-black rounded-xl shadow-sm transition text-center"
                 >
                   Guardar Resolución
                 </button>
@@ -603,7 +603,7 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setModalVisorDoc(null)}
-                className="px-5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                className="w-full sm:w-auto px-5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition text-center"
               >
                 Cerrar Visor
               </button>
@@ -662,17 +662,17 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalConfigBaseG15(false)}
-                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                  className="w-full sm:w-auto px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition text-center"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition"
+                  className="w-full sm:w-auto px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition text-center"
                 >
                   Guardar & Recalcular Todo
                 </button>
@@ -711,8 +711,8 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
               </p>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 max-h-60 overflow-y-auto">
-              <table className="w-full text-left border-collapse text-[11px]">
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 max-h-60 overflow-y-auto overflow-x-auto">
+              <table className="w-full text-left border-collapse text-[11px] min-w-[320px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-500 font-semibold">
                     <th className="py-1 px-2">Cheque</th>
@@ -736,13 +736,13 @@ export const ModalesBeneficios: React.FC<ModalesBeneficiosProps> = ({
               </table>
             </div>
 
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-extrabold text-sm text-slate-800">
+            <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-2">
+              <span className="font-extrabold text-sm text-slate-800 text-center sm:text-left">
                 Total Tesorería: {formatCurrency(modalExportarTesoreria.totalMonto)}
               </span>
               <button
                 onClick={() => setModalExportarTesoreria(null)}
-                className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-black rounded-xl transition"
+                className="w-full sm:w-auto px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-black rounded-xl transition text-center"
               >
                 Entendido y Cerrar
               </button>

@@ -401,7 +401,7 @@ export default function LoginPage() {
             <img
               src="/escudo-peralillo.png"
               alt="Escudo Oficial de la I. Municipalidad de Peralillo"
-              className="h-36 sm:h-44 md:h-52 w-auto object-contain mx-auto drop-shadow-[0_16px_32px_rgba(0,0,0,0.65)]"
+              className="h-28 sm:h-44 md:h-52 max-h-[22vh] w-auto object-contain mx-auto drop-shadow-[0_16px_32px_rgba(0,0,0,0.65)]"
             />
           </div>
           <div>
@@ -422,7 +422,7 @@ export default function LoginPage() {
           {/* Filete multicolor corporativo de Peralillo */}
           <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28]" />
 
-          <div className="p-6 sm:p-7 space-y-4">
+          <div className="p-4 sm:p-7 space-y-4">
             {/* Subcabecera interior de la tarjeta */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div>

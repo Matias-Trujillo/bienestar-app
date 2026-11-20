@@ -213,7 +213,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
         )}
 
         {/* 2. Cuerpo con Flujo Vertical Hacia Abajo y Scroll Interno Fluido */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3.5 space-y-3 text-xs">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-3.5 space-y-3 text-xs">
           
           {/* Tarjeta Reactiva de Saldo por Año Calendario */}
           <div className="rounded-xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-slate-50 p-3 shadow-2xs">
@@ -602,8 +602,8 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
         </div>
 
         {/* 3. Footer Fijo (Siempre visible al pie del modal) */}
-        <div className="flex-shrink-0 px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 z-10">
-          <div className="text-[11px] text-slate-500">
+        <div className="flex-shrink-0 px-4 sm:px-5 py-3 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 z-10">
+          <div className="text-[11px] text-slate-500 text-center sm:text-left">
             {copagoNum > 0 && !excedeSaldo && !excedeBoleta ? (
               <span className="text-emerald-700 font-semibold">
                 Monto a solicitar: {formatCurrency(copagoNum)}
@@ -617,11 +617,11 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
               <span className="text-slate-400">Campos obligatorios marcados con (*)</span>
             )}
           </div>
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:ml-auto w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-lg transition"
+              className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-lg transition text-center"
             >
               Cancelar
             </button>
@@ -633,7 +633,7 @@ export const ModalNuevaSolicitud: React.FC<ModalNuevaSolicitudProps> = ({
                 excedeBoleta ||
                 (fechaValidacion !== null && !fechaValidacion.dentro)
               }
-              className="px-4 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="w-full sm:w-auto px-4 py-2 sm:py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-center"
               id="btn-enviar-solicitud"
             >
               {enviando ? 'Enviando...' : 'Enviar Solicitud'}

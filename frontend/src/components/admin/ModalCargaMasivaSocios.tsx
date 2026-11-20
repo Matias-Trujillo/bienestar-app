@@ -330,7 +330,7 @@ export const ModalCargaMasivaSocios: React.FC<ModalCargaMasivaSociosProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5 relative overflow-hidden max-h-[92vh] overflow-y-auto"
+        className="bg-white rounded-3xl max-w-4xl w-full p-4 sm:p-8 shadow-2xl border border-slate-200 space-y-4 sm:space-y-5 relative overflow-hidden max-h-[92vh] overflow-y-auto"
       >
         <div
           className="absolute top-0 left-0 right-0 h-1.5"
@@ -492,8 +492,8 @@ export const ModalCargaMasivaSocios: React.FC<ModalCargaMasivaSociosProps> = ({
               </button>
             </div>
 
-            <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="max-h-56 overflow-y-auto overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full text-left border-collapse text-xs min-w-[560px]">
                 <thead>
                   <tr className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                     <th className="py-2.5 px-3">RUT Socio</th>
@@ -585,11 +585,11 @@ export const ModalCargaMasivaSocios: React.FC<ModalCargaMasivaSociosProps> = ({
         )}
 
         {/* Pie del Modal */}
-        <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer text-center"
           >
             {resultadoFinal ? 'Cerrar Ventana' : 'Cancelar'}
           </button>
@@ -598,7 +598,7 @@ export const ModalCargaMasivaSocios: React.FC<ModalCargaMasivaSociosProps> = ({
               type="button"
               disabled={submitting || registros.length === 0}
               onClick={handleConfirmarCargaMasiva}
-              className="px-5 py-2.5 text-xs font-bold text-white bg-[#0f2942] hover:bg-[#006799] rounded-xl transition shadow-md cursor-pointer disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-2.5 text-xs font-bold text-white bg-[#0f2942] hover:bg-[#006799] rounded-xl transition shadow-md cursor-pointer disabled:opacity-50 text-center"
             >
               {submitting
                 ? 'Procesando nómina y cargas...'

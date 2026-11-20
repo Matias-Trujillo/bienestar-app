@@ -67,7 +67,7 @@ export const ModalCrearEditarBono: React.FC<ModalCrearEditarBonoProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-slate-100 space-y-5 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-3xl p-4 sm:p-8 max-w-xl w-full shadow-2xl border border-slate-100 space-y-4 sm:space-y-5 max-h-[92vh] overflow-y-auto">
         <div className="flex items-start justify-between border-b border-slate-100 pb-3">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -209,18 +209,18 @@ export const ModalCrearEditarBono: React.FC<ModalCrearEditarBonoProps> = ({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition font-semibold"
+              className="w-full sm:w-auto px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition font-semibold text-center"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={guardando}
-              className="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-xl font-bold transition shadow-md shadow-blue-600/20 disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-xl font-bold transition shadow-md shadow-blue-600/20 disabled:opacity-50 text-center"
             >
               {guardando ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Crear Beneficio'}
             </button>

@@ -82,7 +82,7 @@ export const ModalEditarUsuario: React.FC<ModalEditarUsuarioProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100 space-y-5">
+      <div className="bg-white rounded-3xl p-4 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100 space-y-4 sm:space-y-5 max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-slate-100 pb-3.5">
           <div>
@@ -300,18 +300,18 @@ export const ModalEditarUsuario: React.FC<ModalEditarUsuarioProps> = ({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition font-semibold"
+              className="w-full sm:w-auto px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition font-semibold text-center"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={guardando}
-              className="px-5 py-2 text-white bg-purple-700 hover:bg-purple-800 rounded-xl font-bold transition shadow-md shadow-purple-700/20 disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-2 text-white bg-purple-700 hover:bg-purple-800 rounded-xl font-bold transition shadow-md shadow-purple-700/20 disabled:opacity-50 text-center"
             >
               {guardando ? 'Guardando...' : 'Guardar Cambios'}
             </button>
