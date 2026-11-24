@@ -42,3 +42,13 @@ def decode_access_token(token: str) -> Optional[dict]:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         return None
+
+
+class BcryptPasswordHasher:
+    """Adaptador concreto de PasswordHasherProtocol usando Bcrypt."""
+
+    def verify(self, plain_password: str, hashed_password: str) -> bool:
+        return verify_password(plain_password, hashed_password)
+
+    def hash(self, password: str) -> str:
+        return get_password_hash(password)

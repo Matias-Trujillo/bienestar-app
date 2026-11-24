@@ -3,9 +3,18 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import decode_access_token
+from app.core.interfaces import (
+    AuditLoggerProtocol,
+    EmailBuzonProtocol,
+    PasswordHasherProtocol,
+    SmtpTransportProtocol,
+)
+from app.core.security import BcryptPasswordHasher, decode_access_token
 from app.db.session import get_db
 from app.models import User, UserRole
+from app.services.audit_service import SqlAlchemyAuditLogger
+from app.services.email_buzon import default_buzon_store
+from app.services.email_transport import default_smtp_transport
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -42,3 +51,20 @@ def require_roles(*roles: UserRole):
 
 
 require_superuser = require_roles()  # sin roles adicionales => solo superusuario
+
+
+# [ESTUDIANTE INFORMÁTICA] Proveedores de abstracciones para Inyección de Dependencias (DIP / LSP)
+def get_audit_logger() -> AuditLoggerProtocol:
+    return SqlAlchemyAuditLogger()
+
+
+def get_email_buzon() -> EmailBuzonProtocol:
+    return default_buzon_store
+
+
+def get_smtp_transport() -> SmtpTransportProtocol:
+    return default_smtp_transport
+
+
+def get_password_hasher() -> PasswordHasherProtocol:
+    return BcryptPasswordHasher()
