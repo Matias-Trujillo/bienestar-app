@@ -21,7 +21,7 @@ async def test_flujo_completo_hu04_pago_y_hu10_recepcion_conforme(
 ) -> None:
     # 1. Crear solicitud (HU-03)
     payload = ReembolsoCreateRequest(
-        tipo_prestacion="consulta_medica",
+        tipo_prestacion="consulta",
         descripcion="Consulta medicina general",
         beneficiario_nombre=socio_habilitado.nombre_completo,
         beneficiario_parentesco="Titular",
