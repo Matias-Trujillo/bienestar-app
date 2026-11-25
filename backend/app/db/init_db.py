@@ -655,6 +655,13 @@ async def init_db() -> None:
                 "UPDATE parametros_sistema SET valor = '' WHERE clave = 'SMTP_PASSWORD' AND valor = 'xgsnewzymyqjumgc';",
                 "ALTER TABLE IF EXISTS perfiles_talento_vecino ADD COLUMN IF NOT EXISTS oferta_id INTEGER;",
                 "ALTER TABLE IF EXISTS perfiles_talento_vecino ADD COLUMN IF NOT EXISTS oferta_titulo VARCHAR(180);",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(40) DEFAULT '';",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS numero_cheque_o_transferencia VARCHAR(60) DEFAULT '';",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS banco_emisor VARCHAR(60) DEFAULT 'BancoEstado';",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS fecha_pago VARCHAR(10) DEFAULT '';",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS hora_proceso VARCHAR(8) DEFAULT '';",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme BOOLEAN DEFAULT FALSE;",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme_at TIMESTAMPTZ;",
             ]
             for b_sql in backfill_sqls:
                 await db.execute(text(b_sql))

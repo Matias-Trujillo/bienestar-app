@@ -1,69 +1,53 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Movimiento } from '../types';
-import { formatCurrency, formatDate, getStatusBadgeStyle } from '../lib/utils';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { fetchFromApi } from '@/lib/api';
+import {
+  EstadoMovimiento,
+  Movimiento,
+  ReembolsoHistorialResponse,
+  SolicitudBeneficio,
+  SolicitudReembolso,
+} from '@/types';
+import { formatCurrency, formatDate, getErrorMessage, getStatusBadgeStyle } from '@/lib/utils';
+import { imprimirColillaReembolso } from '@/lib/colillaReembolso';
 
-const INITIAL_MOVEMENTS: Movimiento[] = [
-  {
-    id: 'MOV-1029',
-    fecha: '2026-03-28',
-    concepto: 'Reembolso Farmacia (Receta Crónica)',
-    modulo: 'Reembolsos Médicos',
-    monto: 32500,
-    estado: 'Aprobado',
-    comprobanteUrl: '/comprobantes/MOV-1029.pdf',
-    detalle: 'Boleta Salcobrand N° 459812 - Medicamentos hipertensión',
-  },
-  {
-    id: 'MOV-1028',
-    fecha: '2026-03-15',
-    concepto: 'Bono Vacaciones Anual 2026',
-    modulo: 'Beneficios Sociales',
-    monto: 80000,
-    estado: 'Pagado',
-    comprobanteUrl: '/comprobantes/MOV-1028.pdf',
-    detalle: 'Depósito directo en cuenta RUT BancoEstado',
-  },
-  {
-    id: 'MOV-1027',
-    fecha: '2026-02-20',
-    concepto: 'Consulta Médica Especialista Oftalmología',
-    modulo: 'Reembolsos Médicos',
-    monto: 25000,
-    estado: 'En Revisión',
-    comprobanteUrl: '/comprobantes/MOV-1027.pdf',
-    detalle: 'Clínica RedSalud - Pendiente de revisión por auditor médico',
-  },
-  {
-    id: 'MOV-1026',
-    fecha: '2026-01-10',
-    concepto: 'Aporte Solidario Evento Extraordinario',
-    modulo: 'Beneficios Sociales',
-    monto: 15000,
-    estado: 'Rechazado',
-    comprobanteUrl: undefined,
-    detalle: 'Documentación de respaldo incompleta tras plazo reglamentario',
-  },
-  {
-    id: 'MOV-1025',
-    fecha: '2025-12-18',
-    concepto: 'Aguinaldo Navideño Comité',
-    modulo: 'Beneficios Sociales',
-    monto: 50000,
-    estado: 'Pagado',
-    comprobanteUrl: '/comprobantes/MOV-1025.pdf',
-    detalle: 'Beneficio de fin de año entregado a socios con más de 1 año',
-  },
-];
+interface MovimientoReal extends Movimiento {
+  origen: 'reembolso' | 'beneficio';
+  reembolsoId?: number;
+  reembolsoRaw?: SolicitudReembolso;
+  metodoPago?: string;
+  numeroDocumento?: string;
+  bancoEmisor?: string;
+  fechaPago?: string;
+  horaProceso?: string;
+  recepcionConforme?: boolean;
+  recepcionConformeAt?: string | null;
+}
 
-const FILTER_TABS = ['Todos', 'Aprobado', 'Pagado', 'En Revisión'] as const;
+const FILTER_TABS = ['Todos', 'Aprobado', 'Pagado', 'En Revisión', 'Rechazado'] as const;
 
-// [ESTUDIANTE INFORMÁTICA] Modal moderno de comprobante digital con firma SHA-256 y esquinas suaves.
-const ReceiptPreviewModal: React.FC<{ receipt: Movimiento; onClose: () => void }> = ({
-  receipt,
-  onClose,
-}) => (
+  function mapEstadoReembolso(estado: string): EstadoMovimiento {
+    if (estado === 'pagado') return 'Pagado';
+    if (estado === 'aprobado') return 'Aprobado';
+    if (estado === 'rechazado') return 'Rechazado';
+    return 'En Revisión';
+  }
+
+function mapEstadoBeneficio(estado: string): EstadoMovimiento {
+  if (estado === 'LIQUIDADO') return 'Pagado';
+  if (estado === 'APROBADO') return 'Aprobado';
+  if (estado === 'RECHAZADO') return 'Rechazado';
+  return 'En Revisión';
+}
+
+const ReceiptPreviewModal: React.FC<{
+  receipt: MovimientoReal;
+  onClose: () => void;
+  onConfirmarRecepcion: (m: MovimientoReal) => void;
+  confirmando: boolean;
+}> = ({ receipt, onClose, onConfirmarRecepcion, confirmando }) => (
   <div
     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
     onClick={onClose}
@@ -77,7 +61,7 @@ const ReceiptPreviewModal: React.FC<{ receipt: Movimiento; onClose: () => void }
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
             <span className="text-xs font-medium text-[#006799] block">
-              Respaldo Digital • Comité de Bienestar
+              Cartola Real • Comité de Bienestar (HU-10)
             </span>
             <h3 className="text-base font-semibold text-slate-900 tabular-nums">
               Comprobante #{receipt.id}
@@ -85,7 +69,7 @@ const ReceiptPreviewModal: React.FC<{ receipt: Movimiento; onClose: () => void }
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           >
             ✕
           </button>
@@ -97,260 +81,389 @@ const ReceiptPreviewModal: React.FC<{ receipt: Movimiento; onClose: () => void }
             <span className="font-semibold text-slate-900 text-right">{receipt.concepto}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Fecha de Emisión:</span>
-            <span className="font-medium text-slate-800 tabular-nums">
-              {formatDate(receipt.fecha)}
-            </span>
+            <span className="text-slate-500">Módulo:</span>
+            <span className="font-medium text-slate-800">{receipt.modulo}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Monto Acreditado:</span>
-            <span className="font-semibold text-[#166534] text-sm tabular-nums">
-              {formatCurrency(receipt.monto)}
-            </span>
+            <span className="text-slate-500">Fecha de Emisión:</span>
+            <span className="font-medium text-slate-800 tabular-nums">{formatDate(receipt.fecha)}</span>
           </div>
-          <div className="flex justify-between gap-3">
-            <span className="text-slate-500 shrink-0">Detalle / Glosa:</span>
-            <span className="text-slate-700 text-right">{receipt.detalle}</span>
-          </div>
-          <div className="flex justify-between items-center pt-2.5 border-t border-slate-200/80">
-            <span className="text-slate-500">Firma Electrónica:</span>
-            <span className="text-xs font-semibold text-[#166534] bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full tabular-nums">
-              ✓ Validada SHA-256
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-1">
-          <button
-            onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors text-center"
-          >
-            Cerrar
-          </button>
-          <button
-            onClick={() => {
-              alert(`Descargando comprobante oficial ${receipt.id}...`);
-              onClose();
-            }}
-            className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95 rounded-xl shadow-sm transition-all text-center"
-          >
-            Descargar Archivo PDF
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-interface ToolbarProps {
-  search: string;
-  onSearchChange: (v: string) => void;
-  filter: string;
-  onFilterChange: (v: string) => void;
-}
-
-// [ESTUDIANTE INFORMÁTICA] Barra de herramientas moderna con buscador redondeado y pestañas tipo píldora con contadores.
-const MovementsToolbar: React.FC<ToolbarProps> = ({
-  search,
-  onSearchChange,
-  filter,
-  onFilterChange,
-}) => (
-  <div className="p-5 sm:px-6 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-    <div>
-      <h2 className="text-base font-semibold text-slate-900">
-        Últimos Movimientos y Solicitudes
-      </h2>
-      <p className="text-xs text-slate-500 mt-0.5 font-normal">
-        Historial de solicitudes de reembolsos médicos y beneficios sociales tramitados
-      </p>
-    </div>
-
-    <div className="flex flex-wrap items-center gap-2.5">
-      <div className="relative w-full sm:w-56">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Buscar por concepto o folio..."
-          className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-200/90 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]"
-        />
-        <svg
-          className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      </div>
-
-      <div className="inline-flex flex-wrap p-1 bg-slate-100/90 rounded-xl border border-slate-200/60 text-xs">
-        {FILTER_TABS.map((tab) => {
-          const count =
-            tab === 'Todos'
-              ? INITIAL_MOVEMENTS.length
-              : INITIAL_MOVEMENTS.filter((m) => m.estado === tab).length;
-          return (
-            <button
-              key={tab}
-              onClick={() => onFilterChange(tab)}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                filter === tab
-                  ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 font-medium'
-              }`}
-            >
-              <span>{tab}</span>
-              <span className="text-xs text-slate-400 tabular-nums">{count}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  </div>
-);
-
-// [ESTUDIANTE INFORMÁTICA] Tabla de movimientos con curvatura moderna (card-modern) y celdas bien espaciadas sin desborde.
-export const MovementsTable: React.FC = () => {
-  const [filter, setFilter] = useState<string>('Todos');
-  const [search, setSearch] = useState<string>('');
-  const [selectedReceipt, setSelectedReceipt] = useState<Movimiento | null>(null);
-
-  const filteredMovements = INITIAL_MOVEMENTS.filter((mov) => {
-    const matchesFilter = filter === 'Todos' || mov.estado === filter;
-    const matchesSearch =
-      mov.concepto.toLowerCase().includes(search.toLowerCase()) ||
-      mov.id.toLowerCase().includes(search.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
-  const totalMontoFiltrado = filteredMovements.reduce((acc, m) => acc + m.monto, 0);
-
-  return (
-    <div className="card-modern overflow-hidden min-w-0">
-      <MovementsToolbar
-        search={search}
-        onSearchChange={setSearch}
-        filter={filter}
-        onFilterChange={setFilter}
-      />
-
-      {/* Vista Móvil */}
-      <div className="block sm:hidden divide-y divide-slate-100">
-        {filteredMovements.map((mov) => {
-          const badge = getStatusBadgeStyle(mov.estado);
-          return (
-            <div key={mov.id} className="p-4 hover:bg-slate-50/70 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 tabular-nums">
-                  {mov.id} • {formatDate(mov.fecha)}
-                </span>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${badge.bg}`}>
-                  {mov.estado}
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Estado:</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeStyle(receipt.estado)}`}>
+                  {receipt.estado}
                 </span>
               </div>
-              <div className="text-sm font-medium text-slate-900">{mov.concepto}</div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-normal">
-                  {mov.modulo}
-                </span>
-                <span className="text-sm font-semibold text-slate-900 tabular-nums">
-                  {formatCurrency(mov.monto)}
-                </span>
+                <div className="flex justify-between pt-2 border-t border-slate-200/80">
+                  <span className="text-slate-600 font-semibold">Monto:</span>
+                  <span className="font-bold text-[#166534] tabular-nums">{formatCurrency(receipt.monto)}</span>
+                </div>
+                {receipt.numeroDocumento && (
+                  <div className="flex justify-between pt-2 border-t border-slate-200/80">
+                    <span className="text-slate-500">Documento de Pago:</span>
+                    <span className="font-mono font-semibold text-slate-800">
+                      {receipt.metodoPago || 'Cheque'} N° {receipt.numeroDocumento}
+                    </span>
+                  </div>
+                )}
+                {receipt.fechaPago && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Fecha / Hora Pago:</span>
+                    <span className="font-medium text-slate-800 tabular-nums">
+                      {receipt.fechaPago} {receipt.horaProceso ? `(${receipt.horaProceso})` : ''}
+                    </span>
+                  </div>
+                )}
+                {receipt.detalle && (
+                  <div className="pt-2 border-t border-slate-200/80">
+                    <span className="text-slate-500 block mb-0.5">Detalle:</span>
+                    <p className="text-slate-700 leading-relaxed">{receipt.detalle}</p>
+                  </div>
+                )}
               </div>
-            </div>
-          );
-        })}
-      </div>
 
-      {/* Vista Desktop */}
-      <div className="hidden sm:block w-full overflow-hidden">
-        <table className="w-full table-fixed text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
-              <th className="w-[15%] py-2.5 px-4">Fecha</th>
-              <th className="w-[40%] py-2.5 px-4">Concepto y Módulo</th>
-              <th className="w-[15%] py-2.5 px-4 text-right">Monto CLP</th>
-              <th className="w-[15%] py-2.5 px-4 text-center">Estado</th>
-              <th className="w-[15%] py-2.5 px-4 text-right">Comprobante</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-xs">
-            {filteredMovements.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-10 text-center text-slate-400 text-xs">
-                  No se encontraron movimientos para el filtro aplicado.
-                </td>
-              </tr>
-            ) : (
-              filteredMovements.map((mov) => {
-                const badge = getStatusBadgeStyle(mov.estado);
-                return (
-                  <tr key={mov.id} className="hover:bg-slate-50/80 transition-colors group">
-                    <td className="py-3 px-4 text-xs text-slate-600 tabular-nums whitespace-nowrap font-normal">
-                      {formatDate(mov.fecha)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-xs font-medium text-slate-900 group-hover:text-[#006799] transition-colors">
-                        {mov.concepto}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[11px] text-slate-400 tabular-nums">{mov.id}</span>
-                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-normal">
-                          {mov.modulo}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-right text-xs font-semibold text-slate-900 tabular-nums whitespace-nowrap">
-                      {formatCurrency(mov.monto)}
-                    </td>
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${badge.bg}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
-                        {mov.estado}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      {mov.comprobanteUrl ? (
+                {/* Estado de Recepción Conforme (HU-10) */}
+                {receipt.origen === 'reembolso' && (receipt.estado === 'Pagado' || receipt.estado === 'Aprobado') && (
+                  <div
+                    className={`p-3.5 rounded-xl border text-xs ${receipt.recepcionConforme
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                      }`}
+                  >
+                    {receipt.recepcionConforme ? (
+                      <p className="font-semibold">
+                        ✓ Recepción Conforme confirmada el{' '}
+                        {receipt.recepcionConformeAt
+                          ? new Date(receipt.recepcionConformeAt).toLocaleString('es-CL')
+                          : 'registrada'}
+                      </p>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span>¿Recibiste conforme el pago de este reembolso?</span>
                         <button
-                          onClick={() => setSelectedReceipt(mov)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200/80 rounded-lg transition-colors"
+                          type="button"
+                          disabled={confirmando}
+                          onClick={() => onConfirmarRecepcion(receipt)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[#166534] hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <span>PDF</span>
+                          {confirmando ? 'Confirmando...' : '✓ Confirmar Recepción Conforme'}
                         </button>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 font-normal">No adjunto</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-      <div className="py-3.5 px-6 border-t border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 tabular-nums font-normal">
-        <span>
-          Mostrando <strong className="text-slate-700 font-semibold">{filteredMovements.length}</strong> de {INITIAL_MOVEMENTS.length} movimientos
-        </span>
-        <span>
-          Subtotal listado: <strong className="text-slate-900 font-semibold">{formatCurrency(totalMontoFiltrado)}</strong>
-        </span>
-      </div>
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
+                  {receipt.origen === 'reembolso' && receipt.reembolsoRaw && (receipt.estado === 'Pagado' || receipt.estado === 'Aprobado') ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        imprimirColillaReembolso({
+                          codigo: receipt.reembolsoRaw!.codigo,
+                          socioNombre: receipt.reembolsoRaw!.socio_nombre || 'Socio',
+                          socioRut: receipt.reembolsoRaw!.socio_rut || '',
+                          beneficiarioNombre: receipt.reembolsoRaw!.beneficiario_nombre,
+                          beneficiarioParentesco: receipt.reembolsoRaw!.beneficiario_parentesco,
+                          prestacionLabel: receipt.reembolsoRaw!.tipo_prestacion_label,
+                          montoReembolso: receipt.reembolsoRaw!.monto_reembolso,
+                          metodoPago: receipt.reembolsoRaw!.metodo_pago,
+                          numeroDocumento: receipt.reembolsoRaw!.numero_cheque_o_transferencia,
+                          bancoEmisor: receipt.reembolsoRaw!.banco_emisor,
+                          fechaPago: receipt.reembolsoRaw!.fecha_pago,
+                          horaProceso: receipt.reembolsoRaw!.hora_proceso,
+                          recepcionConforme: receipt.recepcionConforme,
+                          recepcionConformeAt: receipt.recepcionConformeAt,
+                        })
+                      }
+                      className="px-3.5 py-2 text-xs font-bold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition cursor-pointer"
+                    >
+                      🖨️ Imprimir Colilla
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+          </div>
+        </div>
+        );
 
-      {selectedReceipt && (
-        <ReceiptPreviewModal
-          receipt={selectedReceipt}
-          onClose={() => setSelectedReceipt(null)}
-        />
+export const MovementsTable: React.FC = () => {
+  const {token} = useAuth();
+        const [movimientos, setMovimientos] = useState<MovimientoReal[]>([]);
+        const [cargando, setCargando] = useState(true);
+        const [filterStatus, setFilterStatus] = useState<string>('Todos');
+          const [searchTerm, setSearchTerm] = useState<string>('');
+            const [selectedReceipt, setSelectedReceipt] = useState<MovimientoReal | null>(null);
+            const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
+            const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
+  const cargarMovimientosReales = useCallback(async () => {
+    if (!token) return;
+                setCargando(true);
+                try {
+      const headers = {Authorization: `Bearer ${token}` };
+                const [reembRes, benefRes] = await Promise.allSettled([
+                fetchFromApi<ReembolsoHistorialResponse>('/reembolsos/mis-solicitudes', {headers}),
+                  fetchFromApi<SolicitudBeneficio[]>('/beneficios/mis-solicitudes', {headers}),
+                  ]);
+
+                    const lista: MovimientoReal[] = [];
+
+              if (reembRes.status === 'fulfilled' && Array.isArray(reembRes.value?.solicitudes)) {
+        for (const r of reembRes.value.solicitudes) {
+                lista.push({
+                  id: r.codigo,
+                  fecha: r.fecha_pago || r.fecha_atencion || r.created_at,
+                  concepto: `Reembolso ${r.tipo_prestacion_label} (${r.beneficiario_nombre})`,
+                  modulo: 'Reembolsos Médicos',
+                  monto: r.monto_reembolso || r.monto_copago,
+                  estado: mapEstadoReembolso(r.estado),
+                  comprobanteUrl: r.comprobante_url || undefined,
+                  detalle:
+                    r.estado === 'rechazado' && r.motivo_rechazo
+                      ? `Rechazado: ${r.motivo_rechazo}`
+                      : r.descripcion || `Beneficiario: ${r.beneficiario_nombre} (${r.beneficiario_parentesco})`,
+                  origen: 'reembolso',
+                  reembolsoId: r.id,
+                  reembolsoRaw: r,
+                  metodoPago: r.metodo_pago,
+                  numeroDocumento: r.numero_cheque_o_transferencia,
+                  bancoEmisor: r.banco_emisor,
+                  fechaPago: r.fecha_pago,
+                  horaProceso: r.hora_proceso,
+                  recepcionConforme: Boolean(r.recepcion_conforme),
+                  recepcionConformeAt: r.recepcion_conforme_at,
+                });
+        }
+      }
+
+                  if (benefRes.status === 'fulfilled' && Array.isArray(benefRes.value)) {
+        for (const b of benefRes.value) {
+                    lista.push({
+                      id: `BON-${String(b.id).padStart(4, '0')}`,
+                      fecha: b.fecha_liquidacion || b.created_at,
+                      concepto: b.titulo_bono,
+                      modulo: 'Beneficios Sociales',
+                      monto: b.monto_calculado,
+                      estado: mapEstadoBeneficio(b.estado),
+                      comprobanteUrl: b.documento_url || undefined,
+                      detalle:
+                        b.motivo_rechazo
+                          ? `Rechazado: ${b.motivo_rechazo}`
+                          : b.motivo || b.observaciones_admin || `Respaldo: ${b.documento_tipo}`,
+                      origen: 'beneficio',
+                      metodoPago: b.metodo_pago,
+                      numeroDocumento: b.numero_cheque,
+                      bancoEmisor: b.banco_emisor,
+                      fechaPago: b.fecha_liquidacion ? b.fecha_liquidacion.slice(0, 10) : undefined,
+                    });
+        }
+      }
+
+      lista.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+                  setMovimientos(lista);
+    } catch {
+                    setMovimientos([]);
+    } finally {
+                    setCargando(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+                    cargarMovimientosReales();
+  }, [cargarMovimientosReales]);
+
+  const handleConfirmarRecepcion = async (mov: MovimientoReal) => {
+    if (!token || !mov.reembolsoId) return;
+                  setConfirmandoId(mov.reembolsoId);
+                  try {
+      const updated = await fetchFromApi<SolicitudReembolso>(
+                    `/reembolsos/solicitud/${mov.reembolsoId}/recepcion-conforme`,
+                    {
+                      method: 'PATCH',
+                    headers: {Authorization: `Bearer ${token}` },
+        }
+                    );
+                    setFeedbackMsg(`✓ Recepción Conforme confirmada para ${updated.codigo}.`);
+      setTimeout(() => setFeedbackMsg(null), 5000);
+                    await cargarMovimientosReales();
+      setSelectedReceipt((prev) =>
+                    prev && prev.reembolsoId === updated.id
+                    ? {
+                      ...prev,
+                      recepcionConforme: true,
+                    recepcionConformeAt: updated.recepcion_conforme_at,
+                    reembolsoRaw: updated,
+            }
+                    : prev
+                    );
+    } catch (err: unknown) {
+                      alert(getErrorMessage(err));
+    } finally {
+                      setConfirmandoId(null);
+    }
+  };
+
+  const filteredMovements = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return movimientos.filter((m) => {
+      if (filterStatus !== 'Todos' && m.estado !== filterStatus) return false;
+                    if (q) {
+        return (
+                    m.concepto.toLowerCase().includes(q) ||
+                    m.id.toLowerCase().includes(q) ||
+                    m.modulo.toLowerCase().includes(q)
+                    );
+      }
+                    return true;
+    });
+  }, [movimientos, filterStatus, searchTerm]);
+
+                    return (
+                      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+                        <div className="p-4 sm:p-5 border-b border-slate-100 space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                                Cartola Consolidada de Movimientos (Hoja Socio)
+                              </h2>
+                              <p className="text-xs text-slate-500">
+                                Historial real sincronizado de reembolsos médicos, bonos liquidados y confirmación de recepción conforme.
+                              </p>
+                            </div>
+                            <span className="text-xs font-semibold text-[#006799] bg-sky-50 border border-sky-200/80 px-2.5 py-1 rounded-full self-start sm:self-auto tabular-nums">
+                              {movimientos.length} {movimientos.length === 1 ? 'movimiento' : 'movimientos'}
+                            </span>
+                          </div>
+
+                            {feedbackMsg && (
+                              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-[#166534]">
+                                {feedbackMsg}
+                              </div>
+                            )}
+
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {FILTER_TABS.map((tab) => (
+                                  <button
+                                    key={tab}
+                                    type="button"
+                                    onClick={() => setFilterStatus(tab)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${filterStatus === tab
+                                        ? 'bg-[#0c2b45] text-white shadow-2xs'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
+                                      }`}
+                                  >
+                                    {tab}
+                                  </button>
+                                ))}
+                              </div>
+                              <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Buscar folio o concepto..."
+                                className="px-3.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]/30 sm:w-56"
+                              />
+                            </div>
+                          </div>
+
+                                    {cargando ? (
+                                      <div className="p-8 text-center text-xs text-slate-400">
+                                        Cargando cartola real de movimientos...
+                                      </div>
+                                    ) : filteredMovements.length === 0 ? (
+                                      <div className="p-8 text-center text-xs text-slate-500">
+                                        No existen movimientos registrados para los filtros seleccionados.
+                                      </div>
+                                    ) : (
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-xs border-collapse">
+                                          <thead>
+                                            <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-600 font-semibold">
+                                              <th className="py-3 px-4">Folio / Fecha</th>
+                                              <th className="py-3 px-4">Concepto y Módulo</th>
+                                              <th className="py-3 px-4 text-right">Monto</th>
+                                              <th className="py-3 px-4">Estado / Pago</th>
+                                              <th className="py-3 px-4 text-right">Recepción Conforme</th>
+                                            </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                  {filteredMovements.map((m) => (
+                                                    <tr
+                                                      key={`${m.origen}-${m.id}`}
+                                                      onClick={() => setSelectedReceipt(m)}
+                                                      className="hover:bg-sky-50/40 transition cursor-pointer"
+                                                    >
+                                                      <td className="py-3 px-4 whitespace-nowrap">
+                                                        <span className="font-mono font-semibold text-[#006799] block">{m.id}</span>
+                                                        <span className="text-[11px] text-slate-400 tabular-nums">{formatDate(m.fecha)}</span>
+                                                      </td>
+                                                      <td className="py-3 px-4">
+                                                        <div className="font-semibold text-slate-900">{m.concepto}</div>
+                                                        <div className="text-[11px] text-slate-500">{m.modulo}</div>
+                                                      </td>
+                                                      <td className="py-3 px-4 text-right font-bold text-slate-900 tabular-nums whitespace-nowrap">
+                                                        {formatCurrency(m.monto)}
+                                                      </td>
+                                                      <td className="py-3 px-4 whitespace-nowrap">
+                                                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getStatusBadgeStyle(m.estado)}`}>
+                                                          {m.estado}
+                                                        </span>
+                                                        {m.numeroDocumento && (
+                      <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                        {m.metodoPago || 'Cheque'} N° {m.numeroDocumento}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    {m.origen === 'reembolso' && (m.estado === 'Pagado' || m.estado === 'Aprobado') ? (
+                      m.recepcionConforme ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#166534] border border-emerald-200">
+                          ✓ Conforme
+                        </span>
+                                                        ): (
+                                                            <button
+                          type = "button"
+                          disabled = {confirmandoId === m.reembolsoId}
+                                                        onClick={() => handleConfirmarRecepcion(m)}
+                                                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#006799] bg-sky-50 hover:bg-sky-100 border border-sky-200 transition cursor-pointer disabled:opacity-50"
+                        >
+                                                        {confirmandoId === m.reembolsoId ? '...' : 'Confirmar Conforme'}
+                                                      </button>
+                                          )
+                                          ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => setSelectedReceipt(m)}
+                                            className="text-[11px] font-semibold text-slate-500 hover:text-[#006799] cursor-pointer"
+                                          >
+                                            Ver detalle →
+                                          </button>
+                    )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+          </table>
+                          </div>
       )}
-    </div>
-  );
+
+                          {selectedReceipt && (
+                            <ReceiptPreviewModal
+                              receipt={selectedReceipt}
+                              onClose={() => setSelectedReceipt(null)}
+                              onConfirmarRecepcion={handleConfirmarRecepcion}
+                              confirmando={confirmandoId === selectedReceipt.reembolsoId}
+                            />
+                          )}
+                        </div>
+                        );
 };

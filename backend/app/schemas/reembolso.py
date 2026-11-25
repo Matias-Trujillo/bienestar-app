@@ -73,6 +73,15 @@ class ResolverReembolsoRequest(BaseModel):
     motivo_rechazo: Optional[str] = Field("", description="Motivo en caso de rechazo")
 
 
+class RegistrarPagoReembolsoRequest(BaseModel):
+    """Datos de liquidación de pago (cheque o transferencia) para pasar de aprobado a pagado (HU-04)."""
+    metodo_pago: str = Field("Cheque", min_length=3, max_length=40)
+    numero_cheque_o_transferencia: str = Field(..., min_length=2, max_length=60)
+    banco_emisor: str = Field("BancoEstado", min_length=2, max_length=60)
+    fecha_pago: str = Field(..., min_length=8, max_length=10, description="YYYY-MM-DD")
+    hora_proceso: str = Field(..., min_length=4, max_length=8, description="HH:MM")
+
+
 class BeneficiarioReembolso(BaseModel):
     """Beneficiario habilitado para recibir reembolso (titular o carga aprobada)."""
     nombre: str
@@ -111,6 +120,13 @@ class ReembolsoOut(BaseModel):
     motivo_rechazo: str
     created_at: str
     anio_imputacion: int = 2026
+    metodo_pago: Optional[str] = ""
+    numero_cheque_o_transferencia: Optional[str] = ""
+    banco_emisor: Optional[str] = ""
+    fecha_pago: Optional[str] = ""
+    hora_proceso: Optional[str] = ""
+    recepcion_conforme: bool = False
+    recepcion_conforme_at: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
