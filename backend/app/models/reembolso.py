@@ -140,21 +140,6 @@ class SolicitudReembolso(Base, TimestampMixin):
     )
     fecha_revision: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # [HU-04] Registro formal de pago / liquidación por Tesorería (cheque o transferencia)
-    metodo_pago: Mapped[Optional[str]] = mapped_column(String(40), nullable=True, default="")
-    numero_cheque_o_transferencia: Mapped[Optional[str]] = mapped_column(String(60), nullable=True, default="")
-    banco_emisor: Mapped[Optional[str]] = mapped_column(String(60), nullable=True, default="BancoEstado")
-    fecha_pago: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default="")
-    hora_proceso: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default="")
-
-    # [HU-10] Confirmación trazada de Recepción Conforme por parte del socio
-    recepcion_conforme: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false"
-    )
-    recepcion_conforme_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
     # [ESTUDIANTE INFORMÁTICA] Esto crea la relación bidireccional ORM con el modelo User y permite acceder a los datos completos del socio y del evaluador desde la solicitud.
     socio = relationship("User", foreign_keys=[socio_id], backref="solicitudes_reembolso", lazy="selectin")
     revisado_por = relationship("User", foreign_keys=[revisado_por_id])

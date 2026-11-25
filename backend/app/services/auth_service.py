@@ -309,14 +309,7 @@ class AuthService:
             await obtener_resumen_socio(user, db)
             await db.refresh(user)
         except Exception:
-            try:
-                await db.rollback()
-            except Exception:
-                pass
-            try:
-                user = (await db.get(User, user.id)) or user
-            except Exception:
-                pass
+            user = (await db.get(User, user.id)) or user
 
         token = create_access_token(user.id, extra_claims={"rol": _val(user.rol)})
         return TokenResponse(access_token=token, user=to_out(user, sec))

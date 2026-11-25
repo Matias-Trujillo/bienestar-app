@@ -31,7 +31,6 @@ from app.models.reembolso import SolicitudReembolso
 from app.schemas.reembolso import (
     BeneficiarioReembolso,
     ReembolsoCreateRequest,
-    RegistrarPagoReembolsoRequest,
     ResolverReembolsoRequest,
     ReembolsoOut,
     ResumenSaludSocio,
@@ -40,12 +39,10 @@ from app.schemas.reembolso import (
 )
 from app.services.reembolso_service import (
     asegurar_columnas_reembolso,
-    confirmar_recepcion_conforme_reembolso,
     crear_solicitud,
     listar_solicitudes_socio,
     listar_todas_solicitudes_admin,
     contar_solicitudes_pendientes_admin,
-    registrar_pago_reembolso,
     resolver_solicitud_reembolso,
     obtener_beneficiarios_socio,
     obtener_resumen_socio,
@@ -503,59 +500,4 @@ async def patch_resolver_solicitud(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-
-
-@router.patch(
-    "/admin/solicitud/{solicitud_id}/pagar",
-    response_model=ReembolsoOut,
-    summary="Registrar pago efectivo (cheque/transferencia) de un reembolso aprobado (HU-04)",
-)
-async def patch_pagar_solicitud(
-    solicitud_id: int,
-    body: RegistrarPagoReembolsoRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    if not (user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido a Tesorería, Directiva y Administradores.",
-        )
-    try:
-        solicitud = await registrar_pago_reembolso(
-            solicitud_id=solicitud_id,
-            metodo_pago=body.metodo_pago,
-            numero_cheque_o_transferencia=body.numero_cheque_o_transferencia,
-            banco_emisor=body.banco_emisor,
-            fecha_pago=body.fecha_pago,
-            hora_proceso=body.hora_proceso,
-            admin_user=user,
-            db=db,
-        )
-        return solicitud_to_out(solicitud)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-
-@router.patch(
-    "/solicitud/{solicitud_id}/recepcion-conforme",
-    response_model=ReembolsoOut,
-    summary="Confirmar recepción conforme del reembolso por parte del socio (HU-10)",
-)
-async def patch_recepcion_conforme(
-    solicitud_id: int,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    try:
-        solicitud = await confirmar_recepcion_conforme_reembolso(
-            solicitud_id=solicitud_id,
-            user=user,
-            db=db,
-        )
-        return solicitud_to_out(solicitud)
-    except PermissionError as pe:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(pe))
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

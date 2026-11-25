@@ -4,7 +4,6 @@ import { Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { SolicitudReembolso, TIPO_PRESTACION_LABELS } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { imprimirColillaReembolso } from '@/lib/colillaReembolso';
 import { getEstadoBadge } from './TablaSolicitudes';
 
 interface DetalleSolicitudModalProps {
@@ -13,7 +12,6 @@ interface DetalleSolicitudModalProps {
   onVerComprobante: (sol: SolicitudReembolso) => void;
   onIniciarAprobar?: (sol: SolicitudReembolso) => void;
   onIniciarRechazar?: (sol: SolicitudReembolso) => void;
-  onIniciarPagar?: (sol: SolicitudReembolso) => void;
 }
 
 // [ESTUDIANTE INFORMÁTICA] Sección de resumen financiero y datos del beneficiario dentro de la ficha de solicitud.
@@ -85,7 +83,6 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
   onVerComprobante,
   onIniciarAprobar,
   onIniciarRechazar,
-  onIniciarPagar,
 }) => {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
@@ -203,67 +200,6 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
             Solicitud ingresada el {formatDate(solicitud.created_at)}
           </div>
 
-          {/* Datos de Pago / Liquidación (HU-04) */}
-          {solicitud.estado === 'pagado' && (
-            <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs space-y-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className="text-emerald-800 font-bold">
-                  ✓ Pago Liquidado por Tesorería
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    imprimirColillaReembolso({
-                      codigo: solicitud.codigo,
-                      socioNombre: solicitud.socio_nombre || 'Socio',
-                      socioRut: solicitud.socio_rut || '',
-                      beneficiarioNombre: solicitud.beneficiario_nombre,
-                      beneficiarioParentesco: solicitud.beneficiario_parentesco,
-                      prestacionLabel:
-                        solicitud.tipo_prestacion_label ||
-                        TIPO_PRESTACION_LABELS[solicitud.tipo_prestacion] ||
-                        solicitud.tipo_prestacion,
-                      montoReembolso: solicitud.monto_reembolso,
-                      metodoPago: solicitud.metodo_pago,
-                      numeroDocumento: solicitud.numero_cheque_o_transferencia,
-                      bancoEmisor: solicitud.banco_emisor,
-                      fechaPago: solicitud.fecha_pago,
-                      horaProceso: solicitud.hora_proceso,
-                      recepcionConforme: solicitud.recepcion_conforme,
-                      recepcionConformeAt: solicitud.recepcion_conforme_at,
-                    })
-                  }
-                  className="px-3 py-1 rounded-lg text-[11px] font-bold text-[#006799] bg-white hover:bg-sky-50 border border-sky-200 transition cursor-pointer"
-                >
-                  🖨️ Imprimir Colilla Conforme
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-emerald-950">
-                <div>
-                  <span className="text-emerald-700 block">Método / Documento</span>
-                  <strong>
-                    {solicitud.metodo_pago || 'Cheque'} N° {solicitud.numero_cheque_o_transferencia || '—'}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-emerald-700 block">Banco / Fecha y Hora</span>
-                  <strong>
-                    {solicitud.banco_emisor || 'BancoEstado'} • {solicitud.fecha_pago || '—'}{' '}
-                    {solicitud.hora_proceso ? `(${solicitud.hora_proceso})` : ''}
-                  </strong>
-                </div>
-              </div>
-              {solicitud.recepcion_conforme && (
-                <p className="text-[11px] font-semibold text-[#166534] pt-1 border-t border-emerald-200/70">
-                  ✓ Recepción Conforme registrada por el socio el{' '}
-                  {solicitud.recepcion_conforme_at
-                    ? new Date(solicitud.recepcion_conforme_at).toLocaleString('es-CL')
-                    : '—'}
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Barra de Acciones y Resolución */}
           <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
             <button
@@ -272,20 +208,6 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
             >
               Cerrar
             </button>
-
-            {solicitud.estado === 'aprobado' && onIniciarPagar && (
-              <button
-                type="button"
-                onClick={() => {
-                  const target = solicitud;
-                  onClose();
-                  onIniciarPagar(target);
-                }}
-                className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#0c2b45] to-[#006799] hover:opacity-95 rounded-xl shadow-xs transition cursor-pointer text-center"
-              >
-                💳 Registrar Pago / Liquidar
-              </button>
-            )}
 
             {solicitud.estado === 'en_revision' && esSolicitudPropia && Boolean(onIniciarAprobar) && (
               <span className="w-full sm:w-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold text-center">

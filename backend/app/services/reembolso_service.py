@@ -222,17 +222,6 @@ def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
         motivo_rechazo=sol.motivo_rechazo or "",
         created_at=sol.created_at.isoformat() if sol.created_at else "",
         anio_imputacion=_obtener_anio_imputacion(sol),
-        metodo_pago=getattr(sol, "metodo_pago", "") or "",
-        numero_cheque_o_transferencia=getattr(sol, "numero_cheque_o_transferencia", "") or "",
-        banco_emisor=getattr(sol, "banco_emisor", "") or "",
-        fecha_pago=getattr(sol, "fecha_pago", "") or "",
-        hora_proceso=getattr(sol, "hora_proceso", "") or "",
-        recepcion_conforme=bool(getattr(sol, "recepcion_conforme", False)),
-        recepcion_conforme_at=(
-            sol.recepcion_conforme_at.isoformat()
-            if getattr(sol, "recepcion_conforme_at", None)
-            else None
-        ),
     )
 
 
@@ -240,30 +229,10 @@ _COLUMNAS_REEMBOLSO_LISTAS = False
 
 
 async def asegurar_columnas_reembolso(db: AsyncSession) -> None:
-    """Garantiza de forma idempotente que las columnas nuevas de HU-04/HU-10 existan en PostgreSQL."""
+    """No-op de compatibilidad: las migraciones de esquema residen exclusivamente en init_db.py."""
     global _COLUMNAS_REEMBOLSO_LISTAS
-    if _COLUMNAS_REEMBOLSO_LISTAS:
-        return
-    try:
-        from app.db.session import engine as app_engine
-
-        if getattr(app_engine.dialect, "name", "") != "postgresql":
-            _COLUMNAS_REEMBOLSO_LISTAS = True
-            return
-        async with app_engine.begin() as conn:
-            for ddl in (
-                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(40) DEFAULT ''",
-                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS numero_cheque_o_transferencia VARCHAR(60) DEFAULT ''",
-                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS banco_emisor VARCHAR(60) DEFAULT 'BancoEstado'",
-                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS fecha_pago VARCHAR(10) DEFAULT ''",
-                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS hora_proceso VARCHAR(8) DEFAULT ''",
-                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme BOOLEAN DEFAULT FALSE",
-                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme_at TIMESTAMPTZ",
-            ):
-                await conn.execute(text(ddl))
-        _COLUMNAS_REEMBOLSO_LISTAS = True
-    except Exception as exc:
-        logger.warning("No se pudo ejecutar asegurar_columnas_reembolso: %s", exc)
+    _COLUMNAS_REEMBOLSO_LISTAS = True
+    return
 
 
 async def obtener_beneficiarios_socio(user: User, db: AsyncSession) -> List[BeneficiarioReembolso]:
@@ -634,6 +603,21 @@ async def crear_solicitud(
     return solicitud
 
 
+# [ESTUDIANTE INFORMÁTICA] Esta función recupera las solicitudes del socio autenticado ordenadas cronológicamente; permite renderizar la tabla del historial personal.
+async def listar_solicitudes_socio(
+    user: User, db: AsyncSession
+) -> List[SolicitudReembolso]:
+    """Lista todas las solicitudes de reembolso del socio, ordenadas por fecha."""
+    await asegurar_columnas_reembolso(db)
+    result = await db.scalars(
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio))
+        .where(SolicitudReembolso.socio_id == user.id)
+        .order_by(SolicitudReembolso.created_at.desc())
+    )
+    return list(result)
+
+
 async def _asegurar_semillas_sla_demo(db: AsyncSession) -> None:
     """Garantiza de forma idempotente 3 solicitudes de demostración con distintos tramos de antigüedad SLA (<5d, 5-9d, >10d)."""
     existe_demo = await db.scalar(
@@ -861,109 +845,4 @@ async def resolver_solicitud_reembolso(
                 "No se pudo emitir correo de resolución de reembolso %s: %s", solicitud.codigo, exc
             )
 
-    return solicitud
-
-
-async def registrar_pago_reembolso(
-    solicitud_id: int,
-    metodo_pago: str,
-    numero_cheque_o_transferencia: str,
-    banco_emisor: str,
-    fecha_pago: str,
-    hora_proceso: str,
-    admin_user: User,
-    db: AsyncSession,
-) -> SolicitudReembolso:
-    """Registra el pago efectivo (cheque/transferencia) de un reembolso aprobado y lo marca como PAGADO (HU-04)."""
-    solicitud = await db.scalar(
-        select(SolicitudReembolso)
-        .options(selectinload(SolicitudReembolso.socio))
-        .where(SolicitudReembolso.id == solicitud_id)
-    )
-    if not solicitud:
-        raise ValueError("Solicitud de reembolso no encontrada.")
-
-    if solicitud.estado != EstadoReembolso.APROBADO:
-        raise ValueError(
-            f"Solo se pueden liquidar solicitudes en estado Aprobado (estado actual: {solicitud.estado.value})."
-        )
-
-    num_doc = (numero_cheque_o_transferencia or "").strip()
-    if len(num_doc) < 2:
-        raise ValueError("Debe ingresar el número de cheque o comprobante de transferencia.")
-
-    solicitud.metodo_pago = (metodo_pago or "Cheque").strip()
-    solicitud.numero_cheque_o_transferencia = num_doc
-    solicitud.banco_emisor = (banco_emisor or "BancoEstado").strip()
-    solicitud.fecha_pago = (fecha_pago or date.today().isoformat()).strip()
-    solicitud.hora_proceso = (hora_proceso or datetime.now(timezone.utc).strftime("%H:%M")).strip()
-    solicitud.estado = EstadoReembolso.PAGADO
-
-    db.add(
-        AuditLog(
-            usuario_id=admin_user.id,
-            usuario_nombre=admin_user.nombre_completo,
-            usuario_rut=admin_user.rut,
-            usuario_rol=admin_user.rol.value if hasattr(admin_user.rol, "value") else str(admin_user.rol),
-            modulo="REEMBOLSOS",
-            accion="LIQUIDAR_PAGO_REEMBOLSO",
-            recurso_tipo="SolicitudReembolso",
-            recurso_id=solicitud.codigo,
-            detalles=(
-                f"Pago liquidado para {solicitud.codigo} por ${solicitud.monto_reembolso:,.0f} vía "
-                f"{solicitud.metodo_pago} N° {solicitud.numero_cheque_o_transferencia} ({solicitud.banco_emisor}) "
-                f"el {solicitud.fecha_pago} a las {solicitud.hora_proceso}."
-            ),
-        )
-    )
-    db.add(solicitud)
-    await db.commit()
-    await db.refresh(solicitud)
-    return solicitud
-
-
-async def confirmar_recepcion_conforme_reembolso(
-    solicitud_id: int,
-    user: User,
-    db: AsyncSession,
-) -> SolicitudReembolso:
-    """Registra la confirmación trazada de Recepción Conforme por parte del socio titular (HU-10)."""
-    solicitud = await db.scalar(
-        select(SolicitudReembolso)
-        .options(selectinload(SolicitudReembolso.socio))
-        .where(SolicitudReembolso.id == solicitud_id)
-    )
-    if not solicitud:
-        raise ValueError("Solicitud de reembolso no encontrada.")
-
-    if solicitud.socio_id != user.id:
-        raise PermissionError("Solo el socio titular de la solicitud puede confirmar su recepción conforme.")
-
-    if solicitud.estado not in (EstadoReembolso.PAGADO, EstadoReembolso.APROBADO):
-        raise ValueError(
-            "La recepción conforme solo puede registrarse en solicitudes aprobadas o pagadas."
-        )
-
-    if not solicitud.recepcion_conforme:
-        solicitud.recepcion_conforme = True
-        solicitud.recepcion_conforme_at = datetime.now(timezone.utc)
-        db.add(
-            AuditLog(
-                usuario_id=user.id,
-                usuario_nombre=user.nombre_completo,
-                usuario_rut=user.rut,
-                usuario_rol=user.rol.value if hasattr(user.rol, "value") else str(user.rol),
-                modulo="REEMBOLSOS",
-                accion="CONFIRMAR_RECEPCION_CONFORME",
-                recurso_tipo="SolicitudReembolso",
-                recurso_id=solicitud.codigo,
-                detalles=(
-                    f"El socio {user.nombre_completo} confirmó Recepción Conforme de {solicitud.codigo} "
-                    f"por ${solicitud.monto_reembolso:,.0f}."
-                ),
-            )
-        )
-        db.add(solicitud)
-        await db.commit()
-        await db.refresh(solicitud)
     return solicitud

@@ -260,13 +260,6 @@ export interface SolicitudReembolso {
   motivo_rechazo: string;
   created_at: string;
   anio_imputacion?: number;
-  metodo_pago?: string;
-  numero_cheque_o_transferencia?: string;
-  banco_emisor?: string;
-  fecha_pago?: string;
-  hora_proceso?: string;
-  recepcion_conforme?: boolean;
-  recepcion_conforme_at?: string | null;
 }
 
 export interface ResumenSaludSocio {
