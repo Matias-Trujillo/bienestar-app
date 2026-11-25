@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { DashboardCards } from '@/components/DashboardCards';
 import { QuickActions } from '@/components/QuickActions';
 import { MovementsTable } from '@/components/MovementsTable';
+import { OfertasLaboralesSection } from '@/components/talento/OfertasLaboralesSection';
 import { KpiMetricItem } from '@/types';
 
 // [ESTUDIANTE INFORMÁTICA] Construye los 4 metadatos de filiación del funcionario para la cabecera ejecutiva.
@@ -25,6 +26,7 @@ function buildFiliacionMetrics(
 // [ESTUDIANTE INFORMÁTICA] Dashboard "Hoja de Socio" con diseño moderno, responsivo y libre de desbordamientos.
 export default function DashboardPage() {
   const { user } = useAuth();
+  const esSocioNormal = Boolean(user && !user.isSuperuser && user.rol === 'socio');
   const metrics = buildFiliacionMetrics(
     user?.rut,
     user?.departamento,
@@ -115,7 +117,10 @@ export default function DashboardPage() {
         />
       </section>
 
-      {/* Sección 3: Historial de Movimientos */}
+      {/* Sección 3: Ofertas Laborales Disponibles (Solo Socios sin privilegios, si RRHH publicó vacantes) */}
+      {esSocioNormal && <OfertasLaboralesSection />}
+
+      {/* Sección 4: Historial de Movimientos */}
       <section className="min-w-0">
         <MovementsTable />
       </section>

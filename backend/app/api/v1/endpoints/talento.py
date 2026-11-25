@@ -9,6 +9,9 @@ from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.schemas.talento import (
     CompetenciaOut,
+    OfertaEstadoIn,
+    OfertaLaboralIn,
+    OfertaLaboralOut,
     PostulacionTalentoIn,
     PostulacionTalentoOut,
 )
@@ -100,3 +103,84 @@ async def descargar_cv(
         media_type=content_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get(
+    "/ofertas",
+    response_model=List[OfertaLaboralOut],
+    summary="Listar ofertas laborales disponibles (público para socios/vecinos)",
+)
+async def listar_ofertas(
+    incluir_cerradas: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+):
+    return await TalentoService.listar_ofertas(db, solo_activas=not incluir_cerradas)
+
+
+@router.post(
+    "/ofertas",
+    response_model=OfertaLaboralOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Publicar nueva oferta laboral (RRHH / Administración / Directiva)",
+)
+async def crear_oferta(
+    payload: OfertaLaboralIn,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+):
+    return await TalentoService.crear_oferta(db, payload, user, ip_origen=_extraer_ip(request))
+
+
+@router.patch(
+    "/ofertas/{oferta_id}/estado",
+    response_model=OfertaLaboralOut,
+    summary="Activar o cerrar una oferta laboral (RRHH / Administración)",
+)
+async def cambiar_estado_oferta(
+    oferta_id: int,
+    payload: OfertaEstadoIn,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+):
+    return await TalentoService.actualizar_estado_oferta(
+        db, oferta_id, payload.activa, user, ip_origen=_extraer_ip(request)
+    )
+
+
+@router.delete(
+    "/ofertas/{oferta_id}",
+    summary="Eliminar una oferta laboral (RRHH / Administración)",
+)
+async def eliminar_oferta(
+    oferta_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+):
+    return await TalentoService.eliminar_oferta(db, oferta_id, user, ip_origen=_extraer_ip(request))

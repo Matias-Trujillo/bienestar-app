@@ -30,6 +30,7 @@ from app.models.talento import (
     ExperienciaLaboralTalento,
     JornadaLaboral,
     ModalidadTrabajo,
+    OfertaLaboral,
     PerfilTalentoVecino,
     talento_competencias,
 )
@@ -59,6 +60,7 @@ __all__ = [
     "ExperienciaLaboralTalento",
     "JornadaLaboral",
     "ModalidadTrabajo",
+    "OfertaLaboral",
     "PerfilTalentoVecino",
     "talento_competencias",
 ]

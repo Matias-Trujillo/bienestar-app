@@ -14,12 +14,13 @@ import { AuditLogViewer, AuditLogItem } from '@/components/admin/AuditLogViewer'
 import { ModalEditarUsuario } from '@/components/admin/ModalEditarUsuario';
 import { CatalogoBonosAdmin, BonoAdminItem } from '@/components/admin/CatalogoBonosAdmin';
 import { ModalCrearEditarBono } from '@/components/admin/ModalCrearEditarBono';
+import { OfertasLaboralesAdmin } from '@/components/admin/OfertasLaboralesAdmin';
 import {
   ModalCargaMasivaSocios,
   esCuentaAutorizadaCargaMasiva,
 } from '@/components/admin/ModalCargaMasivaSocios';
 
-type TabAdmin = 'usuarios' | 'bonos' | 'auditoria' | 'parametros';
+type TabAdmin = 'usuarios' | 'bonos' | 'ofertas' | 'auditoria' | 'parametros';
 
 export default function AdminPage() {
   const { user, token, isAdminView, isLoading: authLoading } = useAuth();
@@ -378,6 +379,17 @@ export default function AdminPage() {
           </button>
 
           <button
+            onClick={() => setTab('ofertas')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+              tab === 'ofertas'
+                ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-xs'
+                : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
+            }`}
+          >
+            Ofertas Laborales (RRHH)
+          </button>
+
+          <button
             onClick={() => setTab('auditoria')}
             className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
               tab === 'auditoria'
@@ -458,6 +470,17 @@ export default function AdminPage() {
           onAccionRapidaSeguridad={handleAccionRapidaSeguridad}
           onEliminarUsuario={handleEliminarUsuario}
           onNuevoUsuario={() => setModalCargaMasivaOpen(true)}
+        />
+      )}
+
+      {/* Pestaña 2.5: Ofertas Laborales y Postulaciones (RRHH) */}
+      {tab === 'ofertas' && (
+        <OfertasLaboralesAdmin
+          token={token}
+          onSuccessMsg={(msg) => {
+            setMensajeExito(msg);
+            setTimeout(() => setMensajeExito(null), 5000);
+          }}
         />
       )}
 

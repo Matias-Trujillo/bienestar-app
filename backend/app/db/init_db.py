@@ -653,6 +653,8 @@ async def init_db() -> None:
                 """,
                 "DELETE FROM parametros_sistema WHERE clave LIKE 'SEC_USR_%';",
                 "UPDATE parametros_sistema SET valor = '' WHERE clave = 'SMTP_PASSWORD' AND valor = 'xgsnewzymyqjumgc';",
+                "ALTER TABLE IF EXISTS perfiles_talento_vecino ADD COLUMN IF NOT EXISTS oferta_id INTEGER;",
+                "ALTER TABLE IF EXISTS perfiles_talento_vecino ADD COLUMN IF NOT EXISTS oferta_titulo VARCHAR(180);",
             ]
             for b_sql in backfill_sqls:
                 await db.execute(text(b_sql))

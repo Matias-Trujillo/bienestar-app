@@ -17,10 +17,18 @@ from app.models.talento import (
     EducacionTalento,
     EstadoPostulacionTalento,
     ExperienciaLaboralTalento,
+    OfertaLaboral,
     PerfilTalentoVecino,
 )
+from app.models.user import User
 from app.schemas.afiliacion import formatear_run
-from app.schemas.talento import CompetenciaOut, PostulacionTalentoIn, PostulacionTalentoOut
+from app.schemas.talento import (
+    CompetenciaOut,
+    OfertaLaboralIn,
+    OfertaLaboralOut,
+    PostulacionTalentoIn,
+    PostulacionTalentoOut,
+)
 from app.services.afiliacion_service import sincronizar_smtp_desde_db
 from app.services.email_service import (
     generar_correos_postulacion_talento,
@@ -109,6 +117,8 @@ def _perfil_to_out(
         credencialRndSenadis=p.credencial_rnd_senadis,
         cvFilename=p.cv_filename,
         tieneCv=bool(p.cv_filename and p.cv_data_base64),
+        ofertaId=p.oferta_id,
+        ofertaTitulo=p.oferta_titulo,
         competencias=[
             CompetenciaOut(id=c.id, nombre=c.nombre, categoria=c.categoria)
             for c in (p.competencias or [])
@@ -230,6 +240,22 @@ class TalentoService:
                 ).all()
             )
 
+        oferta_obj: Optional[OfertaLaboral] = None
+        oferta_label: Optional[str] = None
+        if payload.ofertaId:
+            oferta_obj = await db.scalar(
+                select(OfertaLaboral).where(
+                    OfertaLaboral.id == payload.ofertaId,
+                    OfertaLaboral.activa == True,  # noqa: E712
+                )
+            )
+            if not oferta_obj:
+                raise HTTPException(
+                    status_code=404,
+                    detail="La oferta laboral seleccionada ya no se encuentra disponible.",
+                )
+            oferta_label = f"{oferta_obj.codigo} — {oferta_obj.titulo}"
+
         perfil = PerfilTalentoVecino(
             folio=folio,
             nombre_completo=payload.nombreCompleto.strip(),
@@ -249,6 +275,8 @@ class TalentoService:
             cv_content_type=(payload.cvContentType or "").strip() or None,
             cv_data_base64=payload.cvDataBase64,
             estado=EstadoPostulacionTalento.RECIBIDA.value,
+            oferta_id=oferta_obj.id if oferta_obj else None,
+            oferta_titulo=oferta_label,
             competencias=competencias_objs,
         )
 
@@ -338,6 +366,7 @@ class TalentoService:
             cv_content_type=perfil.cv_content_type,
             posee_discapacidad=perfil.posee_discapacidad_ley_21015,
             credencial_rnd=perfil.credencial_rnd_senadis,
+            oferta_label=oferta_label,
             enviar_smtp=True,
         )
 
@@ -411,3 +440,149 @@ class TalentoService:
         if not raw:
             raise HTTPException(status_code=404, detail="No se pudo decodificar el archivo CV almacenado.")
         return perfil.cv_filename, (perfil.cv_content_type or "application/pdf"), raw
+
+    @staticmethod
+    async def _oferta_to_out(db: AsyncSession, o: OfertaLaboral) -> OfertaLaboralOut:
+        count = await db.scalar(
+            select(func.count(PerfilTalentoVecino.id)).where(PerfilTalentoVecino.oferta_id == o.id)
+        ) or 0
+        return OfertaLaboralOut(
+            id=o.id,
+            codigo=o.codigo,
+            titulo=o.titulo,
+            unidad=o.unidad,
+            descripcion=o.descripcion,
+            requisitos=o.requisitos or "",
+            rentaReferencialClp=o.renta_referencial_clp,
+            jornada=o.jornada,
+            modalidad=o.modalidad,
+            vacantes=o.vacantes,
+            fechaCierre=o.fecha_cierre,
+            inclusivaLey21015=bool(o.inclusiva_ley_21015),
+            activa=bool(o.activa),
+            publicadoPorNombre=o.publicado_por_nombre,
+            fechaPublicacion=o.created_at,
+            postulacionesCount=int(count),
+        )
+
+    @staticmethod
+    async def listar_ofertas(
+        db: AsyncSession,
+        solo_activas: bool = True,
+    ) -> List[OfertaLaboralOut]:
+        stmt = select(OfertaLaboral).order_by(OfertaLaboral.activa.desc(), OfertaLaboral.created_at.desc())
+        if solo_activas:
+            stmt = stmt.where(OfertaLaboral.activa == True)  # noqa: E712
+        ofertas = (await db.scalars(stmt)).all()
+        return [await TalentoService._oferta_to_out(db, o) for o in ofertas]
+
+    @staticmethod
+    async def crear_oferta(
+        db: AsyncSession,
+        payload: OfertaLaboralIn,
+        usuario: User,
+        ip_origen: str = "127.0.0.1",
+    ) -> OfertaLaboralOut:
+        anio = datetime.now(timezone.utc).year
+        total = await db.scalar(select(func.count(OfertaLaboral.id))) or 0
+        codigo = f"OFL-{anio}-{total + 1:03d}"
+        while await db.scalar(select(OfertaLaboral.id).where(OfertaLaboral.codigo == codigo)):
+            total += 1
+            codigo = f"OFL-{anio}-{total + 1:03d}"
+
+        oferta = OfertaLaboral(
+            codigo=codigo,
+            titulo=payload.titulo.strip(),
+            unidad=payload.unidad.strip(),
+            descripcion=payload.descripcion.strip(),
+            requisitos=(payload.requisitos or "").strip() or None,
+            renta_referencial_clp=payload.rentaReferencialClp,
+            jornada=payload.jornada,
+            modalidad=payload.modalidad,
+            vacantes=payload.vacantes,
+            fecha_cierre=(payload.fechaCierre or "").strip() or None,
+            inclusiva_ley_21015=payload.inclusivaLey21015,
+            activa=True,
+            publicado_por_id=usuario.id,
+            publicado_por_nombre=usuario.nombre_completo,
+        )
+        db.add(oferta)
+        await db.flush()
+
+        db.add(
+            AuditLog(
+                usuario_id=usuario.id,
+                usuario_nombre=usuario.nombre_completo,
+                usuario_rut=usuario.rut,
+                usuario_rol=usuario.rol.value if hasattr(usuario.rol, "value") else str(usuario.rol),
+                modulo="TALENTO",
+                accion="PUBLICAR_OFERTA_LABORAL",
+                recurso_tipo="OfertaLaboral",
+                recurso_id=codigo,
+                detalles=f"Oferta laboral {codigo} ({oferta.titulo} — {oferta.unidad}) publicada.",
+                ip_origen=ip_origen,
+            )
+        )
+        await db.commit()
+        await db.refresh(oferta)
+        return await TalentoService._oferta_to_out(db, oferta)
+
+    @staticmethod
+    async def actualizar_estado_oferta(
+        db: AsyncSession,
+        oferta_id: int,
+        activa: bool,
+        usuario: User,
+        ip_origen: str = "127.0.0.1",
+    ) -> OfertaLaboralOut:
+        oferta = await db.scalar(select(OfertaLaboral).where(OfertaLaboral.id == oferta_id))
+        if not oferta:
+            raise HTTPException(status_code=404, detail="Oferta laboral no encontrada.")
+        oferta.activa = activa
+        db.add(
+            AuditLog(
+                usuario_id=usuario.id,
+                usuario_nombre=usuario.nombre_completo,
+                usuario_rut=usuario.rut,
+                usuario_rol=usuario.rol.value if hasattr(usuario.rol, "value") else str(usuario.rol),
+                modulo="TALENTO",
+                accion="REABRIR_OFERTA_LABORAL" if activa else "CERRAR_OFERTA_LABORAL",
+                recurso_tipo="OfertaLaboral",
+                recurso_id=oferta.codigo,
+                detalles=f"Oferta {oferta.codigo} ({oferta.titulo}) marcada como {'Activa' if activa else 'Cerrada'}.",
+                ip_origen=ip_origen,
+            )
+        )
+        await db.commit()
+        await db.refresh(oferta)
+        return await TalentoService._oferta_to_out(db, oferta)
+
+    @staticmethod
+    async def eliminar_oferta(
+        db: AsyncSession,
+        oferta_id: int,
+        usuario: User,
+        ip_origen: str = "127.0.0.1",
+    ) -> Dict[str, Any]:
+        oferta = await db.scalar(select(OfertaLaboral).where(OfertaLaboral.id == oferta_id))
+        if not oferta:
+            raise HTTPException(status_code=404, detail="Oferta laboral no encontrada.")
+        codigo = oferta.codigo
+        titulo = oferta.titulo
+        await db.delete(oferta)
+        db.add(
+            AuditLog(
+                usuario_id=usuario.id,
+                usuario_nombre=usuario.nombre_completo,
+                usuario_rut=usuario.rut,
+                usuario_rol=usuario.rol.value if hasattr(usuario.rol, "value") else str(usuario.rol),
+                modulo="TALENTO",
+                accion="ELIMINAR_OFERTA_LABORAL",
+                recurso_tipo="OfertaLaboral",
+                recurso_id=codigo,
+                detalles=f"Oferta laboral {codigo} ({titulo}) eliminada por {usuario.nombre_completo}.",
+                ip_origen=ip_origen,
+            )
+        )
+        await db.commit()
+        return {"ok": True, "codigo": codigo}

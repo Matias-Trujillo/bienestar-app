@@ -18,6 +18,42 @@ class CompetenciaOut(BaseModel):
     categoria: str
 
 
+class OfertaLaboralIn(BaseModel):
+    titulo: str = Field(..., min_length=3, max_length=160)
+    unidad: str = Field(..., min_length=2, max_length=120)
+    descripcion: str = Field(..., min_length=15, max_length=3000)
+    requisitos: Optional[str] = Field(default="", max_length=2000)
+    rentaReferencialClp: Optional[int] = Field(default=None, ge=100000, le=20000000)
+    jornada: Literal["completa", "parcial", "turnos"] = "completa"
+    modalidad: Literal["presencial", "hibrida", "teletrabajo"] = "presencial"
+    vacantes: int = Field(default=1, ge=1, le=50)
+    fechaCierre: Optional[str] = Field(default=None, max_length=10)
+    inclusivaLey21015: bool = True
+
+
+class OfertaEstadoIn(BaseModel):
+    activa: bool
+
+
+class OfertaLaboralOut(BaseModel):
+    id: int
+    codigo: str
+    titulo: str
+    unidad: str
+    descripcion: str
+    requisitos: Optional[str] = ""
+    rentaReferencialClp: Optional[int] = None
+    jornada: str
+    modalidad: str
+    vacantes: int
+    fechaCierre: Optional[str] = None
+    inclusivaLey21015: bool
+    activa: bool
+    publicadoPorNombre: Optional[str] = None
+    fechaPublicacion: datetime
+    postulacionesCount: int = 0
+
+
 class EducacionIn(BaseModel):
     institucion: str = Field(..., min_length=2, max_length=150)
     titulo: str = Field(..., min_length=2, max_length=150)
@@ -102,6 +138,9 @@ class PostulacionTalentoIn(BaseModel):
     cvContentType: Optional[str] = Field(default=None, max_length=120)
     cvDataBase64: Optional[str] = Field(default=None)
 
+    # Oferta laboral asociada (opcional)
+    ofertaId: Optional[int] = Field(default=None)
+
     @field_validator("run")
     @classmethod
     def _validate_run(cls, v: str) -> str:
@@ -156,6 +195,8 @@ class PostulacionTalentoOut(BaseModel):
     credencialRndSenadis: Optional[str] = None
     cvFilename: Optional[str] = None
     tieneCv: bool = False
+    ofertaId: Optional[int] = None
+    ofertaTitulo: Optional[str] = None
     competencias: List[CompetenciaOut] = Field(default_factory=list)
     educaciones: List[Dict[str, Any]] = Field(default_factory=list)
     experiencias: List[Dict[str, Any]] = Field(default_factory=list)

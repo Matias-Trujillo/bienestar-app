@@ -479,6 +479,7 @@ def generar_correos_postulacion_talento(
     cv_content_type: Optional[str] = None,
     posee_discapacidad: bool = False,
     credencial_rnd: Optional[str] = None,
+    oferta_label: Optional[str] = None,
     enviar_smtp: bool = True,
     transport: Optional[SmtpTransportProtocol] = None,
     buzon: Optional[EmailBuzonProtocol] = None,
@@ -503,6 +504,7 @@ def generar_correos_postulacion_talento(
         cv_filename=cv_filename,
         posee_discapacidad=posee_discapacidad,
         fecha_emision=fecha_emision,
+        oferta_label=oferta_label,
     )
     ok_post, err_post = _despachar_correo(
         email_postulante.strip(), asunto_post, txt_post, html_post, enviar_smtp, transport
@@ -547,6 +549,7 @@ def generar_correos_postulacion_talento(
         posee_discapacidad=posee_discapacidad,
         credencial_rnd=credencial_rnd,
         fecha_emision=fecha_emision,
+        oferta_label=oferta_label,
     )
     adjuntos = (
         [(cv_filename, cv_bytes, cv_content_type or "application/octet-stream")]

@@ -65,6 +65,34 @@ class CompetenciaCatalogo(Base):
     activa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
+class OfertaLaboral(Base, TimestampMixin):
+    """Oferta laboral publicada por RRHH / Administración para postulación de vecinos y socios."""
+
+    __tablename__ = "ofertas_laborales"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    codigo: Mapped[str] = mapped_column(String(30), unique=True, nullable=False, index=True)
+    titulo: Mapped[str] = mapped_column(String(160), nullable=False)
+    unidad: Mapped[str] = mapped_column(String(120), nullable=False, default="Municipalidad de Peralillo")
+    descripcion: Mapped[str] = mapped_column(Text, nullable=False)
+    requisitos: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    renta_referencial_clp: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    jornada: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=JornadaLaboral.COMPLETA.value
+    )
+    modalidad: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=ModalidadTrabajo.PRESENCIAL.value
+    )
+    vacantes: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    fecha_cierre: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    inclusiva_ley_21015: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    activa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    publicado_por_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True
+    )
+    publicado_por_nombre: Mapped[Optional[str]] = mapped_column(String(140), nullable=True)
+
+
 class PerfilTalentoVecino(Base, TimestampMixin):
     """Perfil curricular principal de un vecino/postulante en Trabaja con Nosotros."""
 
@@ -108,6 +136,10 @@ class PerfilTalentoVecino(Base, TimestampMixin):
     estado: Mapped[str] = mapped_column(
         String(30), nullable=False, default=EstadoPostulacionTalento.RECIBIDA.value
     )
+    oferta_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("ofertas_laborales.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    oferta_titulo: Mapped[Optional[str]] = mapped_column(String(180), nullable=True)
 
     # Relaciones normalizadas 3FN
     educaciones: Mapped[List["EducacionTalento"]] = relationship(

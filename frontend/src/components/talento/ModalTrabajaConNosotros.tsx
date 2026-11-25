@@ -27,6 +27,25 @@ export interface CompetenciaItem {
   categoria: string;
 }
 
+export interface OfertaLaboralItem {
+  id: number;
+  codigo: string;
+  titulo: string;
+  unidad: string;
+  descripcion: string;
+  requisitos?: string;
+  rentaReferencialClp?: number | null;
+  jornada: string;
+  modalidad: string;
+  vacantes: number;
+  fechaCierre?: string | null;
+  inclusivaLey21015: boolean;
+  activa: boolean;
+  publicadoPorNombre?: string | null;
+  fechaPublicacion: string;
+  postulacionesCount: number;
+}
+
 interface EducacionForm {
   institucion: string;
   titulo: string;
@@ -69,6 +88,7 @@ export interface ModalTrabajaConNosotrosProps {
   isOpen: boolean;
   onClose: () => void;
   embedded?: boolean;
+  ofertaInicial?: OfertaLaboralItem | null;
 }
 
 const NIVELES_EDUCACIONALES = [
@@ -92,12 +112,17 @@ function formatClpInput(raw: string): string {
   return Number(digits).toLocaleString('es-CL');
 }
 
-export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedded?: boolean }> = ({
-  onClose,
-  embedded = false,
-}) => {
+export const TrabajaConNosotrosContent: React.FC<{
+  onClose?: () => void;
+  embedded?: boolean;
+  ofertaInicial?: OfertaLaboralItem | null;
+}> = ({ onClose, embedded = false, ofertaInicial = null }) => {
   const [paso, setPaso] = useState<1 | 2 | 3>(1);
   const [competenciasCatalogo, setCompetenciasCatalogo] = useState<CompetenciaItem[]>([]);
+  const [ofertasDisponibles, setOfertasDisponibles] = useState<OfertaLaboralItem[]>([]);
+  const [ofertaSeleccionadaId, setOfertaSeleccionadaId] = useState<number | null>(
+    ofertaInicial?.id ?? null
+  );
   const [cargandoComp, setCargandoComp] = useState(false);
   const [busquedaComp, setBusquedaComp] = useState('');
 
@@ -136,11 +161,19 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
   const [resultado, setResultado] = useState<PostulacionResult | null>(null);
 
   useEffect(() => {
+    setOfertaSeleccionadaId(ofertaInicial?.id ?? null);
+  }, [ofertaInicial]);
+
+  useEffect(() => {
     setCargandoComp(true);
     fetchFromApi<CompetenciaItem[]>('/talento/competencias')
       .then((data) => setCompetenciasCatalogo(Array.isArray(data) ? data : []))
       .catch(() => setCompetenciasCatalogo([]))
       .finally(() => setCargandoComp(false));
+
+    fetchFromApi<OfertaLaboralItem[]>('/talento/ofertas')
+      .then((data) => setOfertasDisponibles(Array.isArray(data) ? data : []))
+      .catch(() => setOfertasDisponibles([]));
   }, []);
 
   const competenciasAgrupadas = useMemo(() => {
@@ -348,6 +381,7 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
         cvFilename,
         cvContentType,
         cvDataBase64,
+        ofertaId: ofertaSeleccionadaId,
       };
 
       const res = await fetchFromApi<PostulacionResult>('/talento/postulaciones', {
@@ -556,6 +590,43 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
             {/* ================= PASO 1 ================= */}
             {paso === 1 && (
               <div className="space-y-4 animate-fade-in">
+                {ofertaInicial ? (
+                  <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200/80 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#006799] block">
+                        Postulando a Oferta Laboral • {ofertaInicial.codigo}
+                      </span>
+                      <p className="text-xs font-extrabold text-[#0c2b45] truncate mt-0.5">
+                        {ofertaInicial.titulo}
+                      </p>
+                      <p className="text-[11px] text-slate-600 truncate">
+                        {ofertaInicial.unidad}
+                        {ofertaInicial.fechaCierre ? ` • Cierre: ${ofertaInicial.fechaCierre}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                ) : ofertasDisponibles.length > 0 ? (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Oferta Laboral a la que postula (Opcional)
+                    </label>
+                    <select
+                      value={ofertaSeleccionadaId ?? ''}
+                      onChange={(e) =>
+                        setOfertaSeleccionadaId(e.target.value ? Number(e.target.value) : null)
+                      }
+                      className="w-full px-3.5 py-2 text-xs bg-sky-50/50 border border-sky-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]/30 focus:border-[#006799]"
+                    >
+                      <option value="">Postulación espontánea (Base General de Talentos)</option>
+                      {ofertasDisponibles.map((of) => (
+                        <option key={of.id} value={of.id}>
+                          {of.codigo} — {of.titulo} ({of.unidad})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1292,6 +1363,7 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
 export const ModalTrabajaConNosotros: React.FC<ModalTrabajaConNosotrosProps> = ({
   isOpen,
   onClose,
+  ofertaInicial = null,
 }) => {
   const [mounted, setMounted] = useState(false);
 
@@ -1307,7 +1379,7 @@ export const ModalTrabajaConNosotros: React.FC<ModalTrabajaConNosotrosProps> = (
       onClick={onClose}
     >
       <div className="w-full max-w-3xl flex justify-center" onClick={(e) => e.stopPropagation()}>
-        <TrabajaConNosotrosContent onClose={onClose} />
+        <TrabajaConNosotrosContent onClose={onClose} ofertaInicial={ofertaInicial} />
       </div>
     </div>,
     document.body

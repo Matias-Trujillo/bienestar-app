@@ -3,7 +3,7 @@ import base64
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.talento import PostulacionTalentoIn
+from app.schemas.talento import OfertaLaboralIn, PostulacionTalentoIn
 from app.services.talento_service import TalentoService
 
 
@@ -94,3 +94,36 @@ async def test_crear_postulacion_y_notificar_ambas_partes(db_session):
     assert out.notificaciones is not None
     assert out.notificaciones["postulante"]["destinatario"] == "camila.rojas@gmail.com"
     assert out.notificaciones["institucion"]["cvAdjunto"] is True
+
+
+@pytest.mark.asyncio
+async def test_publicar_oferta_y_postular_a_oferta(db_session, usuario_admin):
+    oferta = await TalentoService.crear_oferta(
+        db_session,
+        OfertaLaboralIn(
+            titulo="Administrativo/a de Atención Ciudadana",
+            unidad="DIDECO",
+            descripcion="Apoyo en gestión de público y orientación de beneficios municipales.",
+            requisitos="Título técnico y manejo de Excel.",
+            rentaReferencialClp=850000,
+            jornada="completa",
+            modalidad="presencial",
+            vacantes=2,
+            fechaCierre="2026-12-30",
+            inclusivaLey21015=True,
+        ),
+        usuario_admin,
+    )
+    assert oferta.codigo.startswith("OFL-")
+    assert oferta.activa is True
+
+    postulacion = await TalentoService.crear_postulacion(
+        db_session,
+        PostulacionTalentoIn(**_payload_valido(ofertaId=oferta.id)),
+    )
+    assert postulacion.ofertaId == oferta.id
+    assert oferta.titulo in (postulacion.ofertaTitulo or "")
+
+    ofertas_activas = await TalentoService.listar_ofertas(db_session, solo_activas=True)
+    assert len(ofertas_activas) == 1
+    assert ofertas_activas[0].postulacionesCount == 1

@@ -919,8 +919,10 @@ def construir_plantilla_postulacion_talento_postulante(
     cv_filename: Optional[str],
     posee_discapacidad: bool,
     fecha_emision: str,
+    oferta_label: Optional[str] = None,
 ) -> Tuple[str, str, str]:
     """Construye el correo de confirmación para el vecino/postulante que envió su CV."""
+    oferta_txt = oferta_label or "Postulación espontánea (Base de Talentos)"
     asunto = f"[Trabaja con Nosotros • Peralillo] Postulación Recibida {folio}"
     cv_lbl = cv_filename or "Sin archivo adjunto"
     ley_lbl = "Sí (Información confidencial resguardada bajo Ley N° 21.015)" if posee_discapacidad else "No declarada"
@@ -969,6 +971,7 @@ def construir_plantilla_postulacion_talento_postulante(
         alerta_estado_html=alerta_html,
         filas_tabla=[
             ("N° de Folio", folio),
+            ("Oferta Laboral", oferta_txt),
             ("Postulante", f"{nombre_completo} (RUN {run_formateado})"),
             ("Correo y Teléfono", f"{email} • {telefono}"),
             ("Comuna", comuna),
@@ -1009,8 +1012,10 @@ def construir_plantilla_postulacion_talento_institucion(
     posee_discapacidad: bool,
     credencial_rnd: Optional[str],
     fecha_emision: str,
+    oferta_label: Optional[str] = None,
 ) -> Tuple[str, str, str]:
     """Construye la notificación interna enviada al equipo municipal/institucional con todo el perfil y CV adjunto."""
+    oferta_txt = oferta_label or "Postulación espontánea (Base de Talentos)"
     asunto = f"[Nuevo Talento] Postulación {folio} — {nombre_completo}"
     cv_lbl = f"{cv_filename} (adjunto en este correo)" if cv_filename else "No adjuntó archivo CV"
     ley_lbl = (
@@ -1063,6 +1068,7 @@ def construir_plantilla_postulacion_talento_institucion(
         alerta_estado_html=alerta_html,
         filas_tabla=[
             ("Folio", folio),
+            ("Oferta Postulada", oferta_txt),
             ("Postulante", f"{nombre_completo} (RUN {run_formateado})"),
             ("Contacto", f"{email} • {telefono}"),
             ("Domicilio", f"{direccion}, {comuna}"),
