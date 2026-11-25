@@ -245,28 +245,25 @@ async def asegurar_columnas_reembolso(db: AsyncSession) -> None:
     if _COLUMNAS_REEMBOLSO_LISTAS:
         return
     try:
-        bind = db.get_bind()
-        if bind and getattr(bind.dialect, "name", "") != "postgresql":
+        from app.db.session import engine as app_engine
+
+        if getattr(app_engine.dialect, "name", "") != "postgresql":
             _COLUMNAS_REEMBOLSO_LISTAS = True
             return
-    except Exception:
+        async with app_engine.begin() as conn:
+            for ddl in (
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(40) DEFAULT ''",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS numero_cheque_o_transferencia VARCHAR(60) DEFAULT ''",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS banco_emisor VARCHAR(60) DEFAULT 'BancoEstado'",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS fecha_pago VARCHAR(10) DEFAULT ''",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS hora_proceso VARCHAR(8) DEFAULT ''",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme_at TIMESTAMPTZ",
+            ):
+                await conn.execute(text(ddl))
         _COLUMNAS_REEMBOLSO_LISTAS = True
-        return
-    try:
-        for ddl in (
-            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(40) DEFAULT ''",
-            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS numero_cheque_o_transferencia VARCHAR(60) DEFAULT ''",
-            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS banco_emisor VARCHAR(60) DEFAULT 'BancoEstado'",
-            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS fecha_pago VARCHAR(10) DEFAULT ''",
-            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS hora_proceso VARCHAR(8) DEFAULT ''",
-            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme_at TIMESTAMPTZ",
-        ):
-            await db.execute(text(ddl))
-        await db.commit()
-        _COLUMNAS_REEMBOLSO_LISTAS = True
-    except Exception:
-        await db.rollback()
+    except Exception as exc:
+        logger.warning("No se pudo ejecutar asegurar_columnas_reembolso: %s", exc)
 
 
 async def obtener_beneficiarios_socio(user: User, db: AsyncSession) -> List[BeneficiarioReembolso]:

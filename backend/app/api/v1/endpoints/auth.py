@@ -4,9 +4,12 @@
 y seguridad a `AuthService` y separa los contratos DTO en `app/schemas/auth.py`.
 """
 from typing import Any, Dict, List
+import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger("uvicorn.error")
 
 from app.api.deps import (
     get_audit_logger,
@@ -63,7 +66,16 @@ async def login(
     audit_logger: AuditLoggerProtocol = Depends(get_audit_logger),
 ):
     servicio = _resolver_auth_service(hasher=hasher, audit_logger=audit_logger)
-    return await servicio.login(db, body.username, body.password)
+    try:
+        return await servicio.login(db, body.username, body.password)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error inesperado en POST /auth/login")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno en autenticación: {type(exc).__name__}: {str(exc)}",
+        )
 
 
 @router.get("/me", response_model=UserOut)
@@ -72,6 +84,10 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
         await obtener_resumen_socio(user, db)
         await db.refresh(user)
     except Exception:
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         user = (await db.get(User, user.id)) or user
     sec = await obtener_seguridad_usuario(db, user.id)
     return to_out(user, sec)
