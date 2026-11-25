@@ -892,6 +892,7 @@ async def registrar_pago_reembolso(
     pago = solicitud.pago
     if not pago:
         pago = PagoReembolso(solicitud_id=solicitud.id)
+        solicitud.pago = pago
         db.add(pago)
 
     pago.metodo_pago = (metodo_pago or "Cheque").strip()
@@ -924,6 +925,7 @@ async def registrar_pago_reembolso(
     return await db.scalar(
         select(SolicitudReembolso)
         .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .execution_options(populate_existing=True)
         .where(SolicitudReembolso.id == solicitud_id)
     )
 
@@ -937,6 +939,7 @@ async def confirmar_recepcion_conforme_reembolso(
     solicitud = await db.scalar(
         select(SolicitudReembolso)
         .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .execution_options(populate_existing=True)
         .where(SolicitudReembolso.id == solicitud_id)
     )
     if not solicitud:
@@ -953,6 +956,7 @@ async def confirmar_recepcion_conforme_reembolso(
     pago = solicitud.pago
     if not pago:
         pago = PagoReembolso(solicitud_id=solicitud.id)
+        solicitud.pago = pago
         db.add(pago)
 
     if not pago.recepcion_conforme:
@@ -979,5 +983,6 @@ async def confirmar_recepcion_conforme_reembolso(
     return await db.scalar(
         select(SolicitudReembolso)
         .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .execution_options(populate_existing=True)
         .where(SolicitudReembolso.id == solicitud_id)
     )
