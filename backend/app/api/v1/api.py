@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     beneficios,
     finanzas,
     admin,
+    talento,
 )
 
 api_router = APIRouter()
@@ -17,3 +18,4 @@ api_router.include_router(reembolsos.router, prefix="/reembolsos", tags=["Reembo
 api_router.include_router(beneficios.router, prefix="/beneficios", tags=["Beneficios Sociales"])
 api_router.include_router(finanzas.router, prefix="/finanzas", tags=["Control Financiero"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Administración"])
+api_router.include_router(talento.router, prefix="/talento", tags=["Vecino y Nuevo Talento"])

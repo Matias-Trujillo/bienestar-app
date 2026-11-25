@@ -665,7 +665,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             </span>
           </div>
           <p className="text-xs text-slate-500 truncate font-normal">
-            Ilustre Municipalidad de Peralillo • <span className="text-[#ea580c] font-medium">La comuna que soñamos</span>
+            Ilustre Municipalidad de Peralillo
           </p>
         </div>
       </div>

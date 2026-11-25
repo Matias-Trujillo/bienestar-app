@@ -8,13 +8,14 @@ import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { WelcomeLoginExperience } from '@/components/ui/WelcomeLoginExperience';
 import { ModalCambioPasswordObligatorio } from '@/components/ui/ModalCambioPasswordObligatorio';
+import { ModalTrabajaConNosotros } from '@/components/talento/ModalTrabajaConNosotros';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 // [ESTUDIANTE INFORMÁTICA] Rutas públicas del portal que se renderizan a pantalla completa sin menú lateral.
-const PUBLIC_ROUTES = ['/login', '/afiliacion/solicitud'];
+const PUBLIC_ROUTES = ['/login', '/afiliacion/solicitud', '/talento/perfil'];
 
 // [ESTUDIANTE INFORMÁTICA] Pantalla de carga moderna y centrada durante la verificación inicial del token JWT.
 const LoadingPortalState: React.FC = () => (
@@ -31,6 +32,7 @@ const LoadingPortalState: React.FC = () => (
 // [ESTUDIANTE INFORMÁTICA] Layout maestro con prevención estricta de desbordamiento horizontal (min-w-0 y overflow-x-hidden).
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [trabajaOpen, setTrabajaOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
@@ -60,11 +62,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </main>
         <footer className="py-3.5 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 border-t border-slate-200/80 bg-white/80 backdrop-blur-sm mb-16 lg:mb-0">
           <span className="font-medium text-center sm:text-left">Comité de Bienestar &copy; {new Date().getFullYear()} • I. Municipalidad de Peralillo</span>
-          <span className="text-[11px] font-mono text-slate-400 text-center sm:text-right">Portal Oficial de Socios y Funcionarios</span>
+          <div className="flex items-center gap-3 text-[11px]">
+            <button
+              type="button"
+              onClick={() => setTrabajaOpen(true)}
+              className="text-slate-500 hover:text-[#006799] hover:underline font-medium transition-colors cursor-pointer"
+            >
+              Trabaja con nosotros
+            </button>
+            <span className="text-slate-300">•</span>
+            <span className="font-mono text-slate-400 text-center sm:text-right">Portal Oficial de Socios y Funcionarios</span>
+          </div>
         </footer>
       </div>
 
       <BottomNav onOpenSidebar={() => setSidebarOpen(true)} />
+      <ModalTrabajaConNosotros isOpen={trabajaOpen} onClose={() => setTrabajaOpen(false)} />
     </div>
   );
 };

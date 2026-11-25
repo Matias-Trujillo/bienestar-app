@@ -33,9 +33,6 @@ const SplashBrandingText: React.FC = () => (
     <p className="text-sm sm:text-base text-slate-200 font-medium">
       Portal Oficial de Gestión Operativa y Financiera
     </p>
-    <p className="text-xs sm:text-sm text-[#ea580c] font-semibold italic drop-shadow">
-      «La comuna que soñamos»
-    </p>
   </div>
 );
 

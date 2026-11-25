@@ -5,7 +5,7 @@
   - DIP: Acepta implementaciones abstractas (`SmtpTransportProtocol`, `EmailBuzonProtocol`) sin acoplarse a detalles concretos.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
 from app.core.interfaces import EmailBuzonProtocol, SmtpTransportProtocol
@@ -17,6 +17,8 @@ from app.services.email_buzon import (
 )
 from app.services.email_templates import (
     _envolver_html_institucional,
+    construir_plantilla_postulacion_talento_institucion,
+    construir_plantilla_postulacion_talento_postulante,
     construir_plantilla_prueba_smtp,
     construir_plantilla_recepcion_reembolso,
     construir_plantilla_recepcion_solicitud,
@@ -41,10 +43,13 @@ def _despachar_correo(
     cuerpo_html: str,
     enviar_smtp: bool,
     transport: Optional[SmtpTransportProtocol] = None,
+    adjuntos: Optional[List[Tuple[str, bytes, str]]] = None,
 ) -> tuple[bool, Optional[str]]:
     if not (enviar_smtp and destinatario):
         return False, None
     medio = transport or default_smtp_transport
+    if adjuntos:
+        return medio.enviar_html(destinatario, asunto, cuerpo_texto, cuerpo_html, adjuntos=adjuntos)  # type: ignore[call-arg]
     return medio.enviar_html(destinatario, asunto, cuerpo_texto, cuerpo_html)
 
 
@@ -449,3 +454,145 @@ def generar_correo_resolucion_reembolso(
     }
     (buzon or default_buzon_store).registrar(payload)
     return payload
+
+
+def generar_correos_postulacion_talento(
+    *,
+    folio: str,
+    nombre_completo: str,
+    run_formateado: str,
+    email_postulante: str,
+    email_institucion: str,
+    telefono: str,
+    direccion: str,
+    comuna: str,
+    resumen_profesional: str,
+    renta_esperada_clp: int,
+    jornada_label: str,
+    modalidad_label: str,
+    competencias_texto: str,
+    educacion_resumen: str,
+    experiencia_resumen: str,
+    cursos_resumen: str,
+    cv_filename: Optional[str] = None,
+    cv_bytes: Optional[bytes] = None,
+    cv_content_type: Optional[str] = None,
+    posee_discapacidad: bool = False,
+    credencial_rnd: Optional[str] = None,
+    enviar_smtp: bool = True,
+    transport: Optional[SmtpTransportProtocol] = None,
+    buzon: Optional[EmailBuzonProtocol] = None,
+) -> Dict[str, Any]:
+    """Despacha notificaciones por correo a AMBAS PARTES (postulante + equipo institucional con CV adjunto)."""
+    fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    renta_fmt = f"${renta_esperada_clp:,.0f} CLP".replace(",", ".")
+    store = buzon or default_buzon_store
+
+    # 1. Correo de confirmación para el postulante
+    asunto_post, txt_post, html_post = construir_plantilla_postulacion_talento_postulante(
+        folio=folio,
+        nombre_completo=nombre_completo,
+        run_formateado=run_formateado,
+        email=email_postulante,
+        telefono=telefono,
+        comuna=comuna,
+        renta_fmt=renta_fmt,
+        jornada_label=jornada_label,
+        modalidad_label=modalidad_label,
+        competencias_texto=competencias_texto,
+        cv_filename=cv_filename,
+        posee_discapacidad=posee_discapacidad,
+        fecha_emision=fecha_emision,
+    )
+    ok_post, err_post = _despachar_correo(
+        email_postulante.strip(), asunto_post, txt_post, html_post, enviar_smtp, transport
+    )
+    payload_post = {
+        "tipo": "postulacion_talento_postulante",
+        "destinatario": email_postulante.strip(),
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto_post,
+        "fechaEmision": fecha_emision,
+        "folio": folio,
+        "nombreDestinatario": nombre_completo,
+        "runDestinatario": run_formateado,
+        "estadoSolicitud": "RECIBIDA",
+        "resumenEstado": f"Postulación {folio} confirmada al postulante {nombre_completo}.",
+        "cuerpoTexto": txt_post,
+        "cuerpoHtml": html_post,
+        "enviadoSmtp": ok_post,
+        "errorSmtp": err_post,
+        "modoEnvio": "smtp_real" if ok_post else "buzon_institucional",
+    }
+    store.registrar(payload_post)
+
+    # 2. Correo interno para la contraparte institucional (adjuntando el CV real si fue cargado)
+    asunto_inst, txt_inst, html_inst = construir_plantilla_postulacion_talento_institucion(
+        folio=folio,
+        nombre_completo=nombre_completo,
+        run_formateado=run_formateado,
+        email=email_postulante,
+        telefono=telefono,
+        direccion=direccion,
+        comuna=comuna,
+        resumen_profesional=resumen_profesional,
+        renta_fmt=renta_fmt,
+        jornada_label=jornada_label,
+        modalidad_label=modalidad_label,
+        competencias_texto=competencias_texto,
+        educacion_resumen=educacion_resumen,
+        experiencia_resumen=experiencia_resumen,
+        cursos_resumen=cursos_resumen,
+        cv_filename=cv_filename,
+        posee_discapacidad=posee_discapacidad,
+        credencial_rnd=credencial_rnd,
+        fecha_emision=fecha_emision,
+    )
+    adjuntos = (
+        [(cv_filename, cv_bytes, cv_content_type or "application/octet-stream")]
+        if (cv_filename and cv_bytes)
+        else None
+    )
+    ok_inst, err_inst = _despachar_correo(
+        email_institucion.strip(),
+        asunto_inst,
+        txt_inst,
+        html_inst,
+        enviar_smtp,
+        transport,
+        adjuntos=adjuntos,
+    )
+    payload_inst = {
+        "tipo": "postulacion_talento_institucion",
+        "destinatario": email_institucion.strip(),
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto_inst,
+        "fechaEmision": fecha_emision,
+        "folio": folio,
+        "nombreDestinatario": "Gestión de Personas / Comité",
+        "runDestinatario": run_formateado,
+        "estadoSolicitud": "RECIBIDA",
+        "resumenEstado": f"Postulación {folio} derivada a {email_institucion}.",
+        "cuerpoTexto": txt_inst,
+        "cuerpoHtml": html_inst,
+        "enviadoSmtp": ok_inst,
+        "errorSmtp": err_inst,
+        "modoEnvio": "smtp_real" if ok_inst else "buzon_institucional",
+    }
+    store.registrar(payload_inst)
+
+    return {
+        "postulante": {
+            "destinatario": email_postulante.strip(),
+            "enviadoSmtp": ok_post,
+            "errorSmtp": err_post,
+            "asunto": asunto_post,
+        },
+        "institucion": {
+            "destinatario": email_institucion.strip(),
+            "enviadoSmtp": ok_inst,
+            "errorSmtp": err_inst,
+            "asunto": asunto_inst,
+            "cvAdjunto": bool(adjuntos),
+        },
+    }

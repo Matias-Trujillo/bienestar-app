@@ -902,3 +902,183 @@ def construir_plantilla_resolucion_reembolso(
         )
         resumen_estado = f"Reembolso {codigo} RECHAZADO: {motivo_texto}. Saldo {monto_rem_fmt} restituido al 100%."
     return asunto, cuerpo_texto, cuerpo_html, resumen_estado
+
+
+def construir_plantilla_postulacion_talento_postulante(
+    *,
+    folio: str,
+    nombre_completo: str,
+    run_formateado: str,
+    email: str,
+    telefono: str,
+    comuna: str,
+    renta_fmt: str,
+    jornada_label: str,
+    modalidad_label: str,
+    competencias_texto: str,
+    cv_filename: Optional[str],
+    posee_discapacidad: bool,
+    fecha_emision: str,
+) -> Tuple[str, str, str]:
+    """Construye el correo de confirmación para el vecino/postulante que envió su CV."""
+    asunto = f"[Trabaja con Nosotros • Peralillo] Postulación Recibida {folio}"
+    cv_lbl = cv_filename or "Sin archivo adjunto"
+    ley_lbl = "Sí (Información confidencial resguardada bajo Ley N° 21.015)" if posee_discapacidad else "No declarada"
+
+    alerta_html = construir_alerta_estado_html(
+        bg_color="#ecfdf5",
+        border_color="#16a34a",
+        title_color="#166534",
+        body_color="#14532d",
+        titulo=f"✓ Postulación Registrada Correctamente ({folio})",
+        cuerpo_html=(
+            "Hemos recibido sus antecedentes curriculares en el portal <strong>Trabaja con Nosotros — "
+            "Vecino y Nuevo Talento</strong> de la Ilustre Municipalidad de Peralillo. "
+            "Nuestro equipo de gestión de personas revisará su perfil para futuras vacantes acordes a sus competencias."
+        ),
+    )
+
+    cuerpo_texto = (
+        f"Estimado(a) {nombre_completo}:\n\n"
+        f"Confirmamos la recepción exitosa de su postulación laboral con Folio {folio}.\n"
+        f"- Postulante: {nombre_completo} (RUN {run_formateado})\n"
+        f"- Contacto: {email} / {telefono} ({comuna})\n"
+        f"- Pretensión de Renta: {renta_fmt}\n"
+        f"- Jornada / Modalidad: {jornada_label} / {modalidad_label}\n"
+        f"- Competencias: {competencias_texto}\n"
+        f"- Currículum Adjunto: {cv_lbl}\n"
+        f"- Inclusión Ley N° 21.015: {ley_lbl}\n\n"
+        f"Sus datos serán tratados de manera estrictamente confidencial conforme a la normativa vigente.\n\n"
+        f"Atentamente,\nPortal Trabaja con Nosotros • I. Municipalidad de Peralillo"
+    )
+
+    cuerpo_html = _envolver_html_institucional(
+        folio=folio,
+        fecha_emision=fecha_emision,
+        badge_texto="POSTULACIÓN RECIBIDA",
+        badge_bg="#dcfce7",
+        badge_color="#166534",
+        banner_bg="#0c2b45",
+        banner_subtitulo="TRABAJA CON NOSOTROS • VECINO Y NUEVO TALENTO",
+        banner_titulo=f"Postulación {folio} Confirmada",
+        saludo_nombre=nombre_completo,
+        intro_html=(
+            "Agradecemos su interés en integrarse al equipo de la <strong>Ilustre Municipalidad de Peralillo</strong>. "
+            "A continuación encontrará el comprobante con el resumen de su postulación:"
+        ),
+        alerta_estado_html=alerta_html,
+        filas_tabla=[
+            ("N° de Folio", folio),
+            ("Postulante", f"{nombre_completo} (RUN {run_formateado})"),
+            ("Correo y Teléfono", f"{email} • {telefono}"),
+            ("Comuna", comuna),
+            ("Renta Esperada", renta_fmt),
+            ("Jornada y Modalidad", f"{jornada_label} • {modalidad_label}"),
+            ("Competencias Seleccionadas", competencias_texto),
+            ("Currículum Vitae (CV)", cv_lbl),
+            ("Inclusión Ley N° 21.015", ley_lbl),
+        ],
+        titulo_pasos="¿Qué ocurre ahora con su postulación?",
+        pasos=[
+            "Su perfil curricular y CV han sido derivados automáticamente al correo institucional de Gestión de Personas / Comité.",
+            "Cuando exista un proceso de selección compatible con sus competencias y condiciones laborales, será contactado(a) directamente al correo o teléfono informado.",
+            "Toda información sensible (incluida la acreditación bajo Ley N° 21.015) se resguarda bajo estricta confidencialidad.",
+        ],
+    )
+    return asunto, cuerpo_texto, cuerpo_html
+
+
+def construir_plantilla_postulacion_talento_institucion(
+    *,
+    folio: str,
+    nombre_completo: str,
+    run_formateado: str,
+    email: str,
+    telefono: str,
+    direccion: str,
+    comuna: str,
+    resumen_profesional: str,
+    renta_fmt: str,
+    jornada_label: str,
+    modalidad_label: str,
+    competencias_texto: str,
+    educacion_resumen: str,
+    experiencia_resumen: str,
+    cursos_resumen: str,
+    cv_filename: Optional[str],
+    posee_discapacidad: bool,
+    credencial_rnd: Optional[str],
+    fecha_emision: str,
+) -> Tuple[str, str, str]:
+    """Construye la notificación interna enviada al equipo municipal/institucional con todo el perfil y CV adjunto."""
+    asunto = f"[Nuevo Talento] Postulación {folio} — {nombre_completo}"
+    cv_lbl = f"{cv_filename} (adjunto en este correo)" if cv_filename else "No adjuntó archivo CV"
+    ley_lbl = (
+        f"Sí — Credencial RND/SENADIS: {credencial_rnd or 'No informada'}"
+        if posee_discapacidad
+        else "No declara discapacidad"
+    )
+
+    alerta_html = construir_alerta_estado_html(
+        bg_color="#f0f9ff",
+        border_color="#006799",
+        title_color="#0c2b45",
+        body_color="#0f172a",
+        titulo=f"Nueva Postulación en Trabaja con Nosotros ({folio})",
+        cuerpo_html=(
+            f"El vecino/postulante <strong>{nombre_completo}</strong> (RUN {run_formateado}) ha enviado su perfil "
+            f"curricular a través del portal institucional. El archivo CV (si fue cargado) viene adjunto en este mensaje."
+        ),
+    )
+
+    cuerpo_texto = (
+        f"Nueva postulación recibida en Trabaja con Nosotros ({folio})\n\n"
+        f"- Nombre: {nombre_completo} (RUN {run_formateado})\n"
+        f"- Email: {email} | Teléfono: {telefono}\n"
+        f"- Dirección: {direccion}, {comuna}\n"
+        f"- Resumen Profesional: {resumen_profesional}\n"
+        f"- Pretensión de Renta: {renta_fmt} | Jornada: {jornada_label} | Modalidad: {modalidad_label}\n"
+        f"- Competencias: {competencias_texto}\n"
+        f"- Educación: {educacion_resumen}\n"
+        f"- Experiencia: {experiencia_resumen}\n"
+        f"- Cursos / Perfeccionamiento: {cursos_resumen}\n"
+        f"- Ley N° 21.015: {ley_lbl}\n"
+        f"- Archivo CV: {cv_lbl}\n"
+    )
+
+    cuerpo_html = _envolver_html_institucional(
+        folio=folio,
+        fecha_emision=fecha_emision,
+        badge_texto="NUEVO TALENTO",
+        badge_bg="#e0f2fe",
+        badge_color="#0369a1",
+        banner_bg="#006799",
+        banner_subtitulo="GESTIÓN DE PERSONAS • BANDEJA TRABAJA CON NOSOTROS",
+        banner_titulo=f"Nuevo Postulante: {nombre_completo}",
+        saludo_nombre="Equipo de Gestión de Personas / Comité",
+        intro_html=(
+            "Se ha recibido una nueva postulación en el módulo <strong>Vecino y Nuevo Talento (Ley N° 21.015)</strong> "
+            "con los siguientes antecedentes:"
+        ),
+        alerta_estado_html=alerta_html,
+        filas_tabla=[
+            ("Folio", folio),
+            ("Postulante", f"{nombre_completo} (RUN {run_formateado})"),
+            ("Contacto", f"{email} • {telefono}"),
+            ("Domicilio", f"{direccion}, {comuna}"),
+            ("Resumen Profesional", resumen_profesional),
+            ("Condiciones Deseadas", f"{renta_fmt} • {jornada_label} • {modalidad_label}"),
+            ("Competencias Técnicas", competencias_texto),
+            ("Formación Educacional", educacion_resumen),
+            ("Experiencia Laboral", experiencia_resumen),
+            ("Cursos y Perfeccionamiento", cursos_resumen),
+            ("Inclusión Ley N° 21.015", ley_lbl),
+            ("Currículum Vitae (CV)", cv_lbl),
+        ],
+        titulo_pasos="Acciones sugeridas",
+        pasos=[
+            "Revisar el archivo CV adjunto a este correo o consultar el registro en la base de datos de talento.",
+            f"Contactar directamente al postulante escribiendo a <strong>{email}</strong> o llamando al <strong>{telefono}</strong>.",
+        ],
+    )
+    return asunto, cuerpo_texto, cuerpo_html

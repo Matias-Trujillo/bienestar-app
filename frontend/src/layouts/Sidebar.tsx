@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
+import { ModalTrabajaConNosotros } from '@/components/talento/ModalTrabajaConNosotros';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -182,9 +183,6 @@ const SidebarBrandHeader: React.FC<{ onClose: () => void }> = ({ onClose }) => (
           <span className="block text-xs font-medium text-[#006799] truncate">
             I. Municipalidad de Peralillo
           </span>
-          <span className="block text-xs text-[#ea580c] font-normal truncate">
-            La comuna que soñamos
-          </span>
         </div>
       </div>
       <button
@@ -207,6 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [afiliacionCount, setAfiliacionCount] = useState<number | null>(null);
   const [reembolsosCount, setReembolsosCount] = useState<number | null>(null);
   const [beneficiosCount, setBeneficiosCount] = useState<number | null>(null);
+  const [trabajaOpen, setTrabajaOpen] = useState(false);
 
   const esAdminOSuper = isAdminView && (user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser));
   const esDirectiva = isAdminView && Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
@@ -377,8 +376,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           >
             bienestar@mperalillo.cl
           </a>
+          <div className="mt-2.5 pt-2 border-t border-slate-200/70">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setTrabajaOpen(true);
+              }}
+              className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-[#006799] transition-colors cursor-pointer"
+            >
+              <span>Trabaja con nosotros</span>
+              <span>→</span>
+            </button>
+          </div>
         </div>
       </aside>
+
+      <ModalTrabajaConNosotros isOpen={trabajaOpen} onClose={() => setTrabajaOpen(false)} />
     </>
   );
 };

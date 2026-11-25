@@ -17,6 +17,7 @@ import {
 import { useAuth, LOGOUT_USER_KEY } from '@/context/AuthContext';
 import { PreLoginSplashIntro } from '@/components/ui/PreLoginSplashIntro';
 import { NetworkMeshBackground } from '@/components/ui/NetworkMeshBackground';
+import { ModalTrabajaConNosotros } from '@/components/talento/ModalTrabajaConNosotros';
 import { fetchFromApi } from '@/lib/api';
 import {
   formatRun,
@@ -272,6 +273,7 @@ export default function LoginPage() {
   const [splashPhase, setSplashPhase] = useState<'loading' | 'entering' | 'ready'>('loading');
 
   const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [trabajaOpen, setTrabajaOpen] = useState(false);
   const [recoveryInput, setRecoveryInput] = useState('');
   const [recoverySubmitting, setRecoverySubmitting] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -389,11 +391,10 @@ export default function LoginPage() {
       )}
 
       <div
-        className={`relative z-10 w-full max-w-[430px] space-y-4 transition-all duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[transform,opacity,filter] ${
-          splashPhase !== 'loading'
+        className={`relative z-10 w-full max-w-[430px] space-y-4 transition-all duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[transform,opacity,filter] ${splashPhase !== 'loading'
             ? 'opacity-100 translate-y-0 scale-100 blur-0'
             : 'opacity-0 translate-y-6 scale-[0.97] blur-[6px] pointer-events-none'
-        }`}
+          }`}
       >
         {/* Cabecera institucional vertical centrada con Escudo Oficial */}
         <div className="text-center space-y-2">
@@ -607,31 +608,44 @@ export default function LoginPage() {
         </div>
 
         {/* Footer institucional */}
-        <div className="flex flex-col items-center gap-1 text-center">
-          <p className="text-[11px] text-slate-400">
-            Comité de Bienestar • Ilustre Municipalidad de Peralillo &copy; {new Date().getFullYear()}
-          </p>
-          <button
-            type="button"
-            onClick={() => setSplashPhase('loading')}
-            className="text-[11px] text-slate-400 hover:text-sky-300 transition inline-flex items-center gap-1"
-          >
-            <span>↺</span> Ver presentación institucional
-          </button>
+          <div className="flex flex-col items-center gap-1.5 text-center">
+            <p className="text-[11px] text-slate-400">
+              Comité de Bienestar • Ilustre Municipalidad de Peralillo &copy; {new Date().getFullYear()}
+            </p>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSplashPhase('loading')}
+                className="text-[11px] text-slate-400 hover:text-sky-300 transition inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span>↺</span> Ver presentación institucional
+              </button>
+              <span className="text-slate-600 text-[10px]">•</span>
+              <button
+                id="login-trabaja-con-nosotros"
+                type="button"
+                onClick={() => setTrabajaOpen(true)}
+                className="text-[11px] text-sky-300/90 hover:text-white hover:underline transition inline-flex items-center gap-1 font-medium cursor-pointer"
+              >
+                <span>Trabaja con nosotros</span>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {recoveryOpen && (
-        <PasswordRecoveryModal
-          recoveryInput={recoveryInput}
-          recoverySubmitting={recoverySubmitting}
-          recoveryError={recoveryError}
-          recoverySuccess={recoverySuccess}
-          onChangeInput={handleRecoveryChange}
-          onSubmit={handleRecoverySubmit}
-          onClose={() => setRecoveryOpen(false)}
-        />
-      )}
-    </div>
-  );
+        {recoveryOpen && (
+          <PasswordRecoveryModal
+            recoveryInput={recoveryInput}
+            recoverySubmitting={recoverySubmitting}
+            recoveryError={recoveryError}
+            recoverySuccess={recoverySuccess}
+            onChangeInput={handleRecoveryChange}
+            onSubmit={handleRecoverySubmit}
+            onClose={() => setRecoveryOpen(false)}
+          />
+        )}
+
+        <ModalTrabajaConNosotros isOpen={trabajaOpen} onClose={() => setTrabajaOpen(false)} />
+      </div>
+      );
 }

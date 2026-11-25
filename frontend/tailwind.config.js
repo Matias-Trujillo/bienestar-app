@@ -58,7 +58,7 @@ module.exports = {
           orange: {
             50: '#fff7ed',
             100: '#ffedd5',
-            500: '#ea580c', // Naranja "La comuna que soñamos"
+            500: '#ea580c', // Naranja institucional de acento
             600: '#c2410c',
           },
         },

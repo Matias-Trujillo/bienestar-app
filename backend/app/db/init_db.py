@@ -657,3 +657,20 @@ async def init_db() -> None:
             for b_sql in backfill_sqls:
                 await db.execute(text(b_sql))
             await db.commit()
+
+        # 4. Catálogo inicial de competencias técnicas (Módulo Vecino y Nuevo Talento — Ley 21.015)
+        from app.models.talento import CompetenciaCatalogo
+        from app.services.talento_service import COMPETENCIAS_SEMILLA
+
+        comp_count = await db.scalar(select(func.count(CompetenciaCatalogo.id)))
+        if not comp_count:
+            for comp in COMPETENCIAS_SEMILLA:
+                db.add(
+                    CompetenciaCatalogo(
+                        nombre=comp["nombre"],
+                        categoria=comp["categoria"],
+                        activa=True,
+                    )
+                )
+            await db.commit()
+            logger.info("Catálogo inicial de competencias técnicas creado en competencias_catalogo")

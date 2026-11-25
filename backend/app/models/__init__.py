@@ -22,6 +22,17 @@ from app.models.beneficios import (
 )
 
 from app.models.audit import AuditLog
+from app.models.talento import (
+    CompetenciaCatalogo,
+    CursoPerfeccionamiento,
+    EducacionTalento,
+    EstadoPostulacionTalento,
+    ExperienciaLaboralTalento,
+    JornadaLaboral,
+    ModalidadTrabajo,
+    PerfilTalentoVecino,
+    talento_competencias,
+)
 
 __all__ = [
     "Base",
@@ -41,4 +52,13 @@ __all__ = [
     "SolicitudBeneficio",
     "NominaMasiva",
     "DetalleNominaMasiva",
+    "CompetenciaCatalogo",
+    "CursoPerfeccionamiento",
+    "EducacionTalento",
+    "EstadoPostulacionTalento",
+    "ExperienciaLaboralTalento",
+    "JornadaLaboral",
+    "ModalidadTrabajo",
+    "PerfilTalentoVecino",
+    "talento_competencias",
 ]

@@ -7,12 +7,13 @@ en caliente. Aplica el Principio Abierto/Cerrado (OCP) mediante el mapa extensib
 import logging
 import smtplib
 from email.header import Header
+from email.mime.application import MIMEApplication
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr, formatdate, make_msgid
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
 
@@ -95,9 +96,14 @@ class SmtpEmailTransport:
         }
 
     def enviar_html(
-        self, destinatario: str, asunto: str, cuerpo_texto: str, cuerpo_html: str
+        self,
+        destinatario: str,
+        asunto: str,
+        cuerpo_texto: str,
+        cuerpo_html: str,
+        adjuntos: Optional[List[Tuple[str, bytes, str]]] = None,
     ) -> Tuple[bool, Optional[str]]:
-        """Envía el correo por SMTP real con logo institucional embebido (CID) compatible con DKIM."""
+        """Envía el correo por SMTP real con logo institucional embebido (CID) y adjuntos opcionales."""
         estado = self.obtener_estado()
         if not estado["configurado"] or not destinatario:
             return (
@@ -113,7 +119,15 @@ class SmtpEmailTransport:
         dominio_remitente = remitente_email.split("@")[-1] if "@" in remitente_email else "gmail.com"
 
         try:
-            msg_root = MIMEMultipart("related")
+            if adjuntos:
+                msg_outer = MIMEMultipart("mixed")
+                msg_related = MIMEMultipart("related")
+                msg_outer.attach(msg_related)
+                msg_root = msg_outer
+            else:
+                msg_related = MIMEMultipart("related")
+                msg_root = msg_related
+
             asunto_limpio = asunto.replace("—", "-").replace("•", "-")
             msg_root["Subject"] = Header(asunto_limpio, "utf-8")
             msg_root["From"] = formataddr((str(Header("Comite de Bienestar Peralillo", "utf-8")), remitente_email))
@@ -124,13 +138,21 @@ class SmtpEmailTransport:
             msg_alt = MIMEMultipart("alternative")
             msg_alt.attach(MIMEText(cuerpo_texto, "plain", "utf-8"))
             msg_alt.attach(MIMEText(cuerpo_html, "html", "utf-8"))
-            msg_root.attach(msg_alt)
+            msg_related.attach(msg_alt)
 
             if _LOGO_EMAIL_BYTES:
                 img_part = MIMEImage(_LOGO_EMAIL_BYTES, _subtype="png")
                 img_part.add_header("Content-ID", "<logo_peralillo>")
                 img_part.add_header("Content-Disposition", "inline", filename="logo-peralillo.png")
-                msg_root.attach(img_part)
+                msg_related.attach(img_part)
+
+            if adjuntos:
+                for filename, file_bytes, _mime in adjuntos:
+                    if not file_bytes:
+                        continue
+                    part = MIMEApplication(file_bytes, Name=filename)
+                    part.add_header("Content-Disposition", "attachment", filename=filename)
+                    msg_root.attach(part)
 
             raw_msg = msg_root.as_string().replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8")
 
