@@ -188,6 +188,23 @@ def _obtener_anio_imputacion(sol: SolicitudReembolso) -> int:
     return date.today().year
 
 
+def _calcular_estado_label(sol: SolicitudReembolso, pago: Optional[PagoReembolso]) -> str:
+    if sol.estado == EstadoReembolso.EN_REVISION:
+        return "Pendiente de Revisión"
+    if sol.estado == EstadoReembolso.APROBADO:
+        return "Aprobado • Pendiente de Pago"
+    if sol.estado == EstadoReembolso.PAGADO:
+        if pago and pago.recepcion_conforme:
+            return "Pagado • Recepción Conforme"
+        metodo = (pago.metodo_pago if pago else "") or ""
+        if "transferencia" in metodo.lower():
+            return "Transferencia Emitida"
+        return "Cheque Generado (Por Retirar)"
+    if sol.estado == EstadoReembolso.RECHAZADO:
+        return "Rechazado"
+    return ESTADO_REEMBOLSO_LABELS.get(sol.estado, sol.estado.value)
+
+
 # [ESTUDIANTE INFORMÁTICA] Esto mapea una entidad ORM al DTO de salida ReembolsoOut; esto permite preparar los datos con formato legible para enviárselos al frontend.
 def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
     """Convierte una instancia ORM a su schema de salida sin disparar consultas lazy."""
@@ -220,7 +237,7 @@ def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
         ),
         declaracion_aceptada=bool(sol.declaracion_aceptada),
         estado=sol.estado.value,
-        estado_label=ESTADO_REEMBOLSO_LABELS.get(sol.estado, sol.estado.value),
+        estado_label=_calcular_estado_label(sol, pago),
         motivo_rechazo=sol.motivo_rechazo or "",
         created_at=sol.created_at.isoformat() if sol.created_at else "",
         anio_imputacion=_obtener_anio_imputacion(sol),

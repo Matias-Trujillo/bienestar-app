@@ -3,14 +3,32 @@ import { SolicitudReembolso, EstadoReembolso, TipoPrestacion, TIPO_PRESTACION_LA
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { obtenerAnioSolicitud } from './ResumenSaludCards';
 
-// [ESTUDIANTE INFORMÁTICA] Mapea el estado del reembolso a su píldora de estado moderna.
-export function getEstadoBadge(estado: EstadoReembolso) {
-  const map: Record<EstadoReembolso, { bg: string; dot: string }> = {
-    borrador: { bg: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
-    en_revision: { bg: 'bg-amber-50 text-[#b45309] border-amber-200', dot: 'bg-amber-500' },
-    aprobado: { bg: 'bg-emerald-50 text-[#166534] border-emerald-200', dot: 'bg-[#166534]' },
-    rechazado: { bg: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
-    pagado: { bg: 'bg-sky-50 text-[#006799] border-sky-200', dot: 'bg-[#006799]' },
+    // [ESTUDIANTE INFORMÁTICA] Mapea el estado del reembolso a su píldora de estado moderna (flujo profesional de 5 etapas).
+    export function getEstadoBadge(
+      estado: EstadoReembolso,
+      opts ?: { recepcionConforme?: boolean; metodoPago?: string }
+    ) {
+      if (estado === 'pagado') {
+    if (opts?.recepcionConforme) {
+      return {
+        bg: 'bg-emerald-50 text-[#166534] border-emerald-200',
+        dot: 'bg-emerald-600',
+        label: 'Pagado • Recepción Conforme',
+      };
+    }
+    const esTransf = (opts?.metodoPago || '').toLowerCase().includes('transferencia');
+    return {
+      bg: 'bg-violet-50 text-violet-800 border-violet-200',
+      dot: 'bg-violet-600',
+      label: esTransf ? 'Transferencia Emitida' : 'Cheque Generado (Por Retirar)',
+    };
+  }
+  const map: Record<EstadoReembolso, { bg: string; dot: string; label: string }> = {
+    borrador: { bg: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-400', label: 'Borrador' },
+    en_revision: { bg: 'bg-amber-50 text-[#b45309] border-amber-200', dot: 'bg-amber-500', label: 'Pendiente de Revisión' },
+    aprobado: { bg: 'bg-sky-50 text-[#006799] border-sky-200', dot: 'bg-[#006799]', label: 'Aprobado • Pendiente de Pago' },
+    rechazado: { bg: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-600', label: 'Rechazado' },
+    pagado: { bg: 'bg-violet-50 text-violet-800 border-violet-200', dot: 'bg-violet-600', label: 'Cheque Generado (Por Retirar)' },
   };
   return map[estado] || map.borrador;
 }
@@ -41,8 +59,8 @@ interface TablaSolicitudesProps {
 const ESTADO_FILTERS = [
   { key: 'todos', label: 'Todos' },
   { key: 'en_revision', label: 'En Revisión' },
-  { key: 'aprobado', label: 'Aprobados' },
-  { key: 'pagado', label: 'Pagados' },
+  { key: 'aprobado', label: 'Pendiente Pago' },
+  { key: 'pagado', label: 'Cheque / Pagados' },
   { key: 'rechazado', label: 'Rechazados' },
 ] as const;
 
@@ -85,9 +103,8 @@ const TablaSolicitudesToolbar: React.FC<HeaderFiltrosProps> = ({
           <button
             type="button"
             onClick={() => setFiltroAnio('todos')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              filtroAnio === 'todos' ? 'bg-white text-slate-900 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroAnio === 'todos' ? 'bg-white text-slate-900 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
           >
             Todos
           </button>
@@ -96,9 +113,8 @@ const TablaSolicitudesToolbar: React.FC<HeaderFiltrosProps> = ({
               key={anio}
               type="button"
               onClick={() => setFiltroAnio(anio)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all tabular-nums ${
-                filtroAnio === anio ? 'bg-white text-[#166534] font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all tabular-nums ${filtroAnio === anio ? 'bg-white text-[#166534] font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               Año {anio}
             </button>
@@ -111,11 +127,10 @@ const TablaSolicitudesToolbar: React.FC<HeaderFiltrosProps> = ({
           <button
             key={f.key}
             onClick={() => setFiltroEstado(f.key)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              filtroEstado === f.key
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === f.key
                 ? 'bg-[#0c2b45] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             {f.label}
           </button>
@@ -245,11 +260,10 @@ export const TablaSolicitudes: React.FC<TablaSolicitudesProps> = ({
                         <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-slate-500">
                           <span>{formatDate(sol.fecha_atencion)}</span>
                           <span
-                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                              esAnioAnterior
+                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${esAnioAnterior
                                 ? 'bg-slate-100 text-slate-600'
                                 : 'bg-emerald-50 text-[#166534] border border-emerald-200/70'
-                            }`}
+                              }`}
                           >
                             {anioSol}
                           </span>

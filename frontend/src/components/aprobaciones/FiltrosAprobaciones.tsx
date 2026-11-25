@@ -29,41 +29,46 @@ export const FiltrosAprobaciones: React.FC<FiltrosAprobacionesProps> = ({
         <div className="inline-flex flex-wrap items-center p-1 bg-slate-100 rounded-xl border border-slate-200/70">
           <button
             onClick={() => setFiltroEstado('en_revision')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all tabular-nums ${
-              filtroEstado === 'en_revision'
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all tabular-nums ${filtroEstado === 'en_revision'
                 ? 'bg-amber-500 text-white font-bold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
-            Pendientes ({conteoPendientes})
+            En Revisión ({conteoPendientes})
           </button>
           <button
             onClick={() => setFiltroEstado('aprobado')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              filtroEstado === 'aprobado'
-                ? 'bg-[#166534] text-white font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === 'aprobado'
+                  ? 'bg-[#006799] text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Aprobadas
+            Pendiente de Pago
+          </button>
+          <button
+            onClick={() => setFiltroEstado('pagado')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === 'pagado'
+                ? 'bg-emerald-700 text-white font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+              }`}
+          >
+            Cheque / Pagados
           </button>
           <button
             onClick={() => setFiltroEstado('rechazado')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              filtroEstado === 'rechazado'
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === 'rechazado'
                 ? 'bg-rose-600 text-white font-bold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             Rechazadas
           </button>
           <button
             onClick={() => setFiltroEstado('todos')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              filtroEstado === 'todos'
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === 'todos'
                 ? 'bg-[#0c2b45] text-white font-bold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             Todas
           </button>

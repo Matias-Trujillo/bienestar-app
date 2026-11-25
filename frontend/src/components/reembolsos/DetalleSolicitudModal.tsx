@@ -95,14 +95,27 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
   }, []);
 
   if (!solicitud || !mounted) return null;
-  const badge = getEstadoBadge(solicitud.estado);
+  const badge = getEstadoBadge(solicitud.estado, {
+    recepcionConforme: solicitud.recepcion_conforme,
+    metodoPago: solicitud.metodo_pago,
+  });
+  const pasoActual =
+    solicitud.estado === 'rechazado'
+      ? 0
+      : solicitud.estado === 'pagado'
+        ? solicitud.recepcion_conforme
+          ? 4
+          : 3
+        : solicitud.estado === 'aprobado'
+          ? 2
+          : 1;
   const esSolicitudPropia = Boolean(
     user &&
-      (solicitud.socio_id === Number(user.id) ||
-        (solicitud.socio_rut &&
-          user.rut &&
-          solicitud.socio_rut.replace(/[^0-9kK]/gi, '').toUpperCase() ===
-            user.rut.replace(/[^0-9kK]/gi, '').toUpperCase()))
+    (solicitud.socio_id === Number(user.id) ||
+      (solicitud.socio_rut &&
+        user.rut &&
+        solicitud.socio_rut.replace(/[^0-9kK]/gi, '').toUpperCase() ===
+        user.rut.replace(/[^0-9kK]/gi, '').toUpperCase()))
   );
   const esAuditor = user?.rol === 'auditor';
   const puedeResolver =
@@ -150,6 +163,36 @@ export const DetalleSolicitudModal: React.FC<DetalleSolicitudModalProps> = ({
           </div>
 
           <DetalleInfoGrid solicitud={solicitud} />
+
+          {/* Línea de progreso del flujo de pago (HU-03 → HU-04 → HU-10) */}
+          {solicitud.estado !== 'rechazado' && (
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Etapa del Proceso de Reembolso
+              </span>
+              <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] font-semibold">
+                {[
+                  { n: 1, t: '1. En Revisión' },
+                  { n: 2, t: '2. Pend. Pago' },
+                  { n: 3, t: '3. Cheque / Transf.' },
+                  { n: 4, t: '4. Conforme' },
+                ].map((et) => (
+                  <div
+                    key={et.n}
+                    className={`py-1.5 px-1 rounded-lg border ${pasoActual > et.n
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : pasoActual === et.n
+                          ? 'bg-[#006799] text-white border-[#006799]'
+                          : 'bg-white text-slate-400 border-slate-200'
+                      }`}
+                  >
+                    {pasoActual > et.n ? '✓ ' : ''}
+                    {et.t}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Descripción / Glosa */}
           {solicitud.descripcion && (

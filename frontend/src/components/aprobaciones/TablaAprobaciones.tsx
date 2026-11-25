@@ -5,6 +5,7 @@ import { Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { SolicitudReembolso } from '@/types';
+import { getEstadoBadge } from '@/components/reembolsos/TablaSolicitudes';
 import { IndicadorTramoBadge } from './IndicadorTramoBadge';
 
 interface TablaAprobacionesProps {
@@ -29,11 +30,11 @@ export const TablaAprobaciones: React.FC<TablaAprobacionesProps> = ({
   const esPropia = (sol: SolicitudReembolso): boolean =>
     Boolean(
       user &&
-        (sol.socio_id === Number(user.id) ||
-          (sol.socio_rut &&
-            user.rut &&
-            sol.socio_rut.replace(/[^0-9kK]/gi, '').toUpperCase() ===
-              user.rut.replace(/[^0-9kK]/gi, '').toUpperCase()))
+      (sol.socio_id === Number(user.id) ||
+        (sol.socio_rut &&
+          user.rut &&
+          sol.socio_rut.replace(/[^0-9kK]/gi, '').toUpperCase() ===
+          user.rut.replace(/[^0-9kK]/gi, '').toUpperCase()))
     );
 
   if (cargando) {
@@ -85,13 +86,12 @@ export const TablaAprobaciones: React.FC<TablaAprobacionesProps> = ({
               <div className="text-right shrink-0">
                 <p className="font-semibold text-slate-900 tabular-nums">{formatCurrency(sol.monto_copago)}</p>
                 <span
-                  className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
-                    sol.estado === 'aprobado' || sol.estado === 'pagado'
+                  className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${sol.estado === 'aprobado' || sol.estado === 'pagado'
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       : sol.estado === 'rechazado'
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                      : 'bg-amber-50 text-amber-700 border border-amber-200'
-                  }`}
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}
                 >
                   {sol.estado_label || sol.estado}
                 </span>
@@ -180,26 +180,20 @@ export const TablaAprobaciones: React.FC<TablaAprobacionesProps> = ({
                   </div>
                 </td>
                 <td className="py-3 px-4 text-right align-middle">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                      sol.estado === 'aprobado' || sol.estado === 'pagado'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : sol.estado === 'rechazado'
-                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        sol.estado === 'aprobado' || sol.estado === 'pagado'
-                          ? 'bg-emerald-600'
-                          : sol.estado === 'rechazado'
-                          ? 'bg-rose-600'
-                          : 'bg-amber-500'
-                      }`}
-                    />
-                    {sol.estado_label || sol.estado}
-                  </span>
+                  {(() => {
+                    const badge = getEstadoBadge(sol.estado, {
+                      recepcionConforme: sol.recepcion_conforme,
+                      metodoPago: sol.metodo_pago,
+                    });
+                    return (
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${badge.bg}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badge.dot}`} />
+                        <span className="truncate">{sol.estado_label || badge.label}</span>
+                      </span>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}
