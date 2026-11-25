@@ -240,10 +240,33 @@ _COLUMNAS_REEMBOLSO_LISTAS = False
 
 
 async def asegurar_columnas_reembolso(db: AsyncSession) -> None:
-    """No-op de compatibilidad: las migraciones de esquema residen exclusivamente en init_db.py."""
+    """Garantiza de forma idempotente que las columnas nuevas de HU-04/HU-10 existan en PostgreSQL."""
     global _COLUMNAS_REEMBOLSO_LISTAS
-    _COLUMNAS_REEMBOLSO_LISTAS = True
-    return
+    if _COLUMNAS_REEMBOLSO_LISTAS:
+        return
+    try:
+        bind = db.get_bind()
+        if bind and getattr(bind.dialect, "name", "") != "postgresql":
+            _COLUMNAS_REEMBOLSO_LISTAS = True
+            return
+    except Exception:
+        _COLUMNAS_REEMBOLSO_LISTAS = True
+        return
+    try:
+        for ddl in (
+            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(40) DEFAULT ''",
+            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS numero_cheque_o_transferencia VARCHAR(60) DEFAULT ''",
+            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS banco_emisor VARCHAR(60) DEFAULT 'BancoEstado'",
+            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS fecha_pago VARCHAR(10) DEFAULT ''",
+            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS hora_proceso VARCHAR(8) DEFAULT ''",
+            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE IF EXISTS solicitudes_reembolso ADD COLUMN IF NOT EXISTS recepcion_conforme_at TIMESTAMPTZ",
+        ):
+            await db.execute(text(ddl))
+        await db.commit()
+        _COLUMNAS_REEMBOLSO_LISTAS = True
+    except Exception:
+        await db.rollback()
 
 
 async def obtener_beneficiarios_socio(user: User, db: AsyncSession) -> List[BeneficiarioReembolso]:
