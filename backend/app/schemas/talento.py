@@ -51,8 +51,22 @@ class ExperienciaIn(BaseModel):
 class CursoIn(BaseModel):
     nombreCurso: str = Field(..., min_length=2, max_length=160)
     institucion: str = Field(..., min_length=2, max_length=150)
-    horas: Optional[int] = Field(default=None, ge=1, le=5000)
-    anio: Optional[int] = Field(default=None, ge=1960, le=2035)
+    horas: Optional[int] = Field(default=None)
+    anio: Optional[int] = Field(default=None)
+
+    @field_validator("horas")
+    @classmethod
+    def _check_horas(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and (v < 1 or v > 5000):
+            raise ValueError("Las horas del curso deben estar entre 1 y 5000.")
+        return v
+
+    @field_validator("anio")
+    @classmethod
+    def _check_anio(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and (v < 1950 or v > 2035):
+            raise ValueError("El año del curso debe ser un año válido de 4 dígitos (entre 1950 y 2035).")
+        return v
 
 
 class PostulacionTalentoIn(BaseModel):

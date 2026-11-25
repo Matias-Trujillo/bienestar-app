@@ -147,8 +147,8 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
     const q = busquedaComp.trim().toLowerCase();
     const filtradas = q
       ? competenciasCatalogo.filter(
-          (c) => c.nombre.toLowerCase().includes(q) || c.categoria.toLowerCase().includes(q)
-        )
+        (c) => c.nombre.toLowerCase().includes(q) || c.categoria.toLowerCase().includes(q)
+      )
       : competenciasCatalogo;
 
     const map: Record<string, CompetenciaItem[]> = {};
@@ -208,11 +208,24 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
   };
 
   const validarPaso2 = (): string | null => {
+    const validarAnio = (val: string, etiqueta: string): string | null => {
+      if (!val.trim()) return null;
+      const n = Number(val);
+      if (!Number.isInteger(n) || n < 1950 || n > 2035) {
+        return `${etiqueta} debe ser un año válido de 4 dígitos (entre 1950 y 2035).`;
+      }
+      return null;
+    };
+
     for (let i = 0; i < educaciones.length; i++) {
       const e = educaciones[i];
       if (!e.institucion.trim() || !e.titulo.trim()) {
         return `Complete la institución y título/carrera en el registro educacional #${i + 1} (o elimínelo).`;
       }
+      const errIni = validarAnio(e.anioInicio, `El año de inicio en educación #${i + 1}`);
+      if (errIni) return errIni;
+      const errTer = validarAnio(e.anioTermino, `El año de término en educación #${i + 1}`);
+      if (errTer) return errTer;
       if (e.anioInicio && e.anioTermino && Number(e.anioTermino) < Number(e.anioInicio)) {
         return `En educación #${i + 1}, el año de término no puede ser menor al año de inicio.`;
       }
@@ -221,6 +234,12 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
       const ex = experiencias[i];
       if (!ex.empresa.trim() || !ex.cargo.trim()) {
         return `Complete la empresa y cargo en la experiencia laboral #${i + 1} (o elimínela).`;
+      }
+      const errIni = validarAnio(ex.anioInicio, `El año de inicio en experiencia #${i + 1}`);
+      if (errIni) return errIni;
+      if (!ex.actualmenteTrabajando) {
+        const errTer = validarAnio(ex.anioTermino, `El año de término en experiencia #${i + 1}`);
+        if (errTer) return errTer;
       }
       if (!ex.actualmenteTrabajando && ex.anioInicio && ex.anioTermino && Number(ex.anioTermino) < Number(ex.anioInicio)) {
         return `En experiencia #${i + 1}, el año de término no puede ser menor al año de inicio.`;
@@ -231,6 +250,14 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
       if (!c.nombreCurso.trim() || !c.institucion.trim()) {
         return `Complete el nombre del curso e institución en el registro #${i + 1} (o elimínelo).`;
       }
+      if (c.horas.trim()) {
+        const h = Number(c.horas);
+        if (!Number.isInteger(h) || h < 1 || h > 5000) {
+          return `Las horas del curso #${i + 1} deben estar entre 1 y 5000.`;
+        }
+      }
+      const errAnio = validarAnio(c.anio, `El año del curso #${i + 1}`);
+      if (errAnio) return errAnio;
     }
     return null;
   };
@@ -366,11 +393,10 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
 
   return (
     <div
-      className={`bg-white w-full overflow-hidden flex flex-col ${
-        embedded
+      className={`bg-white w-full overflow-hidden flex flex-col ${embedded
           ? 'rounded-2xl border border-slate-200/90 shadow-xl'
           : 'rounded-2xl max-w-3xl max-h-[92vh] shadow-2xl border border-slate-200/90 animate-scale-in'
-      }`}
+        }`}
     >
       {/* Filete cromático institucional de Peralillo */}
       <div className="h-1.5 w-full bg-gradient-to-r from-[#006799] via-[#78a200] via-[#cfa145] to-[#d94e28] shrink-0" />
@@ -423,22 +449,20 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
                       setPaso(item.num);
                     }
                   }}
-                  className={`flex items-center justify-center gap-2 py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all ${
-                    activo
+                  className={`flex items-center justify-center gap-2 py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all ${activo
                       ? 'bg-white text-[#006799] border-[#006799]/40 shadow-xs'
                       : completado
-                      ? 'bg-emerald-50/80 text-emerald-800 border-emerald-200 cursor-pointer'
-                      : 'bg-transparent text-slate-400 border-transparent cursor-default'
-                  }`}
+                        ? 'bg-emerald-50/80 text-emerald-800 border-emerald-200 cursor-pointer'
+                        : 'bg-transparent text-slate-400 border-transparent cursor-default'
+                    }`}
                 >
                   <span
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                      activo
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${activo
                         ? 'bg-[#006799] text-white'
                         : completado
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-200 text-slate-500'
-                    }`}
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-200 text-slate-500'
+                      }`}
                   >
                     {completado ? '✓' : item.num}
                   </span>
@@ -556,13 +580,12 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
                       onChange={(e) => setRun(formatRun(e.target.value))}
                       placeholder="Ej: 18.456.789-K"
                       maxLength={12}
-                      className={`w-full px-3.5 py-2 text-xs font-mono bg-slate-50 border rounded-xl focus:bg-white focus:outline-none focus:ring-2 ${
-                        runInvalido
+                      className={`w-full px-3.5 py-2 text-xs font-mono bg-slate-50 border rounded-xl focus:bg-white focus:outline-none focus:ring-2 ${runInvalido
                           ? 'border-rose-300 focus:ring-rose-400/30'
                           : runValido
-                          ? 'border-emerald-300 focus:ring-emerald-400/30'
-                          : 'border-slate-200 focus:ring-[#006799]/30 focus:border-[#006799]'
-                      }`}
+                            ? 'border-emerald-300 focus:ring-emerald-400/30'
+                            : 'border-slate-200 focus:ring-[#006799]/30 focus:border-[#006799]'
+                        }`}
                     />
                     {runInvalido && (
                       <p className="text-[11px] text-rose-600 mt-1 font-medium">Dígito verificador incorrecto.</p>
@@ -995,7 +1018,7 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
                               const val = e.target.value;
                               setCursos((prev) => prev.map((it, i) => (i === idx ? { ...it, nombreCurso: val } : it)));
                             }}
-                            className="sm:col-span-5 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
+                            className="sm:col-span-4 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
                           />
                           <input
                             type="text"
@@ -1005,27 +1028,31 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
                               const val = e.target.value;
                               setCursos((prev) => prev.map((it, i) => (i === idx ? { ...it, institucion: val } : it)));
                             }}
-                            className="sm:col-span-4 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
+                            className="sm:col-span-3 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
                           />
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={4}
                             placeholder="Horas"
                             value={cu.horas}
                             onChange={(e) => {
-                              const val = e.target.value;
+                              const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
                               setCursos((prev) => prev.map((it, i) => (i === idx ? { ...it, horas: val } : it)));
                             }}
-                            className="sm:col-span-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
+                            className="sm:col-span-2 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg tabular-nums"
                           />
                           <input
-                            type="number"
-                            placeholder="Año"
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={4}
+                            placeholder="Año (ej: 2024)"
                             value={cu.anio}
                             onChange={(e) => {
-                              const val = e.target.value;
+                              const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
                               setCursos((prev) => prev.map((it, i) => (i === idx ? { ...it, anio: val } : it)));
                             }}
-                            className="sm:col-span-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
+                            className="sm:col-span-2 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg tabular-nums"
                           />
                           <button
                             type="button"
@@ -1081,11 +1108,10 @@ export const TrabajaConNosotrosContent: React.FC<{ onClose?: () => void; embedde
                                   key={comp.id}
                                   type="button"
                                   onClick={() => toggleCompetencia(comp.id)}
-                                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition cursor-pointer ${
-                                    selected
+                                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition cursor-pointer ${selected
                                       ? 'bg-[#006799] text-white border-[#006799] shadow-2xs'
                                       : 'bg-white text-slate-700 border-slate-200 hover:border-[#006799]/50 hover:text-[#006799]'
-                                  }`}
+                                    }`}
                                 >
                                   {selected ? '✓ ' : '+ '}
                                   {comp.nombre}
