@@ -35,8 +35,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [trabajaOpen, setTrabajaOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const isPublic = PUBLIC_ROUTES.includes(pathname);
+  const esSocioNormal = Boolean(user && !user.isSuperuser && user.rol === 'socio');
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isPublic) {
@@ -63,21 +64,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <footer className="py-3.5 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 border-t border-slate-200/80 bg-white/80 backdrop-blur-sm mb-16 lg:mb-0">
           <span className="font-medium text-center sm:text-left">Comité de Bienestar &copy; {new Date().getFullYear()} • I. Municipalidad de Peralillo</span>
           <div className="flex items-center gap-3 text-[11px]">
-            <button
-              type="button"
-              onClick={() => setTrabajaOpen(true)}
-              className="text-slate-500 hover:text-[#006799] hover:underline font-medium transition-colors cursor-pointer"
-            >
-              Trabaja con nosotros
-            </button>
-            <span className="text-slate-300">•</span>
+            {esSocioNormal && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTrabajaOpen(true)}
+                  className="text-slate-500 hover:text-[#006799] hover:underline font-medium transition-colors cursor-pointer"
+                >
+                  Trabaja con nosotros
+                </button>
+                <span className="text-slate-300">•</span>
+              </>
+            )}
             <span className="font-mono text-slate-400 text-center sm:text-right">Portal Oficial de Socios y Funcionarios</span>
           </div>
         </footer>
       </div>
 
       <BottomNav onOpenSidebar={() => setSidebarOpen(true)} />
-      <ModalTrabajaConNosotros isOpen={trabajaOpen} onClose={() => setTrabajaOpen(false)} />
+      {esSocioNormal && (
+        <ModalTrabajaConNosotros isOpen={trabajaOpen} onClose={() => setTrabajaOpen(false)} />
+      )}
     </div>
   );
 };

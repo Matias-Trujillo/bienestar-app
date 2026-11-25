@@ -209,6 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const esAdminOSuper = isAdminView && (user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser));
   const esDirectiva = isAdminView && Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
+  const esSocioNormal = Boolean(user && !user.isSuperuser && user.rol === 'socio');
   const itemsVisibles = navigationItems.filter((item) => !item.adminOnly || esAdminOSuper || esDirectiva);
 
   const cargarConteoPendientes = useCallback(async () => {
@@ -376,23 +377,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           >
             bienestar@mperalillo.cl
           </a>
-          <div className="mt-2.5 pt-2 border-t border-slate-200/70">
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                setTrabajaOpen(true);
-              }}
-              className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-[#006799] transition-colors cursor-pointer"
-            >
-              <span>Trabaja con nosotros</span>
-              <span>→</span>
-            </button>
-          </div>
+          {esSocioNormal && (
+            <div className="mt-2.5 pt-2 border-t border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  setTrabajaOpen(true);
+                }}
+                className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-[#006799] transition-colors cursor-pointer"
+              >
+                <span>Trabaja con nosotros</span>
+                <span>→</span>
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
-      <ModalTrabajaConNosotros isOpen={trabajaOpen} onClose={() => setTrabajaOpen(false)} />
+      {esSocioNormal && (
+        <ModalTrabajaConNosotros isOpen={trabajaOpen} onClose={() => setTrabajaOpen(false)} />
+      )}
     </>
   );
 };
