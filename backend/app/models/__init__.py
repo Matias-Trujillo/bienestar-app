@@ -2,6 +2,7 @@
 from app.models.base import Base
 from app.models.user import User, UserRole
 from app.models.reembolso import (
+    PagoReembolso,
     SolicitudReembolso,
     TipoPrestacion,
     EstadoReembolso,
@@ -40,6 +41,7 @@ __all__ = [
     "User",
     "UserRole",
     "AuditLog",
+    "PagoReembolso",
     "SolicitudReembolso",
     "TipoPrestacion",
     "EstadoReembolso",

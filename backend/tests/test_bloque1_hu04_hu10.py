@@ -57,9 +57,10 @@ async def test_flujo_completo_hu04_pago_y_hu10_recepcion_conforme(
         db=db_session,
     )
     assert sol.estado == EstadoReembolso.PAGADO
-    assert sol.numero_cheque_o_transferencia == "CHQ-998877"
-    assert sol.fecha_pago == "2026-11-25"
-    assert sol.hora_proceso == "15:40"
+    assert sol.pago is not None
+    assert sol.pago.numero_cheque_o_transferencia == "CHQ-998877"
+    assert sol.pago.fecha_pago == "2026-11-25"
+    assert sol.pago.hora_proceso == "15:40"
 
     # 4. Confirmar Recepción Conforme por el socio (HU-10)
     sol = await confirmar_recepcion_conforme_reembolso(
@@ -67,8 +68,9 @@ async def test_flujo_completo_hu04_pago_y_hu10_recepcion_conforme(
         user=socio_habilitado,
         db=db_session,
     )
-    assert sol.recepcion_conforme is True
-    assert sol.recepcion_conforme_at is not None
+    assert sol.pago is not None
+    assert sol.pago.recepcion_conforme is True
+    assert sol.pago.recepcion_conforme_at is not None
 
     out = solicitud_to_out(sol)
     assert out.estado == "pagado"

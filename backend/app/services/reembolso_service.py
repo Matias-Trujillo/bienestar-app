@@ -25,6 +25,7 @@ from app.models.audit import AuditLog
 from app.models.reembolso import (
     EstadoReembolso,
     ESTADO_REEMBOLSO_LABELS,
+    PagoReembolso,
     SolicitudReembolso,
     TipoPrestacion,
     TIPO_PRESTACION_LABELS,
@@ -189,7 +190,8 @@ def _obtener_anio_imputacion(sol: SolicitudReembolso) -> int:
 
 # [ESTUDIANTE INFORMÁTICA] Esto mapea una entidad ORM al DTO de salida ReembolsoOut; esto permite preparar los datos con formato legible para enviárselos al frontend.
 def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
-    """Convierte una instancia ORM a su schema de salida."""
+    """Convierte una instancia ORM a su schema de salida sin disparar consultas lazy."""
+    pago = sol.__dict__.get("pago")
     return ReembolsoOut(
         id=sol.id,
         codigo=sol.codigo,
@@ -222,6 +224,17 @@ def solicitud_to_out(sol: SolicitudReembolso) -> ReembolsoOut:
         motivo_rechazo=sol.motivo_rechazo or "",
         created_at=sol.created_at.isoformat() if sol.created_at else "",
         anio_imputacion=_obtener_anio_imputacion(sol),
+        metodo_pago=(pago.metodo_pago or "") if pago else "",
+        numero_cheque_o_transferencia=(pago.numero_cheque_o_transferencia or "") if pago else "",
+        banco_emisor=(pago.banco_emisor or "") if pago else "",
+        fecha_pago=(pago.fecha_pago or "") if pago else "",
+        hora_proceso=(pago.hora_proceso or "") if pago else "",
+        recepcion_conforme=bool(pago.recepcion_conforme) if pago else False,
+        recepcion_conforme_at=(
+            pago.recepcion_conforme_at.isoformat()
+            if (pago and pago.recepcion_conforme_at)
+            else None
+        ),
     )
 
 
@@ -611,7 +624,7 @@ async def listar_solicitudes_socio(
     await asegurar_columnas_reembolso(db)
     result = await db.scalars(
         select(SolicitudReembolso)
-        .options(selectinload(SolicitudReembolso.socio))
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
         .where(SolicitudReembolso.socio_id == user.id)
         .order_by(SolicitudReembolso.created_at.desc())
     )
@@ -716,7 +729,7 @@ async def listar_todas_solicitudes_admin(
     """Lista todas las solicitudes de reembolso de los socios para la bandeja de administración."""
     query = (
         select(SolicitudReembolso)
-        .options(selectinload(SolicitudReembolso.socio))
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
         .order_by(SolicitudReembolso.created_at.desc())
     )
     if estado and estado.lower() != "todos":
@@ -846,3 +859,125 @@ async def resolver_solicitud_reembolso(
             )
 
     return solicitud
+
+
+async def registrar_pago_reembolso(
+    solicitud_id: int,
+    metodo_pago: str,
+    numero_cheque_o_transferencia: str,
+    banco_emisor: str,
+    fecha_pago: str,
+    hora_proceso: str,
+    admin_user: User,
+    db: AsyncSession,
+) -> SolicitudReembolso:
+    """Registra el pago efectivo (cheque/transferencia) en tabla 3FN pagos_reembolso y marca PAGADO (HU-04)."""
+    solicitud = await db.scalar(
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .where(SolicitudReembolso.id == solicitud_id)
+    )
+    if not solicitud:
+        raise ValueError("Solicitud de reembolso no encontrada.")
+
+    if solicitud.estado != EstadoReembolso.APROBADO:
+        raise ValueError(
+            f"Solo se pueden liquidar solicitudes en estado Aprobado (estado actual: {solicitud.estado.value})."
+        )
+
+    num_doc = (numero_cheque_o_transferencia or "").strip()
+    if len(num_doc) < 2:
+        raise ValueError("Debe ingresar el número de cheque o comprobante de transferencia.")
+
+    pago = solicitud.pago
+    if not pago:
+        pago = PagoReembolso(solicitud_id=solicitud.id)
+        db.add(pago)
+
+    pago.metodo_pago = (metodo_pago or "Cheque").strip()
+    pago.numero_cheque_o_transferencia = num_doc
+    pago.banco_emisor = (banco_emisor or "BancoEstado").strip()
+    pago.fecha_pago = (fecha_pago or date.today().isoformat()).strip()
+    pago.hora_proceso = (hora_proceso or datetime.now(timezone.utc).strftime("%H:%M")).strip()
+    pago.pagado_por_id = admin_user.id
+
+    solicitud.estado = EstadoReembolso.PAGADO
+    db.add(solicitud)
+    db.add(
+        AuditLog(
+            usuario_id=admin_user.id,
+            usuario_nombre=admin_user.nombre_completo,
+            usuario_rut=admin_user.rut,
+            usuario_rol=admin_user.rol.value if hasattr(admin_user.rol, "value") else str(admin_user.rol),
+            modulo="REEMBOLSOS",
+            accion="LIQUIDAR_PAGO_REEMBOLSO",
+            recurso_tipo="SolicitudReembolso",
+            recurso_id=solicitud.codigo,
+            detalles=(
+                f"Pago liquidado para {solicitud.codigo} por ${solicitud.monto_reembolso:,.0f} vía "
+                f"{pago.metodo_pago} N° {pago.numero_cheque_o_transferencia} ({pago.banco_emisor}) "
+                f"el {pago.fecha_pago} a las {pago.hora_proceso}."
+            ),
+        )
+    )
+    await db.commit()
+    return await db.scalar(
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .where(SolicitudReembolso.id == solicitud_id)
+    )
+
+
+async def confirmar_recepcion_conforme_reembolso(
+    solicitud_id: int,
+    user: User,
+    db: AsyncSession,
+) -> SolicitudReembolso:
+    """Registra la confirmación trazada de Recepción Conforme por el socio titular en pagos_reembolso (HU-10)."""
+    solicitud = await db.scalar(
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .where(SolicitudReembolso.id == solicitud_id)
+    )
+    if not solicitud:
+        raise ValueError("Solicitud de reembolso no encontrada.")
+
+    if solicitud.socio_id != user.id:
+        raise PermissionError("Solo el socio titular de la solicitud puede confirmar su recepción conforme.")
+
+    if solicitud.estado not in (EstadoReembolso.PAGADO, EstadoReembolso.APROBADO):
+        raise ValueError(
+            "La recepción conforme solo puede registrarse en solicitudes aprobadas o pagadas."
+        )
+
+    pago = solicitud.pago
+    if not pago:
+        pago = PagoReembolso(solicitud_id=solicitud.id)
+        db.add(pago)
+
+    if not pago.recepcion_conforme:
+        pago.recepcion_conforme = True
+        pago.recepcion_conforme_at = datetime.now(timezone.utc)
+        db.add(
+            AuditLog(
+                usuario_id=user.id,
+                usuario_nombre=user.nombre_completo,
+                usuario_rut=user.rut,
+                usuario_rol=user.rol.value if hasattr(user.rol, "value") else str(user.rol),
+                modulo="REEMBOLSOS",
+                accion="CONFIRMAR_RECEPCION_CONFORME",
+                recurso_tipo="SolicitudReembolso",
+                recurso_id=solicitud.codigo,
+                detalles=(
+                    f"El socio {user.nombre_completo} confirmó Recepción Conforme de {solicitud.codigo} "
+                    f"por ${solicitud.monto_reembolso:,.0f}."
+                ),
+            )
+        )
+        await db.commit()
+
+    return await db.scalar(
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .where(SolicitudReembolso.id == solicitud_id)
+    )

@@ -143,3 +143,41 @@ class SolicitudReembolso(Base, TimestampMixin):
     # [ESTUDIANTE INFORMÁTICA] Esto crea la relación bidireccional ORM con el modelo User y permite acceder a los datos completos del socio y del evaluador desde la solicitud.
     socio = relationship("User", foreign_keys=[socio_id], backref="solicitudes_reembolso", lazy="selectin")
     revisado_por = relationship("User", foreign_keys=[revisado_por_id])
+    pago = relationship(
+        "PagoReembolso",
+        back_populates="solicitud",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="noload",
+    )
+
+
+class PagoReembolso(Base, TimestampMixin):
+    """Registro normalizado 3FN de liquidación de pago (HU-04) y Recepción Conforme (HU-10)."""
+
+    __tablename__ = "pagos_reembolso"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    solicitud_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("solicitudes_reembolso.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    metodo_pago: Mapped[str] = mapped_column(String(40), default="Cheque")
+    numero_cheque_o_transferencia: Mapped[str] = mapped_column(String(60), default="")
+    banco_emisor: Mapped[str] = mapped_column(String(60), default="BancoEstado")
+    fecha_pago: Mapped[str] = mapped_column(String(10), default="")
+    hora_proceso: Mapped[str] = mapped_column(String(8), default="")
+    pagado_por_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True
+    )
+    recepcion_conforme: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    recepcion_conforme_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    solicitud = relationship("SolicitudReembolso", back_populates="pago")
