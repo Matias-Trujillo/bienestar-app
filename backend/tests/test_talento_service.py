@@ -11,7 +11,7 @@ def _payload_valido(**overrides):
     cv_bytes = b"%PDF-1.4\n%CV prueba vecino talento\n"
     data = {
         "nombreCompleto": "Camila Andrea Rojas Soto",
-        "run": "18.456.789-6",
+        "run": "18.456.789-K",
         "email": "camila.rojas@gmail.com",
         "telefono": "+56 9 8765 4321",
         "direccion": "Av. Errázuriz 420",
