@@ -33,6 +33,7 @@ from app.schemas.beneficios import (
     SimularNominaResponse,
     EjecutarNominaRequest,
     SimularNominaItem,
+    SocioAsistenciaBeneficioOut,
 )
 from app.services.audit_service import registrar_auditoria
 from app.services.beneficios_service import BeneficiosService
@@ -202,6 +203,19 @@ async def get_solicitudes(
     return [_to_solicitud_out(s) for s in solicitudes]
 
 
+@router.get(
+    "/socios-asistencia",
+    response_model=List[SocioAsistenciaBeneficioOut],
+    summary="Listar trabajadores activos para postulación asistida de beneficios (excluye al operador)",
+)
+async def get_socios_asistencia_beneficios(
+    q: Optional[str] = None,
+    user: User = Depends(require_roles(*ROLES_GESTION)),
+    db: AsyncSession = Depends(get_db),
+):
+    return await BeneficiosService.listar_socios_para_asistencia(db, user, q=q)
+
+
 @router.post("/postular", response_model=SolicitudBeneficioOut, summary="HU-05: Postular a un Bono por Contingencia / Evento")
 async def postular_beneficio(
     payload: PostulacionBeneficioCreate,
@@ -210,10 +224,12 @@ async def postular_beneficio(
 ):
     """
     HU-05: Socio postula a bonos por contingencia/evento (Educación, Nacimiento, Duelo, Catástrofe, etc.).
+    En modo asistido (Vista Admin), la Directiva postula en nombre de otro trabajador socio.
     Valida antigüedad mínima de 6 meses y adjuntos legales.
     """
     solicitud = await BeneficiosService.postular_beneficio(db, user, payload)
-    return _to_solicitud_out(solicitud, user)
+    socio_out = await db.get(User, solicitud.socio_id) or user
+    return _to_solicitud_out(solicitud, socio_out)
 
 
 @router.post("/asignacion-directa-vacaciones", response_model=SolicitudBeneficioOut, summary="HU-05 / Escenario 3: Asignación Directa Bono de Vacaciones")

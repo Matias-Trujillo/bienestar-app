@@ -37,7 +37,12 @@ class PostulacionBeneficioCreate(BaseModel):
     documento_tipo: str
     documento_nombre: Optional[str] = None
     documento_url: Optional[str] = None
-    
+    socio_id: Optional[int] = Field(None, description="ID del trabajador socio asistido en oficina")
+    modo_asistido: bool = Field(
+        False,
+        description="True cuando un directivo/admin postula presencialmente a nombre de otro trabajador",
+    )
+
     # Campos condicionales según tipo
     decreto_numero: Optional[str] = None
     decreto_fecha: Optional[str] = None
@@ -112,6 +117,19 @@ class SolicitudBeneficioOut(BaseModel):
     banco_emisor: Optional[str] = None
     fecha_liquidacion: Optional[str] = None
     created_at: str
+
+
+class SocioAsistenciaBeneficioOut(BaseModel):
+    """Contrato segregado (ISP) para seleccionar un trabajador socio en postulación asistida."""
+    id: int
+    rut: str
+    nombre_completo: str
+    email: str
+    departamento: str
+    antiguedad: str
+    meses_antiguedad: int
+    cumple_antiguedad: bool
+    motivo_antiguedad: str
 
 
 class SimularNominaItem(BaseModel):

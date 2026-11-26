@@ -32,6 +32,7 @@ from app.schemas.beneficios import (
     SimularNominaRequest,
     SimularNominaResponse,
     SimularNominaItem,
+    SocioAsistenciaBeneficioOut,
     EjecutarNominaRequest,
     CargaPlanillaItem,
 )
@@ -279,12 +280,60 @@ class BeneficiosService:
         Valida que el socio tenga al menos 6 meses de permanencia en el Comité.
         Retorna: (cumple, meses, texto_explicativo)
         """
-        meses = getattr(user, "meses_antiguedad", 12) or 12
+        raw_meses = getattr(user, "meses_antiguedad", None)
+        meses = int(raw_meses) if raw_meses is not None else 0
         cumple = meses >= 6
         if cumple:
             return True, meses, f"Cumple antigüedad ({user.antiguedad or f'{meses} Meses'})"
         else:
             return False, meses, f"No cumple requisito mínimo de 6 meses (antigüedad actual: {user.antiguedad or f'{meses} Meses'})"
+
+    @classmethod
+    async def listar_socios_para_asistencia(
+        cls, db: AsyncSession, operador: User, q: Optional[str] = None
+    ) -> List[SocioAsistenciaBeneficioOut]:
+        """Lista trabajadores con cuenta activa disponibles para postulación asistida (excluye al propio operador)."""
+        usuarios = list(
+            (
+                await db.scalars(
+                    select(User)
+                    .where(
+                        User.is_active == True,  # noqa: E712
+                        User.id != operador.id,
+                    )
+                    .order_by(User.nombre_completo.asc())
+                )
+            ).all()
+        )
+        filtro = (q or "").strip().lower()
+        filtro_rut = re.sub(r"[^0-9kK]", "", filtro).upper()
+        if filtro:
+            usuarios = [
+                u
+                for u in usuarios
+                if filtro in (u.nombre_completo or "").lower()
+                or filtro in (u.email or "").lower()
+                or filtro in (u.departamento or "").lower()
+                or (filtro_rut and filtro_rut in re.sub(r"[^0-9kK]", "", u.rut or "").upper())
+            ]
+
+        resultado: List[SocioAsistenciaBeneficioOut] = []
+        for u in usuarios:
+            cumple, meses, motivo = cls.verificar_antiguedad_socio(u)
+            resultado.append(
+                SocioAsistenciaBeneficioOut(
+                    id=u.id,
+                    rut=u.rut,
+                    nombre_completo=u.nombre_completo,
+                    email=u.email,
+                    departamento=u.departamento or "Municipalidad de Peralillo",
+                    antiguedad=u.antiguedad or f"{meses} Meses",
+                    meses_antiguedad=meses,
+                    cumple_antiguedad=cumple,
+                    motivo_antiguedad=motivo,
+                )
+            )
+        return resultado
 
     @classmethod
     async def postular_beneficio(
@@ -293,9 +342,52 @@ class BeneficiosService:
         """
         HU-05: Postulación de bonos por contingencia/evento con cálculo sobre Grado 15
         y validación estricta de permanencia mínima de 6 meses.
+        Soporta modo asistido (Vista Admin) prohibiendo la auto-postulación del operador.
         """
-        # 1. Validar permanencia mínima de 6 meses
-        cumple, meses, motivo_ant = cls.verificar_antiguedad_socio(user)
+        roles_gestion = (
+            UserRole.SUPERUSUARIO,
+            UserRole.ADMIN,
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+        )
+        socio_destino = user
+        es_asistido = bool(payload.modo_asistido)
+
+        if es_asistido:
+            if not (user.is_superuser or user.rol in roles_gestion):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo personal de Directiva o Administración con facultades operativas puede ingresar postulaciones asistidas.",
+                )
+            if not payload.socio_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Debe seleccionar al trabajador socio que requiere el beneficio social.",
+                )
+            target = await db.get(User, payload.socio_id)
+            if not target:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="El trabajador socio seleccionado no existe en el sistema.",
+                )
+            if target.id == user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        "En Vista Admin no puede solicitar un beneficio social para usted mismo. "
+                        "Cambie a Vista Usuario para gestionar sus propios beneficios."
+                    ),
+                )
+            if not target.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"La cuenta del trabajador {target.nombre_completo} se encuentra inactiva.",
+                )
+            socio_destino = target
+
+        # 1. Validar permanencia mínima de 6 meses sobre el socio beneficiario real
+        cumple, meses, motivo_ant = cls.verificar_antiguedad_socio(socio_destino)
         if not cumple:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -348,7 +440,7 @@ class BeneficiosService:
         monto = int(round(base_g15 * (porcentaje / 100.0)))
         
         solicitud = SolicitudBeneficio(
-            socio_id=user.id,
+            socio_id=socio_destino.id,
             bono_id=bono_id,
             tipo_bono=payload.tipo_bono,
             titulo_bono=bono_def["nombre"],
@@ -358,8 +450,8 @@ class BeneficiosService:
             estado="PENDIENTE",
             motivo=payload.motivo,
             documento_tipo=payload.documento_tipo or bono_def["documentacion_requerida"],
-            documento_nombre=payload.documento_nombre or f"{payload.tipo_bono}_{user.rut}.pdf",
-            documento_url=payload.documento_url or f"/docs/postulaciones/{payload.tipo_bono}_{user.id}.pdf",
+            documento_nombre=payload.documento_nombre or f"{payload.tipo_bono}_{socio_destino.rut}.pdf",
+            documento_url=payload.documento_url or f"/docs/postulaciones/{payload.tipo_bono}_{socio_destino.id}.pdf",
             decreto_numero=payload.decreto_numero,
             decreto_fecha=cls._parse_decreto_fecha(payload.decreto_fecha),
             dias_habiles_feriado=payload.dias_habiles_feriado,
@@ -377,10 +469,18 @@ class BeneficiosService:
             db=db,
             usuario=user,
             modulo="BENEFICIOS",
-            accion="POSTULAR_BENEFICIO",
+            accion="POSTULAR_BENEFICIO_ASISTIDO" if es_asistido else "POSTULAR_BENEFICIO",
             recurso_tipo="SolicitudBeneficio",
             recurso_id=f"BEN-{solicitud.id:04d}",
-            detalles=f"Postulación ingresada a '{solicitud.titulo_bono}' ({porcentaje}% G15 = ${monto:,.0f}) por {user.nombre_completo}.",
+            detalles=(
+                f"Postulación ingresada a '{solicitud.titulo_bono}' ({porcentaje}% G15 = ${monto:,.0f}) "
+                f"para {socio_destino.nombre_completo}"
+                + (
+                    f" • Ingreso asistido en oficina por {user.nombre_completo}."
+                    if es_asistido
+                    else "."
+                )
+            ),
         )
         await db.commit()
         await db.refresh(solicitud)

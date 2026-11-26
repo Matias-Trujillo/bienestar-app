@@ -25,6 +25,7 @@ import { HojaBeneficiosTable } from '@/components/beneficios/HojaBeneficiosTable
 import { GestionDirectivaTable } from '@/components/beneficios/GestionDirectivaTable';
 import { LiquidacionMasivaPanel } from '@/components/beneficios/LiquidacionMasivaPanel';
 import { ModalesBeneficios } from '@/components/beneficios/ModalesBeneficios';
+import { BeneficioAsistidoPanel } from '@/components/beneficios/BeneficioAsistidoPanel';
 
 export default function BeneficiosPage() {
   const { user, token, isAdminView, viewMode } = useAuth();
@@ -107,7 +108,14 @@ export default function BeneficiosPage() {
   useEffect(() => {
     setSuccessMsg(null);
     setErrorMsg(null);
-    if (!esDirectivaOAdmin && (activeTab === 'gestion_directiva' || activeTab === 'liquidacion_masiva')) {
+    if (esDirectivaOAdmin && (activeTab === 'catalogo' || activeTab === 'hoja_socio')) {
+      setActiveTab('asistencia_socio');
+    } else if (
+      !esDirectivaOAdmin &&
+      (activeTab === 'asistencia_socio' ||
+        activeTab === 'gestion_directiva' ||
+        activeTab === 'liquidacion_masiva')
+    ) {
       setActiveTab('catalogo');
     }
   }, [esDirectivaOAdmin, activeTab, viewMode]);
@@ -487,7 +495,27 @@ export default function BeneficiosPage() {
       />
 
       {/* 3. Componentes Modulares por Pestaña */}
-      {activeTab === 'catalogo' && (
+      {activeTab === 'asistencia_socio' && esDirectivaOAdmin && (
+        <BeneficioAsistidoPanel
+          catalogo={catalogo}
+          onPostulacionCreada={() => {
+            cargarDatos();
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('solicitudes-updated'));
+              try {
+                if ('BroadcastChannel' in window) {
+                  const bc = new BroadcastChannel('bienestar_alertas_channel');
+                  bc.postMessage({ type: 'SOLICITUD_CREADA', modulo: 'beneficios' });
+                  bc.close();
+                }
+              } catch {}
+            }
+          }}
+          onIrAGestionDirectiva={() => setActiveTab('gestion_directiva')}
+        />
+      )}
+
+      {activeTab === 'catalogo' && !esDirectivaOAdmin && (
         <CatalogoBonos
           catalogo={catalogo}
           cumpleRequisito6Meses={cumpleRequisito6Meses}
@@ -515,7 +543,7 @@ export default function BeneficiosPage() {
         />
       )}
 
-      {activeTab === 'hoja_socio' && (
+      {activeTab === 'hoja_socio' && !esDirectivaOAdmin && (
         <HojaBeneficiosTable
           solicitudes={solicitudes}
           nombreCompleto={user?.nombreCompleto}

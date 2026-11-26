@@ -8,7 +8,12 @@ import {
   RefreshCwIcon,
 } from './Icons';
 
-export type BeneficiosTab = 'catalogo' | 'hoja_socio' | 'gestion_directiva' | 'liquidacion_masiva';
+export type BeneficiosTab =
+  | 'asistencia_socio'
+  | 'catalogo'
+  | 'hoja_socio'
+  | 'gestion_directiva'
+  | 'liquidacion_masiva';
 
 interface BeneficiosNavTabsProps {
   activeTab: BeneficiosTab;
@@ -33,44 +38,23 @@ export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-200/80 pb-3 min-w-0">
       <div className="inline-flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200/70">
-        <button
-          onClick={() => setActiveTab('catalogo')}
-          className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
-            activeTab === 'catalogo'
-              ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-xs'
-              : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
-          }`}
-        >
-          <GiftIcon className="w-4 h-4" />
-          <span>Catálogo & Reglas</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('hoja_socio')}
-          className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
-            activeTab === 'hoja_socio'
-              ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-xs'
-              : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
-          }`}
-        >
-          <FileTextIcon className="w-4 h-4" />
-          <span>Mi Hoja de Beneficios</span>
-          {totalSolicitudes > 0 && (
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
-                activeTab === 'hoja_socio' ? 'bg-white/20 text-white' : 'bg-white text-[#006799] border border-slate-200'
-              }`}
-            >
-              {totalSolicitudes}
-            </span>
-          )}
-        </button>
-
-        {esDirectivaOAdmin && (
+        {esDirectivaOAdmin ? (
           <>
             <button
+              onClick={() => setActiveTab('asistencia_socio')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === 'asistencia_socio'
+                  ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
+              }`}
+            >
+              <GiftIcon className="w-4 h-4" />
+              <span>Ayuda al Socio (Solicitar Beneficio)</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('gestion_directiva')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'gestion_directiva'
                   ? 'bg-[#006799] text-white shadow-xs'
                   : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
@@ -78,11 +62,22 @@ export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
             >
               <ShieldCheckIcon className="w-4 h-4" />
               <span>Gestión Directiva</span>
+              {totalSolicitudes > 0 && (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
+                    activeTab === 'gestion_directiva'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-white text-[#006799] border border-slate-200'
+                  }`}
+                >
+                  {totalSolicitudes}
+                </span>
+              )}
             </button>
 
             <button
               onClick={() => setActiveTab('liquidacion_masiva')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'liquidacion_masiva'
                   ? 'bg-[#166534] text-white shadow-xs'
                   : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
@@ -90,6 +85,43 @@ export const BeneficiosNavTabs: React.FC<BeneficiosNavTabsProps> = ({
             >
               <SlidersIcon className="w-4 h-4" />
               <span>Liquidación Masiva</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setActiveTab('catalogo')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === 'catalogo'
+                  ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
+              }`}
+            >
+              <GiftIcon className="w-4 h-4" />
+              <span>Catálogo & Reglas</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('hoja_socio')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === 'hoja_socio'
+                  ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
+              }`}
+            >
+              <FileTextIcon className="w-4 h-4" />
+              <span>Mi Hoja de Beneficios</span>
+              {totalSolicitudes > 0 && (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
+                    activeTab === 'hoja_socio'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-white text-[#006799] border border-slate-200'
+                  }`}
+                >
+                  {totalSolicitudes}
+                </span>
+              )}
             </button>
           </>
         )}
