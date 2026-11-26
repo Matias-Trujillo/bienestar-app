@@ -185,3 +185,43 @@ class CargaMasivaRequestIn(BaseModel):
     registros: List[CargaMasivaSocioIn]
     numeroActa: Optional[str] = "Nómina Masiva Muni Peralillo"
     enviarCorreos: bool = False
+
+
+class CrearSocioDirectoIn(BaseModel):
+    """Contrato segregado (ISP) para el alta directa de un socio específico desde Afiliación."""
+
+    rut: str = Field(..., min_length=8, max_length=16)
+    nombreCompleto: str = Field(..., min_length=3, max_length=120)
+    email: str = Field(..., min_length=5, max_length=120)
+    departamento: str = Field(default="Departamento Municipal", min_length=2, max_length=120)
+    calidadContractual: Literal["Planta", "Contrata"] = "Planta"
+    grado: str = Field(default="14", min_length=1, max_length=10)
+    mesesAntiguedad: int = Field(default=0, ge=0, le=600)
+    enviarCorreo: bool = True
+
+    @field_validator("rut")
+    @classmethod
+    def _validar_rut(cls, v: str) -> str:
+        return normalizar_run(v)
+
+    @field_validator("email")
+    @classmethod
+    def _validar_email(cls, v: str) -> str:
+        limpio = (v or "").strip().lower()
+        if "@" not in limpio or "." not in limpio.split("@")[-1]:
+            raise ValueError("Correo electrónico inválido.")
+        return limpio
+
+
+class CrearSocioDirectoOut(BaseModel):
+    id: int
+    rut: str
+    nombreCompleto: str
+    email: str
+    departamento: str
+    calidadContractual: str
+    grado: str
+    mesesAntiguedad: int
+    claveTemporal: str
+    correoEnviado: bool
+    mensaje: str

@@ -7,18 +7,27 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import (
+    get_audit_logger,
+    get_current_user,
+    get_password_hasher,
+    require_roles,
+)
+from app.core.interfaces import AuditLoggerProtocol, PasswordHasherProtocol
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.schemas.afiliacion import (
     CargaMasivaRequestIn,
     ComprobanteOut,
+    CrearSocioDirectoIn,
+    CrearSocioDirectoOut,
     NuevaCargaIn,
     ResolucionSolicitudIn,
     SolicitudCargaOut,
     SolicitudIn,
 )
 from app.services.afiliacion_service import AfiliacionService
+from app.services.socio_creacion_service import SocioCreacionService
 
 router = APIRouter()
 
@@ -36,6 +45,21 @@ ROLES_RESOLUTIVOS = (
     UserRole.SECRETARIO,
     UserRole.SUPERUSUARIO,
 )
+
+ROLES_CREACION_SOCIO = (
+    UserRole.SUPERUSUARIO,
+    UserRole.ADMIN,
+    UserRole.PRESIDENTE,
+    UserRole.SECRETARIO,
+    UserRole.TESORERO,
+)
+
+
+def _get_socio_creacion_service(
+    audit_logger: AuditLoggerProtocol = Depends(get_audit_logger),
+    hasher: PasswordHasherProtocol = Depends(get_password_hasher),
+) -> SocioCreacionService:
+    return SocioCreacionService(audit_logger=audit_logger, hasher=hasher)
 
 
 # [ESTUDIANTE INFORMÁTICA] Retorna la descripción institucional y normativa del módulo de afiliación.
@@ -227,3 +251,19 @@ async def procesar_carga_masiva(
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     return await AfiliacionService.procesar_carga_masiva_socios(db, body, current_user)
+
+
+# [ESTUDIANTE INFORMÁTICA] Crea directamente la cuenta de un socio específico desde Afiliación y Cargas (SRP + DIP).
+@router.post(
+    "/crear-socio-directo",
+    response_model=CrearSocioDirectoOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear directamente la cuenta de un socio específico (Directiva / Administración)",
+)
+async def crear_socio_directo(
+    body: CrearSocioDirectoIn,
+    current_user: User = Depends(require_roles(*ROLES_CREACION_SOCIO)),
+    db: AsyncSession = Depends(get_db),
+    service: SocioCreacionService = Depends(_get_socio_creacion_service),
+) -> CrearSocioDirectoOut:
+    return await service.crear_socio_directo(db, body, current_user)

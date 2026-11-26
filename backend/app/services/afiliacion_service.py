@@ -74,7 +74,6 @@ CUENTAS_AUTORIZADAS_CARGA_MASIVA: Set[str] = {
     "rmorales@mperalillo.cl",
     "jcontreras@mperalillo.cl",
     "aibarra@mperalillo.cl",
-    "cvalenzuela@mperalillo.cl",
 }
 
 RUTS_AUTORIZADOS_CARGA_MASIVA: Set[str] = {
@@ -84,14 +83,12 @@ RUTS_AUTORIZADOS_CARGA_MASIVA: Set[str] = {
     "14982112-0",
     "16234567-2",
     "17345678-6",
-    "15489123-4",
     # Compatibilidad retroactiva de semillas históricas
     "12345678-9",
     "13456789-0",
     "14982112-4",
     "16234567-8",
     "17345678-K",
-    "15489123-K",
 }
 
 _TABLA_CARGAS_LISTA = False

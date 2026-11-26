@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Inbox } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
 import { isValidRun, getErrorMessage } from '@/lib/utils';
@@ -15,7 +15,7 @@ import {
   ModalCargaMasivaSocios,
   esCuentaAutorizadaCargaMasiva,
 } from '@/components/admin/ModalCargaMasivaSocios';
-import { BuzonCorreosModal } from '@/components/ui/BuzonCorreosModal';
+import { ModalCrearSocioDirecto } from '@/components/afiliacion/ModalCrearSocioDirecto';
 import { MisCargasSection } from '@/components/afiliacion/MisCargasSection';
 import { SolicitudesCargasDirectorioSection } from '@/components/afiliacion/SolicitudesCargasDirectorioSection';
 import { ModalNuevaCargaFamiliar } from '@/components/afiliacion/ModalNuevaCargaFamiliar';
@@ -73,7 +73,6 @@ export default function AfiliacionPage() {
   const [solicitudCorreo, setSolicitudCorreo] = useState<SolicitudResumen | null>(null);
   const [panelResolucionFicha, setPanelResolucionFicha] = useState<'aprobar' | 'rechazar' | null>(null);
   const [reenviandoSmtp, setReenviandoSmtp] = useState(false);
-  const [buzonAbierto, setBuzonAbierto] = useState(false);
 
   const [misCargas, setMisCargas] = useState<CargaSocioItem[]>([]);
   const [cargandoMisCargas, setCargandoMisCargas] = useState(false);
@@ -100,14 +99,19 @@ export default function AfiliacionPage() {
   const [errorResolucionCarga, setErrorResolucionCarga] = useState<string | null>(null);
 
   const [modalCargaMasivaOpen, setModalCargaMasivaOpen] = useState(false);
+  const [modalCrearSocioOpen, setModalCrearSocioOpen] = useState(false);
   const puedeCargaMasiva = Boolean(esDirectiva && esCuentaAutorizadaCargaMasiva(user?.email, user?.rut));
+  const puedeCrearSocio = Boolean(
+    esDirectiva &&
+      user &&
+      (user.isSuperuser || ['superusuario', 'admin', 'presidente', 'secretario', 'tesorero'].includes(user.rol))
+  );
 
   useEffect(() => {
     setMensajeExito(null);
     setErrorModal(null);
     setErrorNuevaCarga(null);
     setErrorResolucionCarga(null);
-    setBuzonAbierto(false);
     setSolicitudSeleccionada(null);
     setCargaSeleccionada(null);
   }, [viewMode]);
@@ -435,7 +439,7 @@ export default function AfiliacionPage() {
                 type="button"
                 onClick={() => setModalCargaMasivaOpen(true)}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#006799] hover:bg-sky-700 rounded-xl border border-sky-400/30 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
-                title="Exclusivo para las cuentas autorizadas de la Municipalidad de Peralillo"
+                title="Importar nómina masiva de socios y cargas en formato CSV"
               >
                 <svg className="w-3.5 h-3.5 text-sky-200 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -443,31 +447,25 @@ export default function AfiliacionPage() {
                 <span>Carga Masiva CSV</span>
               </button>
             )}
-            {esDirectiva && (
-              <>
-                <Link
-                  href="/finanzas"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl transition-colors whitespace-nowrap"
-                >
-                  <span>Nómina 4% (Finanzas)</span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setBuzonAbierto(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-sky-100 bg-sky-900/60 hover:bg-sky-900/80 border border-sky-400/40 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs"
-                  title="Consultar registro de correos transaccionales emitidos por el sistema"
-                >
-                  <Inbox className="w-3.5 h-3.5" />
-                  <span>Buzón de Correos</span>
-                </button>
-              </>
+            {puedeCrearSocio && (
+              <button
+                type="button"
+                onClick={() => setModalCrearSocioOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#166534] to-[#558b2f] hover:opacity-95 rounded-xl border border-emerald-400/30 shadow-xs transition-all whitespace-nowrap cursor-pointer"
+                title="Crear directamente la cuenta de acceso para un funcionario socio"
+              >
+                <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                <span>+ Crear Cuenta de Socio</span>
+              </button>
             )}
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl transition-colors whitespace-nowrap"
-            >
-              ← Hoja Socio
-            </Link>
+            {!esDirectiva && (
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl transition-colors whitespace-nowrap"
+              >
+                ← Hoja Socio
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -514,21 +512,23 @@ export default function AfiliacionPage() {
         />
       )}
 
-      <MisCargasSection
-        esAdminOSuper={esAdminOSuper}
-        usuarioNombre={user?.nombreCompleto}
-        usuarioRut={user?.rut}
-        cargando={cargandoMisCargas}
-        cargas={misCargas}
-        onAbrirNuevaCarga={() => {
-          setErrorNuevaCarga(null);
-          setCertificadoNombre('');
-          setCertificadoData('');
-          setModalNuevaCargaOpen(true);
-        }}
-        onVerCertificado={setCertificadoVisor}
-        onAbrirSubsanacion={handleAbrirSubsanacion}
-      />
+      {!esDirectiva && (
+        <MisCargasSection
+          esAdminOSuper={esAdminOSuper}
+          usuarioNombre={user?.nombreCompleto}
+          usuarioRut={user?.rut}
+          cargando={cargandoMisCargas}
+          cargas={misCargas}
+          onAbrirNuevaCarga={() => {
+            setErrorNuevaCarga(null);
+            setCertificadoNombre('');
+            setCertificadoData('');
+            setModalNuevaCargaOpen(true);
+          }}
+          onVerCertificado={setCertificadoVisor}
+          onAbrirSubsanacion={handleAbrirSubsanacion}
+        />
+      )}
 
       <ModalNuevaCargaFamiliar
         isOpen={modalNuevaCargaOpen}
@@ -628,9 +628,18 @@ export default function AfiliacionPage() {
           }
         }}
       />
-      <BuzonCorreosModal
-        isOpen={buzonAbierto}
-        onClose={() => setBuzonAbierto(false)}
+      <ModalCrearSocioDirecto
+        isOpen={modalCrearSocioOpen}
+        token={token}
+        onClose={() => setModalCrearSocioOpen(false)}
+        onSuccess={(msg) => {
+          setMensajeExito(msg);
+          setTimeout(() => setMensajeExito(null), 6000);
+          cargarSolicitudes();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('solicitudes-updated'));
+          }
+        }}
       />
     </div>
   );
