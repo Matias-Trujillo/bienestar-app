@@ -35,6 +35,7 @@ from app.schemas.reembolso import (
     ResolverReembolsoRequest,
     ReembolsoOut,
     ResumenSaludSocio,
+    SocioAsistenciaReembolsoOut,
     ValidacionFechaResponse,
     ReembolsoHistorialResponse,
 )
@@ -42,6 +43,7 @@ from app.services.reembolso_service import (
     asegurar_columnas_reembolso,
     confirmar_recepcion_conforme_reembolso,
     crear_solicitud,
+    listar_socios_para_asistencia,
     listar_solicitudes_socio,
     listar_todas_solicitudes_admin,
     contar_solicitudes_pendientes_admin,
@@ -86,6 +88,26 @@ async def get_reembolsos(
     )
 
 
+# ---------- GET /reembolsos/socios-asistencia ----------
+
+@router.get(
+    "/socios-asistencia",
+    response_model=List[SocioAsistenciaReembolsoOut],
+    summary="Listar trabajadores activos para ingreso asistido de reembolso (excluye al operador)",
+)
+async def get_socios_asistencia(
+    q: Optional[str] = Query(None, description="Filtro por nombre, RUN, correo o departamento"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not (user.is_superuser or user.rol in ROLES_RESOLUTIVOS_REEMBOLSOS):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso restringido a personal de Directiva o Administración para atención asistida.",
+        )
+    return await listar_socios_para_asistencia(user, db, q=q)
+
+
 # ---------- GET /reembolsos/resumen-socio ----------
 
 # [ESTUDIANTE INFORMÁTICA] Este endpoint retorna únicamente las métricas de saldo de salud del socio; permite actualizar las tarjetas de saldo sin tener que recargar toda la lista de solicitudes.
@@ -105,14 +127,16 @@ async def get_resumen_socio(
     if user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS:
         if socio_id and socio_id != user.id:
             s = await db.get(User, socio_id)
-            if s:
-                target_user = s
+            if not s:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Socio no encontrado.")
+            target_user = s
         elif socio_rut:
             clean_rut = re.sub(r"[^0-9kK]", "", socio_rut).upper()
             all_u = (await db.scalars(select(User))).all()
             s = next((u for u in all_u if re.sub(r"[^0-9kK]", "", u.rut or "").upper() == clean_rut), None)
-            if s:
-                target_user = s
+            if not s:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Socio no encontrado por RUN.")
+            target_user = s
 
     return await obtener_resumen_socio(target_user, db, anio=anio)
 
@@ -184,6 +208,8 @@ async def post_crear_solicitud(
             user, body, db, comprobante_filename=body.comprobante_filename
         )
         return solicitud_to_out(solicitud)
+    except PermissionError as pe:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(pe))
     except ValueError as ve:
         err_msg = str(ve)
         status_code = (

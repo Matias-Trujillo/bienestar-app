@@ -37,6 +37,7 @@ from app.schemas.reembolso import (
     ReembolsoCreateRequest,
     ReembolsoOut,
     ResumenSaludSocio,
+    SocioAsistenciaReembolsoOut,
     ValidacionFechaResponse,
 )
 from app.services.email_service import (
@@ -487,7 +488,42 @@ async def crear_solicitud(
     )
 
     socio_a_evaluar = socio_actual
-    if es_admin_o_directiva and payload.socio_id and payload.socio_id != socio_actual.id:
+    if payload.modo_asistido:
+        if not es_admin_o_directiva:
+            raise PermissionError(
+                "Solo personal de Directiva o Administración puede ingresar reembolsos asistidos."
+            )
+        if not payload.socio_id and not payload.socio_rut:
+            raise ValueError(
+                "Debe seleccionar al trabajador socio que requiere la solicitud de reembolso."
+            )
+        target: Optional[User] = None
+        if payload.socio_id:
+            target = await db.get(User, payload.socio_id)
+            if not target:
+                raise ValueError(f"Socio titular con ID {payload.socio_id} no encontrado.")
+        elif payload.socio_rut:
+            clean_rut = re.sub(r"[^0-9kK]", "", payload.socio_rut).upper()
+            todos_usuarios = (await db.scalars(select(User))).all()
+            target = next(
+                (u for u in todos_usuarios if re.sub(r"[^0-9kK]", "", u.rut or "").upper() == clean_rut),
+                None,
+            )
+            if not target:
+                raise ValueError(f"Socio titular con RUN {payload.socio_rut} no encontrado.")
+
+        assert target is not None
+        if target.id == socio_actual.id:
+            raise PermissionError(
+                "En Vista Admin no puede solicitar un reembolso para usted mismo. "
+                "Cambie a Vista Usuario para gestionar sus propios reembolsos."
+            )
+        if not target.is_active:
+            raise ValueError(
+                f"La cuenta del trabajador {target.nombre_completo} se encuentra inactiva."
+            )
+        socio_a_evaluar = target
+    elif es_admin_o_directiva and payload.socio_id and payload.socio_id != socio_actual.id:
         target = await db.get(User, payload.socio_id)
         if not target:
             raise ValueError(f"Socio titular con ID {payload.socio_id} no encontrado.")
@@ -581,6 +617,7 @@ async def crear_solicitud(
         estado=EstadoReembolso.EN_REVISION,
     )
 
+    es_ingreso_asistido = bool(payload.modo_asistido or socio_a_evaluar.id != socio_actual.id)
     db.add(solicitud)
     db.add(
         AuditLog(
@@ -589,12 +626,17 @@ async def crear_solicitud(
             usuario_rut=socio_actual.rut,
             usuario_rol=socio_actual.rol.value if hasattr(socio_actual.rol, "value") else str(socio_actual.rol),
             modulo="REEMBOLSOS",
-            accion="INGRESAR_REEMBOLSO_MEDICO",
+            accion="INGRESAR_REEMBOLSO_ASISTIDO" if es_ingreso_asistido else "INGRESAR_REEMBOLSO_MEDICO",
             recurso_tipo="SolicitudReembolso",
             recurso_id=f"{codigo}:INGRESO",
             detalles=(
                 f"Solicitud {codigo} ingresada para {socio_a_evaluar.nombre_completo} "
-                f"(Beneficiario: {payload.beneficiario_nombre}, Copago: ${monto_copago_int:,.0f})."
+                f"(Beneficiario: {payload.beneficiario_nombre}, Copago: ${monto_copago_int:,.0f})"
+                + (
+                    f" • Ingreso asistido en oficina por {socio_actual.nombre_completo}."
+                    if es_ingreso_asistido
+                    else "."
+                )
             ),
             ip_origen="127.0.0.1",
         )
@@ -631,6 +673,58 @@ async def crear_solicitud(
         )
 
     return solicitud
+
+
+async def listar_socios_para_asistencia(
+    operador: User,
+    db: AsyncSession,
+    q: Optional[str] = None,
+) -> List[SocioAsistenciaReembolsoOut]:
+    """Lista trabajadores con cuenta activa disponibles para ingreso asistido (excluye al propio operador)."""
+    usuarios = list(
+        (
+            await db.scalars(
+                select(User)
+                .where(
+                    User.is_active == True,  # noqa: E712
+                    User.id != operador.id,
+                )
+                .order_by(User.nombre_completo.asc())
+            )
+        ).all()
+    )
+
+    filtro = (q or "").strip().lower()
+    filtro_rut = re.sub(r"[^0-9kK]", "", filtro).upper()
+    if filtro:
+        usuarios = [
+            u
+            for u in usuarios
+            if filtro in (u.nombre_completo or "").lower()
+            or filtro in (u.email or "").lower()
+            or filtro in (u.departamento or "").lower()
+            or (filtro_rut and filtro_rut in re.sub(r"[^0-9kK]", "", u.rut or "").upper())
+        ]
+
+    resultado: List[SocioAsistenciaReembolsoOut] = []
+    for u in usuarios:
+        resumen = await obtener_resumen_socio(u, db)
+        resultado.append(
+            SocioAsistenciaReembolsoOut(
+                id=u.id,
+                rut=u.rut,
+                nombre_completo=u.nombre_completo,
+                email=u.email,
+                departamento=u.departamento or "Municipalidad de Peralillo",
+                antiguedad=u.antiguedad or f"{resumen.meses_antiguedad} Meses",
+                meses_antiguedad=resumen.meses_antiguedad,
+                puede_solicitar=resumen.puede_solicitar,
+                mensaje_carencia=resumen.mensaje_carencia,
+                saldo_salud_disponible=resumen.saldo_salud_disponible,
+                saldo_salud_total_anual=resumen.saldo_salud_total_anual,
+            )
+        )
+    return resultado
 
 
 # [ESTUDIANTE INFORMÁTICA] Esta función recupera las solicitudes del socio autenticado ordenadas cronológicamente; permite renderizar la tabla del historial personal.

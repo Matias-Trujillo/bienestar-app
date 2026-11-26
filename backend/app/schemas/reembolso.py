@@ -11,6 +11,10 @@ class ReembolsoCreateRequest(BaseModel):
     """Datos que el socio envía al crear una solicitud de reembolso."""
     socio_id: Optional[int] = Field(None, description="ID del socio titular asistido en oficina")
     socio_rut: Optional[str] = Field(None, description="RUN del socio titular asistido en oficina")
+    modo_asistido: bool = Field(
+        False,
+        description="True cuando un directivo/admin ingresa la solicitud en oficina para otro trabajador",
+    )
     tipo_prestacion: str = Field(..., description="Clave del tipo de prestación médica")
     descripcion: str = Field("", max_length=500, description="Descripción libre del gasto (máx 500 caracteres)")
     beneficiario_nombre: str = Field(..., description="Nombre del beneficiario")
@@ -171,3 +175,18 @@ class ReembolsoHistorialResponse(BaseModel):
     """Lista de reembolsos con resumen."""
     resumen: ResumenSaludSocio
     solicitudes: List[ReembolsoOut]
+
+
+class SocioAsistenciaReembolsoOut(BaseModel):
+    """Contrato segregado (ISP) para seleccionar un trabajador socio en Atención Asistida."""
+    id: int
+    rut: str
+    nombre_completo: str
+    email: str
+    departamento: str
+    antiguedad: str
+    meses_antiguedad: int
+    puede_solicitar: bool
+    mensaje_carencia: Optional[str] = None
+    saldo_salud_disponible: int
+    saldo_salud_total_anual: int
