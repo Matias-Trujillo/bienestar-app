@@ -23,6 +23,7 @@ from app.models.beneficios import (
 )
 
 from app.models.audit import AuditLog
+from app.models.finanzas import AporteMunicipalUtm
 from app.models.talento import (
     CompetenciaCatalogo,
     CursoPerfeccionamiento,
@@ -41,6 +42,7 @@ __all__ = [
     "User",
     "UserRole",
     "AuditLog",
+    "AporteMunicipalUtm",
     "PagoReembolso",
     "SolicitudReembolso",
     "TipoPrestacion",

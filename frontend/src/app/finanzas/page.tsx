@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
 import { NominaResponse } from '@/types';
+import AporteMunicipalUtmPanel from '@/components/finanzas/AporteMunicipalUtmPanel';
 
 // [ESTUDIANTE INFORMÁTICA] Genera y descarga en tiempo real la planilla CSV compatible con Excel (UTF-8 BOM) para Recursos Humanos.
 function exportarNominaRetencionesCsv(nomina: NominaResponse | null): void {
@@ -174,6 +175,8 @@ export default function FinanzasPage() {
       </div>
 
       <FinanzasSummarySection nomina={nomina} />
+
+      <AporteMunicipalUtmPanel token={token} userRol={user?.rol} />
 
       <div className="card-modern overflow-hidden min-w-0">
         <div className="p-5 sm:px-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
