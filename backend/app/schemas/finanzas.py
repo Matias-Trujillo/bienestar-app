@@ -1,6 +1,6 @@
-"""Esquemas Pydantic del Módulo Financiero — Aporte Municipal en UTM (HU-08)."""
+"""Esquemas Pydantic del Módulo Financiero — UTM (HU-08) y Conciliación Bancaria (HU-07)."""
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -52,3 +52,110 @@ class AporteMunicipalUtmOut(BaseModel):
     observaciones: str = ""
     registrado_por_nombre: Optional[str] = None
     created_at: datetime
+
+
+# ==============================================================================
+# HU-07: Conciliación Planilla RRHH (Cód. 47) y Cartola BancoEstado
+# ==============================================================================
+
+class FilaCod47In(BaseModel):
+    rut: str = Field(..., min_length=5, max_length=20)
+    nombre: Optional[str] = Field(default="", max_length=140)
+    monto_esperado: Optional[int] = Field(default=None, ge=0)
+    monto_descontado: int = Field(..., ge=0)
+    observacion: Optional[str] = Field(default="", max_length=300)
+
+
+class ConciliacionPlanillaIn(BaseModel):
+    periodo: str = Field(..., min_length=7, max_length=7, description="YYYY-MM")
+    archivo_rrhh_nombre: str = Field(default="planilla_cod47.csv", max_length=200)
+    monto_cartola_banco: int = Field(..., ge=0)
+    comprobante_banco_ref: str = Field(..., min_length=2, max_length=100)
+    observaciones: Optional[str] = Field(default="", max_length=1000)
+    filas_cod47: List[FilaCod47In] = Field(..., min_length=1)
+
+
+class PagoAporteMensualOut(BaseModel):
+    id: int
+    conciliacion_id: int
+    socio_id: Optional[int] = None
+    socio_rut: str
+    socio_nombre: str
+    periodo: str
+    monto_esperado: int
+    monto_descontado_cod47: int
+    diferencia: int
+    estado: str
+    motivo_brecha: str = ""
+    regularizado_por_nombre: Optional[str] = None
+    regularizado_at: Optional[datetime] = None
+
+
+class ConciliacionPlanillaOut(BaseModel):
+    id: int
+    codigo: str
+    periodo: str
+    archivo_rrhh_nombre: str
+    monto_declarado_rrhh: int
+    monto_cartola_banco: int
+    diferencia_clp: int
+    comprobante_banco_ref: str
+    total_socios_evaluados: int
+    socios_al_dia: int
+    socios_con_brecha: int
+    estado: str
+    observaciones: str = ""
+    registrado_por_nombre: Optional[str] = None
+    created_at: datetime
+
+
+class ConciliacionPlanillaDetalleOut(ConciliacionPlanillaOut):
+    detalles: List[PagoAporteMensualOut] = []
+
+
+class RegularizarAporteIn(BaseModel):
+    motivo_regularizacion: str = Field(..., min_length=4, max_length=500)
+    monto_regularizado: Optional[int] = Field(default=None, ge=0)
+
+
+class ChequeEnTransitoOut(BaseModel):
+    solicitud_id: int
+    codigo_reembolso: str
+    socio_nombre: str
+    socio_rut: str
+    numero_cheque: str
+    banco_emisor: str
+    monto_reembolso: int
+    fecha_emision: str
+    dias_en_transito: int
+    alerta_60_dias: bool
+
+
+class MovimientoCartolaIn(BaseModel):
+    fecha: str = Field(default="", max_length=20)
+    descripcion: str = Field(default="", max_length=300)
+    numero_documento: Optional[str] = Field(default="", max_length=60)
+    monto_cargo: int = Field(..., ge=0)
+
+
+class CartolaBancoEstadoIn(BaseModel):
+    archivo_nombre: str = Field(default="cartola_bancoestado.csv", max_length=200)
+    movimientos: List[MovimientoCartolaIn] = Field(..., min_length=1)
+
+
+class ChequeConciliadoOut(BaseModel):
+    solicitud_id: int
+    codigo_reembolso: str
+    socio_nombre: str
+    numero_cheque: str
+    monto_reembolso: int
+    fecha_cobro_banco: str
+
+
+class CartolaConciliacionResultOut(BaseModel):
+    archivo_nombre: str
+    total_movimientos_leidos: int
+    total_cheques_conciliados: int
+    monto_total_conciliado: int
+    cheques_conciliados: List[ChequeConciliadoOut]
+    sin_coincidencia: int

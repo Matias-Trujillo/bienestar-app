@@ -10,8 +10,17 @@ from app.models import User, UserRole
 from app.schemas.finanzas import (
     AporteMunicipalUtmIn,
     AporteMunicipalUtmOut,
+    CartolaBancoEstadoIn,
+    CartolaConciliacionResultOut,
+    ChequeEnTransitoOut,
+    ConciliacionPlanillaDetalleOut,
+    ConciliacionPlanillaIn,
+    ConciliacionPlanillaOut,
     Padron31DicOut,
+    PagoAporteMensualOut,
+    RegularizarAporteIn,
 )
+from app.services.conciliacion_service import ConciliacionService
 from app.services.finanzas_service import FinanzasService
 
 router = APIRouter()
@@ -120,4 +129,146 @@ async def delete_aporte_utm(
 ):
     return await FinanzasService.eliminar_aporte_utm(
         db, aporte_id, user, ip_origen=_extraer_ip(request)
+    )
+
+
+# ==============================================================================
+# HU-07: Conciliación Planilla RRHH (Cód. 47) + Cartola BancoEstado
+# ==============================================================================
+
+@router.get(
+    "/conciliacion/planillas",
+    response_model=List[ConciliacionPlanillaOut],
+    summary="Listar conciliaciones mensuales RRHH Cód. 47 (HU-07)",
+)
+async def get_conciliaciones_planilla(
+    _: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.AUDITOR,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ConciliacionService.listar_conciliaciones(db)
+
+
+@router.get(
+    "/conciliacion/planillas/{conciliacion_id}",
+    response_model=ConciliacionPlanillaDetalleOut,
+    summary="Obtener detalle socio a socio de una conciliación Cód. 47 (HU-07)",
+)
+async def get_conciliacion_detalle(
+    conciliacion_id: int,
+    _: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.AUDITOR,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ConciliacionService.obtener_detalle_conciliacion(db, conciliacion_id)
+
+
+@router.post(
+    "/conciliacion/planillas",
+    response_model=ConciliacionPlanillaDetalleOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Procesar conciliación mensual RRHH Cód. 47 vs depósito BancoEstado (HU-07)",
+)
+async def post_conciliacion_planilla(
+    payload: ConciliacionPlanillaIn,
+    request: Request,
+    user: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ConciliacionService.procesar_conciliacion_cod47(
+        db, payload, user, ip_origen=_extraer_ip(request)
+    )
+
+
+@router.patch(
+    "/conciliacion/aportes/{aporte_id}/regularizar",
+    response_model=PagoAporteMensualOut,
+    summary="Regularizar brecha de aporte mensual de un socio (HU-07)",
+)
+async def patch_regularizar_aporte(
+    aporte_id: int,
+    payload: RegularizarAporteIn,
+    request: Request,
+    user: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ConciliacionService.regularizar_aporte(
+        db, aporte_id, payload, user, ip_origen=_extraer_ip(request)
+    )
+
+
+@router.get(
+    "/conciliacion/cheques-transito",
+    response_model=List[ChequeEnTransitoOut],
+    summary="Listar cheques de reembolsos pendientes de cobro y alertas > 60 días (HU-07)",
+)
+async def get_cheques_en_transito(
+    _: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.AUDITOR,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ConciliacionService.listar_cheques_en_transito(db)
+
+
+@router.post(
+    "/conciliacion/cartola-bancoestado",
+    response_model=CartolaConciliacionResultOut,
+    summary="Cruzar cartola BancoEstado para marcar cheques cobrados en lote (HU-07)",
+)
+async def post_cartola_bancoestado(
+    payload: CartolaBancoEstadoIn,
+    request: Request,
+    user: User = Depends(
+        require_roles(
+            UserRole.PRESIDENTE,
+            UserRole.SECRETARIO,
+            UserRole.TESORERO,
+            UserRole.ADMIN,
+            UserRole.SUPERUSUARIO,
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ConciliacionService.conciliar_cartola_bancoestado(
+        db, payload, user, ip_origen=_extraer_ip(request)
     )
