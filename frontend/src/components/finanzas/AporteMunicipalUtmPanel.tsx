@@ -81,7 +81,9 @@ export default function AporteMunicipalUtmPanel({ token, userRol }: Props) {
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [mensajeOk, setMensajeOk] = useState<string | null>(null);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [anulandoId, setAnulandoId] = useState<number | null>(null);
+  const [aportePorAnular, setAportePorAnular] = useState<AporteMunicipalUtm | null>(null);
 
   const cargarDatos = useCallback(async () => {
     if (!token) return;
@@ -188,25 +190,25 @@ export default function AporteMunicipalUtmPanel({ token, userRol }: Props) {
     }
   };
 
-  const handleAnular = async (aporte: AporteMunicipalUtm) => {
-    if (!token || !puedeAnular) return;
-    const confirmado = window.confirm(
-      `¿Confirmas anular el registro ${aporte.codigo} por ${formatClp(aporte.monto_total_clp)}? Esta acción quedará auditada.`
-    );
-    if (!confirmado) return;
+  const confirmarAnulacion = async () => {
+    if (!token || !puedeAnular || !aportePorAnular) return;
+    const aporte = aportePorAnular;
 
     setAnulandoId(aporte.id);
     setMensajeOk(null);
+    setErrorBanner(null);
     try {
       await fetchFromApi<{ ok: boolean }>(`/finanzas/aportes-utm/${aporte.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      setMensajeOk(`Registro ${aporte.codigo} anulado correctamente.`);
+      setAportePorAnular(null);
+      setMensajeOk(`Registro ${aporte.codigo} (${formatClp(aporte.monto_total_clp)}) anulado correctamente.`);
       await cargarDatos();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'No fue posible anular el registro.';
-      setErrorForm(msg);
+      setErrorBanner(msg);
+      setAportePorAnular(null);
     } finally {
       setAnulandoId(null);
     }
@@ -239,8 +241,35 @@ export default function AporteMunicipalUtmPanel({ token, userRol }: Props) {
       </div>
 
       {mensajeOk && (
-        <div className="mx-5 sm:mx-6 mt-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-[#166534]">
-          {mensajeOk}
+        <div className="mx-5 sm:mx-6 mt-4 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-[#166534] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-white text-[11px] font-bold shrink-0">
+              ✓
+            </span>
+            <span>{mensajeOk}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMensajeOk(null)}
+            className="text-emerald-700/70 hover:text-emerald-900 font-bold text-sm leading-none cursor-pointer"
+            aria-label="Cerrar aviso"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {errorBanner && (
+        <div className="mx-5 sm:mx-6 mt-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-700 flex items-center justify-between gap-3">
+          <span>{errorBanner}</span>
+          <button
+            type="button"
+            onClick={() => setErrorBanner(null)}
+            className="text-rose-700/70 hover:text-rose-900 font-bold text-sm leading-none cursor-pointer"
+            aria-label="Cerrar error"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -338,7 +367,7 @@ export default function AporteMunicipalUtmPanel({ token, userRol }: Props) {
                         <button
                           type="button"
                           disabled={anulandoId === a.id}
-                          onClick={() => handleAnular(a)}
+                          onClick={() => setAportePorAnular(a)}
                           className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors cursor-pointer disabled:opacity-50"
                         >
                           {anulandoId === a.id ? 'Anulando...' : 'Anular'}
@@ -515,6 +544,96 @@ export default function AporteMunicipalUtmPanel({ token, userRol }: Props) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Moderno de Confirmación de Anulación */}
+      {aportePorAnular && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-anular-utm-titulo"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 bg-gradient-to-r from-rose-700 to-rose-600 text-white flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 border border-white/25 text-base font-bold shrink-0">
+                  !
+                </span>
+                <div>
+                  <h3 id="modal-anular-utm-titulo" className="text-sm font-bold">
+                    Anular Subvención Municipal
+                  </h3>
+                  <p className="text-[11px] text-rose-100 mt-0.5">
+                    Esta operación ajustará el presupuesto y quedará auditada
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={anulandoId !== null}
+                onClick={() => setAportePorAnular(null)}
+                className="text-white/80 hover:text-white text-lg font-bold leading-none cursor-pointer disabled:opacity-40"
+                aria-label="Cerrar confirmación"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-slate-600 leading-relaxed">
+                ¿Estás seguro de anular este decreto de aporte municipal? El monto se descontará del{' '}
+                <span className="font-semibold text-slate-800">Fondo General Disponible</span> del período.
+              </p>
+
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/90 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500">Folio del registro</span>
+                  <span className="font-bold text-slate-900 tabular-nums">{aportePorAnular.codigo}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500">N° Decreto</span>
+                  <span className="font-semibold text-slate-800">{aportePorAnular.numero_decreto}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500">Período / Transferencia</span>
+                  <span className="font-medium text-slate-700 tabular-nums">
+                    {aportePorAnular.mes_transferencia} ({aportePorAnular.fecha_transferencia})
+                  </span>
+                </div>
+                <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-700">Monto a revertir</span>
+                  <span className="text-sm font-extrabold text-rose-700 tabular-nums">
+                    {formatClp(aportePorAnular.monto_total_clp)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-800">
+                Se registrará el evento <span className="font-semibold">ANULAR_APORTE_MUNICIPAL_UTM</span> con tu usuario y dirección IP en la bitácora de auditoría.
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={anulandoId !== null}
+                  onClick={() => setAportePorAnular(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={anulandoId !== null}
+                  onClick={confirmarAnulacion}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {anulandoId !== null ? 'Anulando...' : 'Sí, Anular Subvención'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
