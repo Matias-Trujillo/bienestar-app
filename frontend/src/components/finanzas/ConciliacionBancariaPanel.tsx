@@ -109,6 +109,18 @@ function parseMontoClp(raw: string): number {
   return Number.isNaN(num) ? 0 : Math.max(0, num);
 }
 
+function normalizarHeader(h: string): string {
+  return (h || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function buscarColumna(headersNorm: string[], keywords: string[]): number {
+  return headersNorm.findIndex((h) => keywords.some((k) => h.includes(k)));
+}
+
 function splitCsvLine(line: string, sep: string): string[] {
   return line.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''));
 }
@@ -194,17 +206,17 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
     const rows =
       socios.length > 0
         ? socios.map((s, idx) => {
-            const esperado = 32000;
-            // Deja el último socio con una brecha de ejemplo para probar regularización
-            const descontado = socios.length > 1 && idx === socios.length - 1 ? 20000 : esperado;
-            const obs =
-              descontado < esperado ? 'Licencia médica parcial (ejemplo brecha)' : 'Descuento normal Cód. 47';
-            return `${s.run};"${s.nombreCompleto}";${esperado};${descontado};"${obs}"`;
-          })
+          const esperado = 32000;
+          // Deja el último socio con una brecha de ejemplo para probar regularización
+          const descontado = socios.length > 1 && idx === socios.length - 1 ? 20000 : esperado;
+          const obs =
+            descontado < esperado ? 'Licencia médica parcial (ejemplo brecha)' : 'Descuento normal Cód. 47';
+          return `${s.run};"${s.nombreCompleto}";${esperado};${descontado};"${obs}"`;
+        })
         : [
-            '12.345.678-5;"Funcionario Ejemplo 1";32000;32000;"Descuento normal Cód. 47"',
-            '15.678.901-2;"Funcionario Ejemplo 2";32000;20000;"Licencia médica parcial"',
-          ];
+          '12.345.678-5;"Funcionario Ejemplo 1";32000;32000;"Descuento normal Cód. 47"',
+          '15.678.901-2;"Funcionario Ejemplo 2";32000;20000;"Licencia médica parcial"',
+        ];
     descargarCsv(`Plantilla_RRHH_Cod47_${periodo}.csv`, [header, ...rows]);
   };
 
@@ -214,9 +226,9 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
     const rows =
       chequesTransito.length > 0
         ? chequesTransito.map(
-            (c) =>
-              `${hoy};"PAGO CHEQUE CAMARA N ${c.numero_cheque} - ${c.socio_nombre}";${c.numero_cheque};${c.monto_reembolso}`
-          )
+          (c) =>
+            `${hoy};"PAGO CHEQUE CAMARA N ${c.numero_cheque} - ${c.socio_nombre}";${c.numero_cheque};${c.monto_reembolso}`
+        )
         : [`${hoy};"PAGO CHEQUE CAMARA N 0045123";0045123;32000`];
     rows.push(`${hoy};"COMISION MANTENCION CUENTA BANCOESTADO";;3500`);
     descargarCsv(`Plantilla_Cartola_BancoEstado_${hoy}.csv`, [header, ...rows]);
@@ -239,20 +251,43 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
     }
 
     const sep = lineas[0].includes(';') ? ';' : ',';
+    const headersNorm = splitCsvLine(lineas[0], sep).map(normalizarHeader);
+
+    const idxRut = buscarColumna(headersNorm, ['run', 'rut', 'cedula']);
+    const idxNombre = buscarColumna(headersNorm, ['nombre', 'funcionario', 'socio']);
+    const idxEsperado = buscarColumna(headersNorm, ['esperado', 'teorico']);
+    const idxDescontado = buscarColumna(headersNorm, ['descontado', 'cod47', 'aporte', 'monto', 'descuento']);
+    const idxObs = buscarColumna(headersNorm, ['obs', 'motivo', 'glosa']);
+
+    // Evitar confusión si se sube la nómina de salida (4% sin montos en CLP)
+    if (
+      headersNorm.some((h) => h.includes('porcentajeretencion') || h.includes('fincarencia')) &&
+      idxDescontado === -1
+    ) {
+      setMensajeError(
+        'Subiste la "Nómina de Retenciones 4%" (archivo que se envía a RRHH). Aquí debes cargar la planilla devuelta por RRHH con los montos descontados del Código 47 (o usa "Descargar Plantilla de Ejemplo").'
+      );
+      return;
+    }
+
+    const colRut = idxRut !== -1 ? idxRut : 0;
+    const colNombre = idxNombre !== -1 ? idxNombre : 1;
+
     const parsed: FilaCod47Parsed[] = [];
     for (let i = 1; i < lineas.length; i += 1) {
       const cols = splitCsvLine(lineas[i], sep);
-      if (cols.length < 3 || !cols[0]) continue;
-      // Soporta formato 5 cols (RUN;Nombre;Esperado;Descontado;Obs) o 3 cols (RUN;Nombre;Descontado)
-      const tieneEsperado = cols.length >= 4;
-      const montoDescontado = parseMontoClp(tieneEsperado ? cols[3] : cols[2]);
-      const montoEsperado = tieneEsperado ? parseMontoClp(cols[2]) : montoDescontado;
+      if (cols.length < 3 || !cols[colRut]) continue;
+      const tieneEsperado = idxEsperado !== -1 || (idxDescontado === -1 && cols.length >= 4);
+      const colDesc = idxDescontado !== -1 ? idxDescontado : tieneEsperado ? 3 : 2;
+      const colEsp = idxEsperado !== -1 ? idxEsperado : tieneEsperado ? 2 : colDesc;
+      const montoDescontado = parseMontoClp(cols[colDesc] || '0');
+      const montoEsperado = parseMontoClp(cols[colEsp] || '0');
       parsed.push({
-        rut: cols[0],
-        nombre: cols[1] || '',
+        rut: cols[colRut],
+        nombre: cols[colNombre] || '',
         monto_esperado: montoEsperado,
         monto_descontado: montoDescontado,
-        observacion: cols[4] || '',
+        observacion: idxObs !== -1 ? cols[idxObs] || '' : cols[4] || '',
       });
     }
 
@@ -382,17 +417,26 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
     }
 
     const sep = lineas[0].includes(';') ? ';' : ',';
+    const headersNorm = splitCsvLine(lineas[0], sep).map(normalizarHeader);
+    const idxFecha = buscarColumna(headersNorm, ['fecha']);
+    const idxDesc = buscarColumna(headersNorm, ['desc', 'glosa', 'detalle', 'movimiento']);
+    const idxDoc = buscarColumna(headersNorm, ['doc', 'cheque', 'numero', 'nro', 'folio']);
+    const idxCargo = buscarColumna(headersNorm, ['cargo', 'debito', 'egreso', 'giro', 'monto']);
+
     const movs: MovimientoCartolaParsed[] = [];
     for (let i = 1; i < lineas.length; i += 1) {
       const cols = splitCsvLine(lineas[i], sep);
       if (cols.length < 3) continue;
-      // Formato esperado: Fecha;Descripcion;Numero_Documento;Cargo
-      const monto = parseMontoClp(cols.length >= 4 ? cols[3] : cols[2]);
+      const colFecha = idxFecha !== -1 ? idxFecha : 0;
+      const colDesc = idxDesc !== -1 ? idxDesc : 1;
+      const colDoc = idxDoc !== -1 ? idxDoc : cols.length >= 4 ? 2 : -1;
+      const colCargo = idxCargo !== -1 ? idxCargo : cols.length >= 4 ? 3 : 2;
+      const monto = parseMontoClp(cols[colCargo] || '0');
       if (monto <= 0) continue;
       movs.push({
-        fecha: cols[0] || '',
-        descripcion: cols[1] || '',
-        numero_documento: cols.length >= 4 ? cols[2] || '' : '',
+        fecha: cols[colFecha] || '',
+        descripcion: cols[colDesc] || '',
+        numero_documento: colDoc !== -1 ? cols[colDoc] || '' : '',
         monto_cargo: monto,
       });
     }
@@ -478,11 +522,10 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
         <button
           type="button"
           onClick={() => setSubTab('cod47')}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-            subTab === 'cod47'
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${subTab === 'cod47'
               ? 'bg-sky-50/70 border-[#006799] shadow-xs'
               : 'bg-white border-slate-200 hover:bg-slate-50'
-          }`}
+            }`}
         >
           <div className="h-10 w-10 rounded-xl bg-[#006799]/10 text-[#006799] flex items-center justify-center shrink-0">
             <FileSpreadsheet className="h-5 w-5" />
@@ -500,11 +543,10 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
         <button
           type="button"
           onClick={() => setSubTab('bancoestado')}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-            subTab === 'bancoestado'
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${subTab === 'bancoestado'
               ? 'bg-emerald-50/70 border-[#166534] shadow-xs'
               : 'bg-white border-slate-200 hover:bg-slate-50'
-          }`}
+            }`}
         >
           <div className="h-10 w-10 rounded-xl bg-emerald-100 text-[#166534] flex items-center justify-center shrink-0">
             <Building2 className="h-5 w-5" />
@@ -683,13 +725,12 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
                         </td>
                         <td className="py-3 px-4">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                              c.estado === 'CUADRADA'
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${c.estado === 'CUADRADA'
                                 ? 'bg-emerald-50 text-[#166534] border border-emerald-200'
                                 : c.estado === 'REGULARIZADA'
-                                ? 'bg-sky-50 text-[#006799] border border-sky-200'
-                                : 'bg-amber-50 text-amber-800 border border-amber-200'
-                            }`}
+                                  ? 'bg-sky-50 text-[#006799] border border-sky-200'
+                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
+                              }`}
                           >
                             {c.estado}
                           </span>
@@ -755,13 +796,12 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
                         </td>
                         <td className="py-3 px-4">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              d.estado === 'AL_DIA'
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${d.estado === 'AL_DIA'
                                 ? 'bg-emerald-50 text-[#166534]'
                                 : d.estado === 'REGULARIZADO'
-                                ? 'bg-sky-50 text-[#006799]'
-                                : 'bg-rose-50 text-rose-700'
-                            }`}
+                                  ? 'bg-sky-50 text-[#006799]'
+                                  : 'bg-rose-50 text-rose-700'
+                              }`}
                           >
                             {d.estado === 'AL_DIA' ? 'Al día' : d.estado === 'REGULARIZADO' ? 'Regularizado' : 'Con brecha'}
                           </span>
@@ -821,9 +861,8 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
                 <span>Alertas &gt; 60 días sin cobrar</span>
               </span>
               <div
-                className={`text-xl font-extrabold tabular-nums mt-1 ${
-                  alertas60Dias > 0 ? 'text-rose-700' : 'text-[#166534]'
-                }`}
+                className={`text-xl font-extrabold tabular-nums mt-1 ${alertas60Dias > 0 ? 'text-rose-700' : 'text-[#166534]'
+                  }`}
               >
                 {alertas60Dias} cheque(s)
               </div>
@@ -952,11 +991,10 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                              c.alerta_60_dias
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${c.alerta_60_dias
                                 ? 'bg-rose-100 text-rose-700 border border-rose-200'
                                 : 'bg-amber-50 text-amber-800 border border-amber-200'
-                            }`}
+                              }`}
                           >
                             {c.dias_en_transito} días {c.alerta_60_dias ? '• Alerta >60d' : ''}
                           </span>
