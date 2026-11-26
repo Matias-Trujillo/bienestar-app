@@ -30,6 +30,9 @@ export interface EstadoFinanciero {
   socios_padron_31_dic: number;
   total_aportes_utm: number;
   cantidad_aportes_utm: number;
+  total_cuotas_4pct_conciliadas?: number;
+  cantidad_conciliaciones_anio?: number;
+  total_ingresos_reales?: number;
   fondo_general: number;
   fondo_salud_disponible: number;
   total_egresos_salud: number;

@@ -99,6 +99,7 @@ interface Props {
   token: string | null;
   userRol?: string;
   nomina: NominaResponse | null;
+  onRefreshFinanzas?: () => Promise<void>;
 }
 
 const ROLES_OPERACION = new Set(['PRESIDENTE', 'SECRETARIO', 'TESORERO', 'ADMIN', 'SUPERUSUARIO']);
@@ -138,7 +139,12 @@ function descargarCsv(nombreArchivo: string, lineas: string[]): void {
   URL.revokeObjectURL(url);
 }
 
-export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Props) {
+export default function ConciliacionBancariaPanel({
+  token,
+  userRol,
+  nomina,
+  onRefreshFinanzas,
+}: Props) {
   const anioActual = new Date().getFullYear();
   const mesActual = `${anioActual}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const puedeOperar = ROLES_OPERACION.has(String(userRol || '').toUpperCase());
@@ -340,7 +346,7 @@ export default function ConciliacionBancariaPanel({ token, userRol, nomina }: Pr
       setArchivoRrhhNombre('');
       setRefBanco('');
       setObsConciliacion('');
-      await cargarDatos();
+      await Promise.all([cargarDatos(), onRefreshFinanzas?.()]);
     } catch (err: unknown) {
       setMensajeError(err instanceof Error ? err.message : 'Error al procesar conciliación Cód. 47.');
     } finally {

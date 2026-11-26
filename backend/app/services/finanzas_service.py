@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import (
     AporteMunicipalUtm,
     AuditLog,
+    ConciliacionPlanilla,
     SolicitudBeneficio,
     SolicitudReembolso,
     User,
@@ -231,22 +232,36 @@ class FinanzasService:
                 AporteMunicipalUtm.anio_fiscal == anio_actual
             )
         ) or 0
+        total_cuotas_4pct_conciliadas = await db.scalar(
+            select(func.coalesce(func.sum(ConciliacionPlanilla.monto_cartola_banco), 0)).where(
+                ConciliacionPlanilla.periodo.like(f"{anio_actual}-%")
+            )
+        ) or 0
+        cantidad_conciliaciones_anio = await db.scalar(
+            select(func.count(ConciliacionPlanilla.id)).where(
+                ConciliacionPlanilla.periodo.like(f"{anio_actual}-%")
+            )
+        ) or 0
 
         padron_31_dic = await cls.obtener_padron_31_dic(db, anio_fiscal=anio_actual)
         fondo_salud_base = max(cls.FONDO_SALUD_MINIMO_BASE, int(socios_activos) * cls.TOPE_SALUD_POR_SOCIO)
 
-        # Si hay subvenciones UTM registradas en el año, el fondo general se nutre de ingresos reales + base
+        # Ingresos reales del período: Subvención Municipal UTM + Cuotas 4% conciliadas en BancoEstado
+        total_ingresos_reales = int(total_aportes_utm) + int(total_cuotas_4pct_conciliadas)
         base_general = (
-            int(total_aportes_utm) if int(total_aportes_utm) > 0 else cls.FONDO_GENERAL_BASE_DEFAULT
+            total_ingresos_reales if total_ingresos_reales > 0 else cls.FONDO_GENERAL_BASE_DEFAULT
         )
         return {
             "modulo": "Control Financiero",
-            "descripcion": "Presupuestos anuales, subvención municipal UTM, cuotas y egresos.",
+            "descripcion": "Presupuestos anuales, subvención municipal UTM, cuotas 4% conciliadas y egresos.",
             "periodo_fiscal": str(anio_actual),
             "socios_activos": int(socios_activos),
             "socios_padron_31_dic": padron_31_dic.socios_congelados_31_dic,
             "total_aportes_utm": int(total_aportes_utm),
             "cantidad_aportes_utm": int(cantidad_aportes_utm),
+            "total_cuotas_4pct_conciliadas": int(total_cuotas_4pct_conciliadas),
+            "cantidad_conciliaciones_anio": int(cantidad_conciliaciones_anio),
+            "total_ingresos_reales": int(total_ingresos_reales),
             "fondo_general": int(max(0, base_general - int(total_bonos))),
             "fondo_salud_disponible": int(max(0, fondo_salud_base - int(total_reembolsado))),
             "total_egresos_salud": int(total_reembolsado),

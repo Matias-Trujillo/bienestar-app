@@ -65,3 +65,31 @@ async def test_registrar_aporte_municipal_utm_e_impacto_presupuesto(
     assert log is not None
     assert log.accion == "REGISTRAR_APORTE_MUNICIPAL_UTM"
     assert log.ip_origen == "192.168.10.25"
+
+    # 5. Verificar que una conciliación Cód. 47 (cuotas 4%) suma al presupuesto real
+    from app.schemas.finanzas import ConciliacionPlanillaIn, FilaCod47In
+    from app.services.conciliacion_service import ConciliacionService
+
+    await ConciliacionService.procesar_conciliacion_cod47(
+        db_session,
+        ConciliacionPlanillaIn(
+            periodo=f"{anio_actual}-11",
+            archivo_rrhh_nombre="rrhh_nov.csv",
+            monto_cartola_banco=32000,
+            comprobante_banco_ref="TRF-BE-001",
+            filas_cod47=[
+                FilaCod47In(
+                    rut=socio_habilitado.rut,
+                    nombre=socio_habilitado.nombre_completo,
+                    monto_esperado=32000,
+                    monto_descontado=32000,
+                )
+            ],
+        ),
+        usuario_admin,
+        ip_origen="192.168.10.25",
+    )
+    estado_con_cuotas = await FinanzasService.obtener_estado_financiero(db_session)
+    assert estado_con_cuotas["total_cuotas_4pct_conciliadas"] == 32000
+    assert estado_con_cuotas["total_ingresos_reales"] == esperado + 32000
+    assert estado_con_cuotas["fondo_general"] == esperado + 32000

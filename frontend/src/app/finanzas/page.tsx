@@ -310,9 +310,14 @@ export default function FinanzasPage() {
         />
       )}
 
-        { tabActiva === 'conciliacion' && (
-          <ConciliacionBancariaPanel token={token} userRol={user?.rol} nomina={nomina} />
-        )}
+      {tabActiva === 'conciliacion' && (
+        <ConciliacionBancariaPanel
+          token={token}
+          userRol={user?.rol}
+          nomina={nomina}
+          onRefreshFinanzas={cargarTodoFinanzas}
+        />
+      )}
 
       {tabActiva === 'nomina' && (
         <div className="space-y-6">

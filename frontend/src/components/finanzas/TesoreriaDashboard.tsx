@@ -97,6 +97,9 @@ export default function TesoreriaDashboard({
   const pctEjecucion = Math.min(100, Math.round((egresosTotales / totalBasePresupuestaria) * 100));
 
   const aportesUtmAnio = estadoFinanciero?.total_aportes_utm || 0;
+  const cuotas4PctAnio = estadoFinanciero?.total_cuotas_4pct_conciliadas || 0;
+  const ingresosRealesAnio =
+    estadoFinanciero?.total_ingresos_reales ?? aportesUtmAnio + cuotas4PctAnio;
   const metaUtmAnio = padron?.monto_estimado_clp || 0;
   const pctMetaUtm =
     metaUtmAnio > 0 ? Math.min(100, Math.round((aportesUtmAnio / metaUtmAnio) * 100)) : 0;
@@ -229,9 +232,9 @@ export default function TesoreriaDashboard({
         <div className="card-modern-interactive p-5 flex flex-col justify-between">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="text-xs font-medium text-slate-500">Subvención Municipal UTM</span>
+              <span className="text-xs font-medium text-slate-500">Ingresos Reales (UTM + 4%)</span>
               <div className="text-xl font-extrabold text-[#166534] tabular-nums mt-1">
-                {formatClp(aportesUtmAnio)}
+                {formatClp(ingresosRealesAnio)}
               </div>
             </div>
             <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200/70 flex items-center justify-center text-[#166534] shrink-0">
@@ -240,8 +243,8 @@ export default function TesoreriaDashboard({
           </div>
           <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
             <div className="flex items-center justify-between text-[11px] tabular-nums">
-              <span className="text-slate-500">Meta anual ({padron?.total_utm_anual || 0} UTM)</span>
-              <span className="font-bold text-[#166534]">{pctMetaUtm}%</span>
+              <span className="text-slate-500">UTM: {formatCompactClp(aportesUtmAnio)} ({pctMetaUtm}%)</span>
+              <span className="font-semibold text-[#006799]">4% Cód.47: {formatCompactClp(cuotas4PctAnio)}</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
