@@ -19,6 +19,7 @@ import { TablaSolicitudes } from '@/components/reembolsos/TablaSolicitudes';
 import { ModalNuevaSolicitud, FormReembolsoState } from '@/components/reembolsos/ModalNuevaSolicitud';
 import { DetalleSolicitudModal } from '@/components/reembolsos/DetalleSolicitudModal';
 import { VisorComprobanteModal } from '@/components/reembolsos/VisorComprobanteModal';
+import { ReembolsoAsistidoPanel } from '@/components/reembolsos/ReembolsoAsistidoPanel';
 
 const EMPTY_RESUMEN: ResumenSaludSocio = {
   socio_id: 0,
@@ -39,8 +40,17 @@ const EMPTY_RESUMEN: ResumenSaludSocio = {
   solicitudes_aprobadas: 0,
 };
 
-// [ESTUDIANTE INFORMÁTICA] Componente principal de la vista del socio para el Módulo 2 (HU-03); orquesta la presentación del saldo de salud, historial de reembolsos y el formulario de ingreso.
+// [ESTUDIANTE INFORMÁTICA] Separador limpio de vistas: en Vista Admin muestra exclusivamente Atención Asistida al Socio sin datos personales del administrador.
 export default function ReembolsosPage() {
+  const { isAdminView } = useAuth();
+  if (isAdminView) {
+    return <ReembolsoAsistidoPanel />;
+  }
+  return <ReembolsosSocioView />;
+}
+
+// [ESTUDIANTE INFORMÁTICA] Vista personal del socio para el Módulo 2 (HU-03); orquesta su saldo de salud, historial de reembolsos y formulario de ingreso propio.
+function ReembolsosSocioView() {
   const { user, token, refreshUser, isAdminView, viewMode } = useAuth();
 
   // [ESTUDIANTE INFORMÁTICA] Estados de React: guardan la información reactiva traída desde la API (resumen financiero y lista de solicitudes) y controlan la visibilidad de los modales.

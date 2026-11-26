@@ -133,6 +133,10 @@ function resolveSidebarBadge(
   }
 
   if (item.href === '/reembolsos') {
+    if (esDirectiva) {
+      // En Vista Admin, /reembolsos es solo el módulo de ayuda asistida; las pendientes van en /aprobaciones
+      return { text: undefined, className: baseClass };
+    }
     if (reembolsosCount !== null && reembolsosCount > 0) {
       const text = reembolsosCount > 99 ? '99+' : `${reembolsosCount}`;
       return {
