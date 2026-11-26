@@ -207,19 +207,28 @@ class FinanzasService:
         return {"ok": True, "codigo": codigo}
 
     @classmethod
-    async def obtener_estado_financiero(cls, db: AsyncSession) -> Dict[str, Any]:
-        anio_actual = date.today().year
+    async def obtener_estado_financiero(
+        cls, db: AsyncSession, anio_fiscal: Optional[int] = None
+    ) -> Dict[str, Any]:
+        anio_actual = anio_fiscal or date.today().year
+        inicio_anio = datetime(anio_actual, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        fin_anio = datetime(anio_actual + 1, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+
         socios_activos = await db.scalar(
             select(func.count(User.id)).where(User.rol == UserRole.SOCIO, User.is_active == True)  # noqa: E712
         ) or 0
         total_reembolsado = await db.scalar(
             select(func.coalesce(func.sum(SolicitudReembolso.monto_reembolso), 0)).where(
-                SolicitudReembolso.estado.in_(("aprobado", "pagado"))
+                SolicitudReembolso.estado.in_(("aprobado", "pagado")),
+                SolicitudReembolso.created_at >= inicio_anio,
+                SolicitudReembolso.created_at < fin_anio,
             )
         ) or 0
         total_bonos = await db.scalar(
             select(func.coalesce(func.sum(SolicitudBeneficio.monto_calculado), 0)).where(
-                SolicitudBeneficio.estado.in_(("APROBADO", "LIQUIDADO"))
+                SolicitudBeneficio.estado.in_(("APROBADO", "LIQUIDADO")),
+                SolicitudBeneficio.created_at >= inicio_anio,
+                SolicitudBeneficio.created_at < fin_anio,
             )
         ) or 0
         total_aportes_utm = await db.scalar(

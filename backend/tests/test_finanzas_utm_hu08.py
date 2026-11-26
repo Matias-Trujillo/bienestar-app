@@ -93,3 +93,55 @@ async def test_registrar_aporte_municipal_utm_e_impacto_presupuesto(
     assert estado_con_cuotas["total_cuotas_4pct_conciliadas"] == 32000
     assert estado_con_cuotas["total_ingresos_reales"] == esperado + 32000
     assert estado_con_cuotas["fondo_general"] == esperado + 32000
+
+
+@pytest.mark.asyncio
+async def test_egresos_filtrados_estrictamente_por_anio_fiscal(
+    db_session: AsyncSession, socio_habilitado: User
+) -> None:
+    from datetime import datetime, timezone
+    from app.models import EstadoReembolso, SolicitudReembolso, TipoPrestacion
+
+    anio_actual = date.today().year
+    anio_anterior = anio_actual - 1
+
+    sol_anterior = SolicitudReembolso(
+        codigo="RMB-HIST-ANT01",
+        socio_id=socio_habilitado.id,
+        tipo_prestacion=TipoPrestacion.CONSULTA,
+        descripcion="Reembolso del año anterior",
+        beneficiario_nombre=socio_habilitado.nombre_completo,
+        beneficiario_parentesco="Titular",
+        monto_boleta=60000,
+        monto_copago=50000,
+        monto_reembolso=40000,
+        fecha_atencion=date(anio_anterior, 6, 15),
+        fecha_boleta=date(anio_anterior, 6, 15),
+        declaracion_aceptada=True,
+        estado=EstadoReembolso.PAGADO,
+        created_at=datetime(anio_anterior, 6, 16, 12, 0, 0, tzinfo=timezone.utc),
+    )
+    sol_actual = SolicitudReembolso(
+        codigo="RMB-HIST-ACT01",
+        socio_id=socio_habilitado.id,
+        tipo_prestacion=TipoPrestacion.FARMACIA,
+        descripcion="Reembolso del año actual",
+        beneficiario_nombre=socio_habilitado.nombre_completo,
+        beneficiario_parentesco="Titular",
+        monto_boleta=30000,
+        monto_copago=25000,
+        monto_reembolso=20000,
+        fecha_atencion=date(anio_actual, 3, 10),
+        fecha_boleta=date(anio_actual, 3, 10),
+        declaracion_aceptada=True,
+        estado=EstadoReembolso.PAGADO,
+        created_at=datetime(anio_actual, 3, 11, 12, 0, 0, tzinfo=timezone.utc),
+    )
+    db_session.add_all([sol_anterior, sol_actual])
+    await db_session.commit()
+
+    estado_actual = await FinanzasService.obtener_estado_financiero(db_session, anio_fiscal=anio_actual)
+    estado_anterior = await FinanzasService.obtener_estado_financiero(db_session, anio_fiscal=anio_anterior)
+
+    assert estado_actual["total_egresos_salud"] == 20000
+    assert estado_anterior["total_egresos_salud"] == 40000

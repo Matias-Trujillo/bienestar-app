@@ -36,10 +36,11 @@ def _extraer_ip(request: Request) -> str:
 @router.get("", include_in_schema=False)
 @router.get("/", summary="Obtener estado financiero general del comité")
 async def get_finanzas(
+    anio: Optional[int] = Query(default=None, ge=2020, le=2040),
     _: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
-    return await FinanzasService.obtener_estado_financiero(db)
+    return await FinanzasService.obtener_estado_financiero(db, anio_fiscal=anio)
 
 
 @router.get(
