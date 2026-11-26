@@ -58,3 +58,7 @@ class User(Base, TimestampMixin):
     password_bloqueada: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     debe_cambiar_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     ultimo_cambio_password: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # [ESTUDIANTE INFORMÁTICA] Trazabilidad de inicio de sesión para calcular novedades desde la última actividad
+    ultimo_acceso: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    acceso_anterior: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

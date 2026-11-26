@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { DashboardCards } from '@/components/DashboardCards';
 import { QuickActions } from '@/components/QuickActions';
 import { MovementsTable } from '@/components/MovementsTable';
+import { AdminOverviewDashboard } from '@/components/admin/AdminOverviewDashboard';
 import { KpiMetricItem } from '@/types';
 
 // [ESTUDIANTE INFORMÁTICA] Construye los 4 metadatos de filiación del funcionario para la cabecera ejecutiva.
@@ -22,9 +23,14 @@ function buildFiliacionMetrics(
   ];
 }
 
-// [ESTUDIANTE INFORMÁTICA] Dashboard "Hoja de Socio" con diseño moderno, responsivo y libre de desbordamientos.
+// [ESTUDIANTE INFORMÁTICA] Portada principal dual: Resumen General Ejecutivo en Vista Admin y Hoja de Socio en Vista Usuario.
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, isAdminView } = useAuth();
+
+  if (isAdminView) {
+    return <AdminOverviewDashboard />;
+  }
+
   const metrics = buildFiliacionMetrics(
     user?.rut,
     user?.departamento,

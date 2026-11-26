@@ -16,6 +16,7 @@ from app.api.deps import (
 )
 from app.core.interfaces import (
     AuditLoggerProtocol,
+    DashboardAdminProtocol,
     PasswordHasherProtocol,
     SmtpTransportProtocol,
 )
@@ -30,11 +31,21 @@ from app.schemas.admin import (
     ParametroUpdateIn,
     SmtpConfigIn,
 )
+from app.schemas.dashboard_admin import ResumenGeneralAdminOut
 from app.services.admin_service import AdminService
+from app.services.dashboard_admin_service import DashboardAdminService
 
 router = APIRouter()
 
 ROLES_ADMIN = (UserRole.SUPERUSUARIO, UserRole.ADMIN)
+ROLES_DIRECTIVA_LECTURA = (
+    UserRole.SUPERUSUARIO,
+    UserRole.ADMIN,
+    UserRole.PRESIDENTE,
+    UserRole.SECRETARIO,
+    UserRole.TESORERO,
+    UserRole.AUDITOR,
+)
 
 
 def _get_admin_service(
@@ -43,6 +54,23 @@ def _get_admin_service(
     smtp_transport: SmtpTransportProtocol = Depends(get_smtp_transport),
 ) -> AdminService:
     return AdminService(audit_logger=audit_logger, hasher=hasher, smtp_transport=smtp_transport)
+
+
+def _get_dashboard_admin_service() -> DashboardAdminProtocol:
+    return DashboardAdminService()
+
+
+@router.get(
+    "/resumen-general",
+    response_model=ResumenGeneralAdminOut,
+    summary="Resumen General Ejecutivo de Vista Admin (novedades, pendientes, rechazadas y actividad)",
+)
+async def get_resumen_general_admin(
+    current_user: User = Depends(require_roles(*ROLES_DIRECTIVA_LECTURA)),
+    db: AsyncSession = Depends(get_db),
+    dashboard_service: DashboardAdminProtocol = Depends(_get_dashboard_admin_service),
+) -> ResumenGeneralAdminOut:
+    return await dashboard_service.obtener_resumen_general(db, current_user)
 
 
 @router.get("/stats", summary="Métricas y estadísticas globales del sistema")

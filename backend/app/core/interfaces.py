@@ -74,3 +74,11 @@ class PasswordHasherProtocol(Protocol):
 
     def hash(self, password: str) -> str:
         ...
+
+
+@runtime_checkable
+class DashboardAdminProtocol(Protocol):
+    """Contrato segregado (ISP) para métricas ejecutivas y novedades del Resumen General Admin."""
+
+    async def obtener_resumen_general(self, db: AsyncSession, usuario: User) -> Any:
+        ...

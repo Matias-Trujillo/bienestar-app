@@ -354,7 +354,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   <span className={`shrink-0 ${isActive ? 'text-sky-200' : 'text-slate-400 group-hover:text-[#006799]'}`}>
                     {item.icon}
                   </span>
-                  <span className="truncate">{item.name}</span>
+                  <span className="truncate">
+                    {item.href === '/' && isAdminView ? 'Resumen General' : item.name}
+                  </span>
                 </div>
                 {badge.text !== undefined && (
                   <span

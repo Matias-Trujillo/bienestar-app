@@ -35,6 +35,7 @@ export interface User {
   puedeEliminar?: boolean;
   motivoNoEliminable?: string | null;
   tieneDobleVista?: boolean;
+  accesoAnterior?: string | null;
 }
 
 export type ViewMode = 'admin' | 'socio';
@@ -344,6 +345,87 @@ export interface AdminStats {
   usuarios: AdminStatsUsuarios;
   pendientes: AdminStatsPendientes;
   auditoria: AdminStatsAuditoria;
+}
+
+export interface NovedadesDesdeAcceso {
+  desde_iso: string;
+  es_primer_acceso: boolean;
+  nuevas_afiliaciones: number;
+  nuevas_cargas: number;
+  nuevos_reembolsos: number;
+  nuevos_beneficios: number;
+  nuevas_postulaciones_talento: number;
+  total_novedades: number;
+}
+
+export interface PendientesDesglose {
+  afiliaciones: number;
+  cargas: number;
+  reembolsos_revision: number;
+  reembolsos_por_pagar: number;
+  beneficios: number;
+  total: number;
+}
+
+export interface RechazadasDesglose {
+  afiliaciones: number;
+  cargas: number;
+  reembolsos: number;
+  beneficios: number;
+  total: number;
+}
+
+export interface MetricasActividadPlataforma {
+  total_usuarios: number;
+  socios_activos: number;
+  socios_habilitados: number;
+  socios_carencia: number;
+  eventos_hoy: number;
+  eventos_7d: number;
+  total_eventos_auditoria: number;
+  monto_reembolsos_revision: number;
+  monto_desembolsado_periodo: number;
+  ofertas_activas: number;
+  postulaciones_talento: number;
+}
+
+export type ModuloResumenSolicitud = 'AFILIACION' | 'CARGAS' | 'REEMBOLSOS' | 'BENEFICIOS';
+
+export interface SolicitudResumenAdminItem {
+  id_referencia: string;
+  modulo: ModuloResumenSolicitud;
+  folio: string;
+  solicitante: string;
+  detalle: string;
+  estado: string;
+  motivo_rechazo?: string | null;
+  monto?: number | null;
+  fecha_iso: string;
+  es_nueva: boolean;
+  href: string;
+}
+
+export interface ActividadRecienteAdminItem {
+  id: number;
+  modulo: string;
+  accion: string;
+  usuario_nombre: string;
+  usuario_rol: string;
+  detalles: string;
+  fecha_iso: string;
+}
+
+export interface ResumenGeneralAdmin {
+  generado_en_iso: string;
+  novedades: NovedadesDesdeAcceso;
+  bandejas: {
+    por_aprobar: PendientesDesglose;
+    rechazadas_30d: RechazadasDesglose;
+  };
+  metricas: MetricasActividadPlataforma;
+  solicitudes_por_aprobar: SolicitudResumenAdminItem[];
+  solicitudes_rechazadas: SolicitudResumenAdminItem[];
+  actividad_reciente: ActividadRecienteAdminItem[];
 }
 
 export interface ParametroSistemaItem {

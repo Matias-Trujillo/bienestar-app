@@ -205,6 +205,12 @@ def to_out(
     except Exception:
         rol_label = rol_str.capitalize()
 
+    acceso_anterior_val = (
+        u.acceso_anterior.isoformat()
+        if getattr(u, "acceso_anterior", None)
+        else None
+    )
+
     return UserOut(
         id=str(u.id),
         rut=u.rut,
@@ -229,6 +235,7 @@ def to_out(
         puedeEliminar=puede_eliminar,
         motivoNoEliminable=motivo_no_eliminable,
         tieneDobleVista=bool(u.is_superuser or rol_str != UserRole.SOCIO.value),
+        accesoAnterior=acceso_anterior_val,
     )
 
 
@@ -303,7 +310,13 @@ class AuthService:
 
         if sec["i"] > 0:
             sec = await guardar_seguridad_usuario(db, user.id, intentos=0, bloqueada=False, debe_cambiar=sec["c"])
-            await db.commit()
+
+        # Rotar marcas de acceso para detectar novedades ingresadas desde la sesión anterior
+        ahora_utc = datetime.now(timezone.utc)
+        user.acceso_anterior = user.ultimo_acceso
+        user.ultimo_acceso = ahora_utc
+        db.add(user)
+        await db.commit()
 
         try:
             await obtener_resumen_socio(user, db)

@@ -134,8 +134,10 @@ async def _sincronizar_usuario_semilla(
 
 async def init_db() -> None:
     async with engine.begin() as conn:
-        # Migración no destructiva si la columna meses_antiguedad no existe
+        # Migración no destructiva de columnas críticas de usuarios antes de cualquier consulta ORM
         await conn.execute(text("ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS meses_antiguedad INTEGER DEFAULT 12;"))
+        await conn.execute(text("ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS ultimo_acceso TIMESTAMPTZ;"))
+        await conn.execute(text("ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS acceso_anterior TIMESTAMPTZ;"))
         # Crear tablas nuevas si no existen
         await conn.run_sync(Base.metadata.create_all)
         # Migraciones idempotentes para las 11 tablas (3FN, FKs completas y columnas tipadas)
