@@ -30,8 +30,8 @@ export const FiltrosAprobaciones: React.FC<FiltrosAprobacionesProps> = ({
           <button
             onClick={() => setFiltroEstado('en_revision')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all tabular-nums ${filtroEstado === 'en_revision'
-                ? 'bg-amber-500 text-white font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-500 text-white font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             En Revisión ({conteoPendientes})
@@ -39,17 +39,17 @@ export const FiltrosAprobaciones: React.FC<FiltrosAprobacionesProps> = ({
           <button
             onClick={() => setFiltroEstado('aprobado')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === 'aprobado'
-                  ? 'bg-[#006799] text-white font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-            }`}
+              ? 'bg-[#006799] text-white font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+              }`}
           >
-            Pendiente de Pago
+            Listo para Pagar
           </button>
           <button
             onClick={() => setFiltroEstado('pagado')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === 'pagado'
-                ? 'bg-emerald-700 text-white font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-emerald-700 text-white font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             Cheque / Pagados
@@ -57,8 +57,8 @@ export const FiltrosAprobaciones: React.FC<FiltrosAprobacionesProps> = ({
           <button
             onClick={() => setFiltroEstado('rechazado')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === 'rechazado'
-                ? 'bg-rose-600 text-white font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-rose-600 text-white font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             Rechazadas
@@ -66,8 +66,8 @@ export const FiltrosAprobaciones: React.FC<FiltrosAprobacionesProps> = ({
           <button
             onClick={() => setFiltroEstado('todos')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filtroEstado === 'todos'
-                ? 'bg-[#0c2b45] text-white font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-[#0c2b45] text-white font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             Todas

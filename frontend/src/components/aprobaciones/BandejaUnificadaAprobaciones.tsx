@@ -206,7 +206,14 @@ export function BandejaUnificadaAprobaciones({
         montoClp: r.monto_reembolso ?? null,
         fechaTexto: (r.created_at || '').slice(0, 10),
         estadoNormalizado: est,
-        estadoLabel: r.estado_label || r.estado,
+        estadoLabel:
+          est === 'pendiente'
+            ? 'Por Revisar'
+            : est === 'aprobada'
+              ? 'Listo para Pagar'
+              : est === 'pagada'
+                ? 'Pagado'
+                : 'Rechazado',
         rawReembolso: r,
       });
     });
@@ -260,7 +267,14 @@ export function BandejaUnificadaAprobaciones({
         montoClp: b.monto_calculado,
         fechaTexto: (b.created_at || '').slice(0, 10),
         estadoNormalizado: est,
-        estadoLabel: b.estado,
+        estadoLabel:
+          est === 'pendiente'
+            ? 'Por Revisar'
+            : est === 'aprobada'
+              ? 'Listo para Pagar'
+              : est === 'pagada'
+                ? 'Pagado'
+                : 'Rechazado',
         rawBeneficio: b,
       });
     });
@@ -351,8 +365,7 @@ export function BandejaUnificadaAprobaciones({
 
       setItemModal(null);
       onNotificarOk(
-        `${BADGE_TIPO[fila.tipo].label} ${fila.folio} ${
-          accion === 'aprobar' ? 'APROBADA' : 'RECHAZADA'
+        `${BADGE_TIPO[fila.tipo].label} ${fila.folio} ${accion === 'aprobar' ? 'APROBADA' : 'RECHAZADA'
         } correctamente. Se despachó notificación por correo al solicitante.`
       );
       await onRefreshTodo();
@@ -439,29 +452,122 @@ export function BandejaUnificadaAprobaciones({
     }
   };
 
+  const conteosPorPaso = useMemo(() => {
+    const base = filasUnificadas.filter(
+      (f) => categoriaActiva === 'todas' || f.tipo === categoriaActiva
+    );
+    const porRevisar = base.filter((f) => f.estadoNormalizado === 'pendiente').length;
+    const listosPagarItems = base.filter((f) => f.estadoNormalizado === 'aprobada');
+    const montoListosPagar = listosPagarItems.reduce((acc, f) => acc + (f.montoClp || 0), 0);
+    const pagados = base.filter((f) => f.estadoNormalizado === 'pagada').length;
+    const rechazados = base.filter((f) => f.estadoNormalizado === 'rechazada').length;
+    return {
+      porRevisar,
+      listosPagar: listosPagarItems.length,
+      montoListosPagar,
+      pagados,
+      rechazados,
+      total: base.length,
+    };
+  }, [filasUnificadas, categoriaActiva]);
+
   return (
     <div className="card-modern overflow-hidden min-w-0">
-      {/* Barra de filtros unificada con lenguaje claro en 3 pasos */}
+      {/* Flujo Visual Intuitivo de 3 Pasos */}
+      <div className="p-4 sm:px-6 bg-slate-50/70 border-b border-slate-100">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('pendiente')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${filtroEstado === 'pendiente'
+                ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/25 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-amber-300'
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="h-8 w-8 rounded-full bg-amber-500 text-white text-xs font-extrabold flex items-center justify-center shrink-0">
+                1
+              </span>
+              <div>
+                <div className="text-xs font-bold text-slate-900">Por Revisar</div>
+                <div className="text-[11px] text-slate-500">Aprobar o rechazar solicitud</div>
+              </div>
+            </div>
+            <span className="text-lg font-extrabold text-amber-700 tabular-nums">
+              {conteosPorPaso.porRevisar}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('aprobada')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${filtroEstado === 'aprobada'
+                ? 'bg-sky-50 border-[#006799] ring-2 ring-[#006799]/20 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-sky-300'
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="h-8 w-8 rounded-full bg-[#006799] text-white text-xs font-extrabold flex items-center justify-center shrink-0">
+                2
+              </span>
+              <div>
+                <div className="text-xs font-bold text-slate-900">Listos para Pagar</div>
+                <div className="text-[11px] text-slate-500">
+                  {conteosPorPaso.montoListosPagar > 0
+                    ? `Por girar: ${formatClp(conteosPorPaso.montoListosPagar)}`
+                    : 'Registrar cheque o transferencia'}
+                </div>
+              </div>
+            </div>
+            <span className="text-lg font-extrabold text-[#006799] tabular-nums">
+              {conteosPorPaso.listosPagar}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('pagada')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${filtroEstado === 'pagada'
+                ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-emerald-300'
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="h-8 w-8 rounded-full bg-emerald-600 text-white text-xs font-extrabold flex items-center justify-center shrink-0">
+                3
+              </span>
+              <div>
+                <div className="text-xs font-bold text-slate-900">Pagados</div>
+                <div className="text-[11px] text-slate-500">Finalizados • Colilla lista</div>
+              </div>
+            </div>
+            <span className="text-lg font-extrabold text-[#166534] tabular-nums">
+              {conteosPorPaso.pagados}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Barra secundaria de filtros y buscador */}
       <div className="p-4 sm:px-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {(
             [
-              { id: 'pendiente', label: '1. Por Revisar' },
-              { id: 'aprobada', label: '2. Listos para Pagar' },
-              { id: 'pagada', label: '3. Pagados / Finalizados' },
-              { id: 'rechazada', label: 'Rechazados' },
-              { id: 'todos', label: 'Todos' },
+              { id: 'pendiente', label: `1. Por Revisar (${conteosPorPaso.porRevisar})` },
+              { id: 'aprobada', label: `2. Listos para Pagar (${conteosPorPaso.listosPagar})` },
+              { id: 'pagada', label: `3. Pagados (${conteosPorPaso.pagados})` },
+              { id: 'rechazada', label: `Rechazados (${conteosPorPaso.rechazados})` },
+              { id: 'todos', label: `Todos (${conteosPorPaso.total})` },
             ] as const
           ).map((st) => (
             <button
               key={st.id}
               type="button"
               onClick={() => setFiltroEstado(st.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
-                filtroEstado === st.id
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${filtroEstado === st.id
                   ? 'bg-[#0c2b45] text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+                }`}
             >
               {st.label}
             </button>
@@ -536,15 +642,14 @@ export function BandejaUnificadaAprobaciones({
                     </td>
                     <td className="py-3 px-4 align-middle whitespace-nowrap">
                       <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                          f.estadoNormalizado === 'pendiente'
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${f.estadoNormalizado === 'pendiente'
                             ? 'bg-amber-50 text-amber-800 border border-amber-200'
                             : f.estadoNormalizado === 'aprobada'
-                            ? 'bg-emerald-50 text-[#166534] border border-emerald-200'
-                            : f.estadoNormalizado === 'pagada'
-                            ? 'bg-sky-50 text-[#006799] border border-sky-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
-                        }`}
+                              ? 'bg-emerald-50 text-[#166534] border border-emerald-200'
+                              : f.estadoNormalizado === 'pagada'
+                                ? 'bg-sky-50 text-[#006799] border border-sky-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}
                       >
                         {f.estadoLabel}
                       </span>
@@ -674,11 +779,10 @@ export function BandejaUnificadaAprobaciones({
         >
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-fade-in">
             <div
-              className={`px-6 py-4 text-white flex items-center justify-between ${
-                itemModal.accion === 'aprobar'
+              className={`px-6 py-4 text-white flex items-center justify-between ${itemModal.accion === 'aprobar'
                   ? 'bg-gradient-to-r from-[#166534] to-emerald-600'
                   : 'bg-gradient-to-r from-rose-700 to-rose-600'
-              }`}
+                }`}
             >
               <div>
                 <h3 className="text-sm font-bold">
@@ -768,17 +872,16 @@ export function BandejaUnificadaAprobaciones({
                 <button
                   type="submit"
                   disabled={procesando}
-                  className={`px-4 py-2 rounded-xl text-white font-semibold cursor-pointer disabled:opacity-50 ${
-                    itemModal.accion === 'aprobar'
+                  className={`px-4 py-2 rounded-xl text-white font-semibold cursor-pointer disabled:opacity-50 ${itemModal.accion === 'aprobar'
                       ? 'bg-emerald-600 hover:bg-emerald-700'
                       : 'bg-rose-600 hover:bg-rose-700'
-                  }`}
+                    }`}
                 >
                   {procesando
                     ? 'Procesando...'
                     : itemModal.accion === 'aprobar'
-                    ? 'Confirmar Aprobación y Notificar'
-                    : 'Confirmar Rechazo y Notificar'}
+                      ? 'Confirmar Aprobación y Notificar'
+                      : 'Confirmar Rechazo y Notificar'}
                 </button>
               </div>
             </form>
@@ -818,11 +921,10 @@ export function BandejaUnificadaAprobaciones({
                       key={m}
                       type="button"
                       onClick={() => setMetodoPagoBen(m)}
-                      className={`py-2 rounded-xl border font-semibold cursor-pointer ${
-                        metodoPagoBen === m
+                      className={`py-2 rounded-xl border font-semibold cursor-pointer ${metodoPagoBen === m
                           ? 'bg-sky-50 border-[#006799] text-[#006799]'
                           : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
+                        }`}
                     >
                       {m}
                     </button>

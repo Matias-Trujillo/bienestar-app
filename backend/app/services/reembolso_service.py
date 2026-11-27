@@ -191,16 +191,11 @@ def _obtener_anio_imputacion(sol: SolicitudReembolso) -> int:
 
 def _calcular_estado_label(sol: SolicitudReembolso, pago: Optional[PagoReembolso]) -> str:
     if sol.estado == EstadoReembolso.EN_REVISION:
-        return "Pendiente de Revisión"
+        return "Por Revisar"
     if sol.estado == EstadoReembolso.APROBADO:
-        return "Aprobado • Pendiente de Pago"
+        return "Listo para Pagar"
     if sol.estado == EstadoReembolso.PAGADO:
-        if pago and pago.recepcion_conforme:
-            return "Pagado • Recepción Conforme"
-        metodo = (pago.metodo_pago if pago else "") or ""
-        if "transferencia" in metodo.lower():
-            return "Transferencia Emitida"
-        return "Cheque Generado (Por Retirar)"
+        return "Pagado"
     if sol.estado == EstadoReembolso.RECHAZADO:
         return "Rechazado"
     return ESTADO_REEMBOLSO_LABELS.get(sol.estado, sol.estado.value)
