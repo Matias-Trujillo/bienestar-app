@@ -632,22 +632,34 @@ def generar_correo_recepcion_carga_familiar(
         f"por este mismo medio cuando sea aprobada o rechazada.\n\n"
         f"Atentamente,\nComité de Bienestar — I. Municipalidad de Peralillo"
     )
-    contenido_html = (
-        f"<p style='margin:0 0 12px;'>Estimado/a <strong>{socio_nombre}</strong>,</p>"
-        f"<p style='margin:0 0 14px;'>Confirmamos la recepción de su solicitud de acreditación de "
-        f"<strong>Carga Familiar</strong> en el Portal de Bienestar Municipal:</p>"
-        f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:0 0 14px;'>"
-        f"<p style='margin:4px 0;'><strong>Folio:</strong> {folio}</p>"
-        f"<p style='margin:4px 0;'><strong>Carga declarada:</strong> {carga_nombre} ({carga_run})</p>"
-        f"<p style='margin:4px 0;'><strong>Parentesco:</strong> {parentesco}</p>"
-        f"<p style='margin:4px 0;'><strong>Estado:</strong> Pendiente de revisión por Directiva</p>"
-        f"</div>"
-        f"<p style='margin:0;'>Recibirá un nuevo correo apenas la Directiva emita la resolución.</p>"
-    )
     cuerpo_html = _envolver_html_institucional(
-        titulo="Solicitud de Carga Familiar Recibida",
-        subtitulo=f"Folio {folio} • Emitido el {fecha_emision}",
-        contenido_html=contenido_html,
+        folio=folio,
+        fecha_emision=fecha_emision,
+        badge_texto="CARGA FAMILIAR RECIBIDA",
+        badge_bg="#e0f2fe",
+        badge_color="#006799",
+        banner_bg="#0c2b45",
+        banner_subtitulo="COMITÉ DE BIENESTAR • AFILIACIÓN Y CARGAS",
+        banner_titulo="Solicitud de Carga Familiar Recibida",
+        saludo_nombre=socio_nombre,
+        intro_html=(
+            "Confirmamos la recepción de su solicitud de acreditación de <strong>Carga Familiar</strong> "
+            "en el Portal de Bienestar Municipal. Ha sido derivada a la Bandeja de Aprobaciones de la Directiva."
+        ),
+        alerta_estado_html=(
+            "<div style='background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;"
+            "font-size:13px;color:#92400e;font-weight:600;'>Estado actual: PENDIENTE DE APROBACIÓN</div>"
+        ),
+        filas_tabla=[
+            ("Folio de Solicitud", folio),
+            ("Carga Declarada", f"{carga_nombre} ({carga_run})"),
+            ("Parentesco", parentesco),
+            ("Estado", "Pendiente de revisión por Directiva"),
+        ],
+        pasos=[
+            "La Directiva revisará el certificado de respaldo adjunto.",
+            "Recibirá un segundo correo automático apenas la solicitud sea aprobada o rechazada.",
+        ],
     )
     enviado_smtp, error_smtp = _despachar_correo(
         destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport
@@ -702,22 +714,34 @@ def generar_correo_recepcion_beneficio(
         f"Le notificaremos por correo electrónico apenas la Directiva apruebe o rechace su solicitud.\n\n"
         f"Atentamente,\nComité de Bienestar — I. Municipalidad de Peralillo"
     )
-    contenido_html = (
-        f"<p style='margin:0 0 12px;'>Estimado/a <strong>{socio_nombre}</strong>,</p>"
-        f"<p style='margin:0 0 14px;'>Confirmamos el ingreso de su postulación a "
-        f"<strong>{titulo_bono}</strong> en la Bandeja de Aprobaciones:</p>"
-        f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:0 0 14px;'>"
-        f"<p style='margin:4px 0;'><strong>Folio:</strong> {folio}</p>"
-        f"<p style='margin:4px 0;'><strong>Beneficio:</strong> {titulo_bono}</p>"
-        f"<p style='margin:4px 0;'><strong>Monto estimado:</strong> {monto_fmt}</p>"
-        f"<p style='margin:4px 0;'><strong>Estado:</strong> Pendiente de revisión por Directiva</p>"
-        f"</div>"
-        f"<p style='margin:0;'>Recibirá un segundo correo con la resolución oficial.</p>"
-    )
     cuerpo_html = _envolver_html_institucional(
-        titulo="Postulación a Beneficio Social Recibida",
-        subtitulo=f"Folio {folio} • Emitido el {fecha_emision}",
-        contenido_html=contenido_html,
+        folio=folio,
+        fecha_emision=fecha_emision,
+        badge_texto="BENEFICIO SOCIAL RECIBIDO",
+        badge_bg="#fef3c7",
+        badge_color="#92400e",
+        banner_bg="#0c2b45",
+        banner_subtitulo="COMITÉ DE BIENESTAR • BENEFICIOS SOCIALES",
+        banner_titulo="Postulación a Beneficio Social Recibida",
+        saludo_nombre=socio_nombre,
+        intro_html=(
+            f"Confirmamos el ingreso de su postulación a <strong>{titulo_bono}</strong> "
+            "en la Bandeja Consolidada de Aprobaciones de la Directiva."
+        ),
+        alerta_estado_html=(
+            "<div style='background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;"
+            "font-size:13px;color:#92400e;font-weight:600;'>Estado actual: PENDIENTE DE APROBACIÓN</div>"
+        ),
+        filas_tabla=[
+            ("Folio de Postulación", folio),
+            ("Beneficio Solicitado", titulo_bono),
+            ("Monto Estimado Reglamentario", monto_fmt),
+            ("Estado", "Pendiente de revisión por Directiva"),
+        ],
+        pasos=[
+            "La Directiva revisará los antecedentes y documentación adjunta.",
+            "Recibirá un segundo correo automático con la resolución (Aprobada o Rechazada).",
+        ],
     )
     enviado_smtp, error_smtp = _despachar_correo(
         destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport
@@ -794,21 +818,32 @@ def generar_correo_resolucion_beneficio(
         f"- Detalle: {detalle_resolucion}\n\n"
         f"Atentamente,\nComité de Bienestar — I. Municipalidad de Peralillo"
     )
-    contenido_html = (
-        f"<p style='margin:0 0 12px;'>Estimado/a <strong>{socio_nombre}</strong>,</p>"
-        f"<p style='margin:0 0 14px;'>La Directiva ha resuelto su postulación a "
-        f"<strong>{titulo_bono}</strong>:</p>"
-        f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:0 0 14px;'>"
-        f"<p style='margin:4px 0;'><strong>Folio:</strong> {folio}</p>"
-        f"<p style='margin:4px 0;'><strong>Estado:</strong> <span style='color:{color_badge};font-weight:700;'>{estado_label}</span></p>"
-        f"<p style='margin:4px 0;'><strong>Monto:</strong> {monto_fmt}</p>"
-        f"<p style='margin:4px 0;'><strong>Observación:</strong> {detalle_resolucion}</p>"
-        f"</div>"
-    )
+    badge_bg = "#dcfce7" if accion_up == "APROBAR" else ("#e0f2fe" if accion_up == "LIQUIDAR" else "#ffe4e6")
     cuerpo_html = _envolver_html_institucional(
-        titulo=f"Resolución de Beneficio Social: {estado_label}",
-        subtitulo=f"Folio {folio} • Emitido el {fecha_emision}",
-        contenido_html=contenido_html,
+        folio=folio,
+        fecha_emision=fecha_emision,
+        badge_texto=f"BENEFICIO {estado_label}",
+        badge_bg=badge_bg,
+        badge_color=color_badge,
+        banner_bg="#0c2b45",
+        banner_subtitulo="COMITÉ DE BIENESTAR • RESOLUCIÓN DE BENEFICIOS",
+        banner_titulo=f"Resolución de Beneficio Social: {estado_label}",
+        saludo_nombre=socio_nombre,
+        intro_html=(
+            f"La Directiva del Comité de Bienestar ha emitido resolución para su postulación a "
+            f"<strong>{titulo_bono}</strong>."
+        ),
+        alerta_estado_html=(
+            f"<div style='background:{badge_bg};border:1px solid {color_badge}33;border-radius:10px;padding:12px 14px;"
+            f"font-size:13px;color:{color_badge};font-weight:700;'>Resolución: {estado_label}</div>"
+        ),
+        filas_tabla=[
+            ("Folio de Postulación", folio),
+            ("Beneficio Social", titulo_bono),
+            ("Monto", monto_fmt),
+            ("Estado", estado_label),
+            ("Observación / Detalle", detalle_resolucion),
+        ],
     )
     enviado_smtp, error_smtp = _despachar_correo(
         destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport

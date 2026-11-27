@@ -38,6 +38,7 @@ async def test_correos_al_solicitar_carga_y_postular_resolver_beneficio(
         PostulacionBeneficioCreate(
             tipo_bono="nacimiento",
             motivo="Nacimiento de hijo",
+            documento_tipo="Certificado de Nacimiento",
             documento_nombre="cert_nacimiento.pdf",
         ),
     )
