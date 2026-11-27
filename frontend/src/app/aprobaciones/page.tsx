@@ -14,12 +14,23 @@ import { AprobacionesStatsCards } from '@/components/aprobaciones/AprobacionesSt
 import { FiltrosAprobaciones } from '@/components/aprobaciones/FiltrosAprobaciones';
 import { ModalResolucionReembolso } from '@/components/aprobaciones/ModalResolucionReembolso';
 import { TablaAprobaciones } from '@/components/aprobaciones/TablaAprobaciones';
+import {
+  BandejaUnificadaAprobaciones,
+  FiltroCategoria,
+  SolicitudAfiliacionItem,
+  SolicitudBeneficioItem,
+  SolicitudCargaItem,
+} from '@/components/aprobaciones/BandejaUnificadaAprobaciones';
 
-// [ESTUDIANTE INFORMÁTICA] Orquestador principal de la bandeja de aprobaciones de la Directiva (HU-04); Clean Architecture en frontend.
+// [ESTUDIANTE INFORMÁTICA] Orquestador principal de la bandeja consolidada de aprobaciones de la Directiva (HU-04).
 export default function AprobacionesPage() {
   const { user, token, isAdminView, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const [categoriaActiva, setCategoriaActiva] = useState<FiltroCategoria>('todas');
   const [solicitudes, setSolicitudes] = useState<SolicitudReembolso[]>([]);
+  const [afiliaciones, setAfiliaciones] = useState<SolicitudAfiliacionItem[]>([]);
+  const [cargas, setCargas] = useState<SolicitudCargaItem[]>([]);
+  const [beneficios, setBeneficios] = useState<SolicitudBeneficioItem[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState<string>('en_revision');
   const [filtroDias, setFiltroDias] = useState<'todos' | TramoDias>('todos');
@@ -54,10 +65,17 @@ export default function AprobacionesPage() {
     if (!token) return;
     setCargando(true);
     try {
-      const data = await fetchFromApi<SolicitudReembolso[]>('/reembolsos/admin/solicitudes', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setSolicitudes(data || []);
+      const headers = { Authorization: `Bearer ${token}` };
+      const [rmbRes, afRes, cfRes, benRes] = await Promise.allSettled([
+        fetchFromApi<SolicitudReembolso[]>('/reembolsos/admin/solicitudes', { headers }),
+        fetchFromApi<SolicitudAfiliacionItem[]>('/afiliacion/solicitudes', { headers }),
+        fetchFromApi<SolicitudCargaItem[]>('/afiliacion/solicitudes-cargas', { headers }),
+        fetchFromApi<SolicitudBeneficioItem[]>('/beneficios/solicitudes', { headers }),
+      ]);
+      if (rmbRes.status === 'fulfilled') setSolicitudes(rmbRes.value || []);
+      if (afRes.status === 'fulfilled') setAfiliaciones(afRes.value || []);
+      if (cfRes.status === 'fulfilled') setCargas(cfRes.value || []);
+      if (benRes.status === 'fulfilled') setBeneficios(benRes.value || []);
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err));
     } finally {
@@ -103,7 +121,7 @@ export default function AprobacionesPage() {
             });
             bc.close();
           }
-        } catch {}
+        } catch { }
       }
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err));
@@ -172,7 +190,7 @@ export default function AprobacionesPage() {
             });
             bc.close();
           }
-        } catch {}
+        } catch { }
       }
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err));
@@ -196,6 +214,10 @@ export default function AprobacionesPage() {
   });
 
   const conteoPendientes = solicitudes.filter((s) => s.estado === 'en_revision').length;
+  const pendAfiliacion = afiliaciones.filter((a) => (a.estado || '').toLowerCase().includes('pend')).length;
+  const pendCargas = cargas.filter((c) => (c.estado || '').toLowerCase().includes('pend')).length;
+  const pendBeneficios = beneficios.filter((b) => (b.estado || '').toLowerCase().includes('pend')).length;
+  const totalPendientesGlobal = conteoPendientes + pendAfiliacion + pendCargas + pendBeneficios;
 
   return (
     <div className="space-y-6 animate-fade-in min-w-0">
@@ -204,20 +226,20 @@ export default function AprobacionesPage() {
         <div className="p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="min-w-0">
             <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/10 text-amber-200 border border-white/15 mb-1.5">
-              Módulo 2 • HU-04 • Bandeja Colegiada de Directiva
+              Bandeja Colegiada Única • Todas las Aprobaciones
             </span>
             <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-              Auditoría y Resolución de Reembolsos Médicos
+              Centro Consolidado de Aprobaciones de la Directiva
             </h1>
             <p className="text-xs sm:text-sm text-slate-300">
-              Control de plazo de 30 días, visor de respaldos adjuntos y restitución automática de cupo ante rechazos.
+              Reembolsos médicos, creación de cuentas, cargas familiares y beneficios sociales con notificación automática por correo.
             </p>
           </div>
           <Link
-            href="/reembolsos"
+            href="/"
             className="px-4 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 rounded-xl border border-white/15 shrink-0 transition-colors"
           >
-            ← Cartola Socio
+            ← Hoja Socio
           </Link>
         </div>
       </div>
@@ -225,39 +247,109 @@ export default function AprobacionesPage() {
       {successMsg && <div className="p-4 text-xs bg-emerald-50 text-[#166534] border border-emerald-200 rounded-2xl font-bold shadow-2xs">{successMsg}</div>}
       {errorMsg && <div className="p-4 text-xs bg-rose-50 text-rose-800 border border-rose-200 rounded-2xl font-bold shadow-2xs">{errorMsg}</div>}
 
-      <AprobacionesStatsCards solicitudes={solicitudes} />
-
-      <div className="card-modern overflow-hidden min-w-0">
-        <FiltrosAprobaciones
-          filtroEstado={filtroEstado}
-          setFiltroEstado={setFiltroEstado}
-          filtroDias={filtroDias}
-          setFiltroDias={setFiltroDias}
-          busqueda={busqueda}
-          setBusqueda={setBusqueda}
-          conteoPendientes={conteoPendientes}
-        />
-        <TablaAprobaciones
-          solicitudes={solicitudesFiltradas}
-          cargando={cargando}
-          onVerComprobante={(sol) =>
-            setPreviewComprobante({
-              id: sol.id,
-              url: `${API_BASE_URL}/reembolsos/solicitud/${sol.id}/comprobante${token ? `?token=${encodeURIComponent(token)}` : ''}`,
-              filename: sol.comprobante_filename,
-              codigo: sol.codigo,
-              isPdf: sol.comprobante_filename.toLowerCase().endsWith('.pdf'),
-              isImage: !sol.comprobante_filename.toLowerCase().endsWith('.pdf'),
-            })
-          }
-          onVerDetalle={(sol) => setShowDetalle(sol)}
-          onIniciarAprobar={(sol) => setSolicitudAprobar(sol)}
-          onIniciarRechazar={(sol) => {
-            setSolicitudRechazar(sol);
-            setMotivoRechazo('');
-          }}
-        />
+      {/* Selector de Tipo de Aprobación con contadores en vivo */}
+      <div className="bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-wrap gap-1.5">
+        {(
+          [
+            { id: 'todas', label: 'Todas las Aprobaciones', count: totalPendientesGlobal },
+            { id: 'reembolso', label: 'Reembolsos Médicos', count: conteoPendientes },
+            { id: 'afiliacion', label: 'Creación de Cuentas', count: pendAfiliacion },
+            { id: 'carga', label: 'Cargas Familiares', count: pendCargas },
+            { id: 'beneficio', label: 'Beneficios Sociales', count: pendBeneficios },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setCategoriaActiva(tab.id)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-2 ${categoriaActiva === tab.id
+                ? 'bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
+              }`}
+          >
+            <span>{tab.label}</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${categoriaActiva === tab.id
+                  ? 'bg-white/20 text-white'
+                  : tab.count > 0
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-slate-100 text-slate-500'
+                }`}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
       </div>
+
+          {categoriaActiva === 'reembolso' ? (
+            <>
+              <AprobacionesStatsCards solicitudes={solicitudes} />
+
+              <div className="card-modern overflow-hidden min-w-0">
+                <FiltrosAprobaciones
+                  filtroEstado={filtroEstado}
+                  setFiltroEstado={setFiltroEstado}
+                  filtroDias={filtroDias}
+                  setFiltroDias={setFiltroDias}
+                  busqueda={busqueda}
+                  setBusqueda={setBusqueda}
+                  conteoPendientes={conteoPendientes}
+                />
+                <TablaAprobaciones
+                  solicitudes={solicitudesFiltradas}
+                  cargando={cargando}
+                  onVerComprobante={(sol) =>
+                    setPreviewComprobante({
+                      id: sol.id,
+                      url: `${API_BASE_URL}/reembolsos/solicitud/${sol.id}/comprobante${token ? `?token=${encodeURIComponent(token)}` : ''}`,
+                      filename: sol.comprobante_filename,
+                      codigo: sol.codigo,
+                      isPdf: sol.comprobante_filename.toLowerCase().endsWith('.pdf'),
+                      isImage: !sol.comprobante_filename.toLowerCase().endsWith('.pdf'),
+                    })
+                  }
+                  onVerDetalle={(sol) => setShowDetalle(sol)}
+                  onIniciarAprobar={(sol) => setSolicitudAprobar(sol)}
+                  onIniciarRechazar={(sol) => {
+                    setSolicitudRechazar(sol);
+                    setMotivoRechazo('');
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            <BandejaUnificadaAprobaciones
+              token={token}
+              categoriaActiva={categoriaActiva}
+              reembolsos={solicitudes}
+              afiliaciones={afiliaciones}
+              cargas={cargas}
+              beneficios={beneficios}
+              cargando={cargando}
+                onRefreshTodo = { cargarSolicitudes }
+                onNotificarOk = {(msg) => {
+          setErrorMsg(null);
+        setSuccessMsg(msg);
+            setTimeout(() => setSuccessMsg(null), 6000);
+          }}
+        onNotificarError={(msg) => setErrorMsg(msg)}
+        onAprobarReembolso={(sol) => setSolicitudAprobar(sol)}
+        onRechazarReembolso={(sol) => {
+          setSolicitudRechazar(sol);
+          setMotivoRechazo('');
+        }}
+        onPagarReembolso={(sol) => {
+          setSolicitudPagar(sol);
+          setMetodoPago('Cheque');
+          setNumeroDocumentoPago('');
+          setBancoEmisorPago('BancoEstado');
+          setFechaPago(new Date().toISOString().split('T')[0]);
+          setHoraProceso(new Date().toTimeString().slice(0, 5));
+        }}
+        onVerDetalleReembolso={(sol) => setShowDetalle(sol)}
+        />
+      )}
 
       <ModalResolucionReembolso
         solicitudAprobar={solicitudAprobar}
@@ -414,8 +506,8 @@ export default function AprobacionesPage() {
           previewError={null}
           subiendoArchivoDirecto={false}
           onClose={() => setPreviewComprobante(null)}
-          onSubirArchivo={() => {}}
-          onErrorLoading={() => {}}
+          onSubirArchivo={() => { }}
+          onErrorLoading={() => { }}
         />
       )}
     </div>

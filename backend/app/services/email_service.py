@@ -599,3 +599,236 @@ def generar_correos_postulacion_talento(
             "cvAdjunto": bool(adjuntos),
         },
     }
+
+
+def generar_correo_recepcion_carga_familiar(
+    folio: str,
+    socio_nombre: str,
+    socio_rut: str,
+    email_destino: Optional[str],
+    carga_nombre: str,
+    carga_run: str,
+    parentesco: str,
+    enviar_smtp: bool = True,
+    transport: Optional[SmtpTransportProtocol] = None,
+    buzon: Optional[EmailBuzonProtocol] = None,
+) -> Dict[str, Any]:
+    """Emite correo de confirmación al solicitar la inscripción de una carga familiar."""
+    correo_final = (email_destino or "").strip()
+    destinatario = (
+        correo_final
+        if correo_final
+        else f"{socio_rut.replace('.', '').replace('-', '').lower()}@mperalillo.cl"
+    )
+    fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    asunto = f"[Bienestar Peralillo] Solicitud de Carga Familiar {folio} Recibida"
+    cuerpo_texto = (
+        f"Estimado/a {socio_nombre},\n\n"
+        f"Hemos recibido su solicitud de acreditación de carga familiar (Folio {folio}):\n"
+        f"- Carga declarada: {carga_nombre} (RUN {carga_run})\n"
+        f"- Parentesco: {parentesco}\n"
+        f"- Estado actual: PENDIENTE DE APROBACIÓN\n\n"
+        f"Su solicitud será revisada por la Directiva del Comité de Bienestar y le notificaremos "
+        f"por este mismo medio cuando sea aprobada o rechazada.\n\n"
+        f"Atentamente,\nComité de Bienestar — I. Municipalidad de Peralillo"
+    )
+    contenido_html = (
+        f"<p style='margin:0 0 12px;'>Estimado/a <strong>{socio_nombre}</strong>,</p>"
+        f"<p style='margin:0 0 14px;'>Confirmamos la recepción de su solicitud de acreditación de "
+        f"<strong>Carga Familiar</strong> en el Portal de Bienestar Municipal:</p>"
+        f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:0 0 14px;'>"
+        f"<p style='margin:4px 0;'><strong>Folio:</strong> {folio}</p>"
+        f"<p style='margin:4px 0;'><strong>Carga declarada:</strong> {carga_nombre} ({carga_run})</p>"
+        f"<p style='margin:4px 0;'><strong>Parentesco:</strong> {parentesco}</p>"
+        f"<p style='margin:4px 0;'><strong>Estado:</strong> Pendiente de revisión por Directiva</p>"
+        f"</div>"
+        f"<p style='margin:0;'>Recibirá un nuevo correo apenas la Directiva emita la resolución.</p>"
+    )
+    cuerpo_html = _envolver_html_institucional(
+        titulo="Solicitud de Carga Familiar Recibida",
+        subtitulo=f"Folio {folio} • Emitido el {fecha_emision}",
+        contenido_html=contenido_html,
+    )
+    enviado_smtp, error_smtp = _despachar_correo(
+        destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport
+    )
+    payload = {
+        "tipo": "recepcion_carga_familiar",
+        "destinatario": destinatario,
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto,
+        "fechaEmision": fecha_emision,
+        "folio": folio,
+        "nombreDestinatario": socio_nombre,
+        "runDestinatario": socio_rut,
+        "estadoSolicitud": "PENDIENTE",
+        "resumenEstado": f"Solicitud de carga {carga_nombre} ({parentesco}) recibida y en evaluación.",
+        "cuerpoTexto": cuerpo_texto,
+        "cuerpoHtml": cuerpo_html,
+        "enviadoSmtp": enviado_smtp,
+        "errorSmtp": error_smtp,
+        "modoEnvio": "smtp_real" if enviado_smtp else "buzon_institucional",
+    }
+    (buzon or default_buzon_store).registrar(payload)
+    return payload
+
+
+def generar_correo_recepcion_beneficio(
+    folio: str,
+    socio_nombre: str,
+    socio_rut: str,
+    email_destino: Optional[str],
+    titulo_bono: str,
+    monto_calculado: int,
+    enviar_smtp: bool = True,
+    transport: Optional[SmtpTransportProtocol] = None,
+    buzon: Optional[EmailBuzonProtocol] = None,
+) -> Dict[str, Any]:
+    """Emite correo de confirmación al postular a un beneficio o bono social (HU-05)."""
+    correo_final = (email_destino or "").strip()
+    destinatario = (
+        correo_final
+        if correo_final
+        else f"{socio_rut.replace('.', '').replace('-', '').lower()}@mperalillo.cl"
+    )
+    fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    monto_fmt = f"${int(monto_calculado):,.0f} CLP".replace(",", ".")
+    asunto = f"[Bienestar Peralillo] Postulación a {titulo_bono} ({folio}) Recibida"
+    cuerpo_texto = (
+        f"Estimado/a {socio_nombre},\n\n"
+        f"Hemos recibido su postulación al beneficio social '{titulo_bono}' (Folio {folio}):\n"
+        f"- Monto estimado reglamentario: {monto_fmt}\n"
+        f"- Estado actual: PENDIENTE DE APROBACIÓN\n\n"
+        f"Le notificaremos por correo electrónico apenas la Directiva apruebe o rechace su solicitud.\n\n"
+        f"Atentamente,\nComité de Bienestar — I. Municipalidad de Peralillo"
+    )
+    contenido_html = (
+        f"<p style='margin:0 0 12px;'>Estimado/a <strong>{socio_nombre}</strong>,</p>"
+        f"<p style='margin:0 0 14px;'>Confirmamos el ingreso de su postulación a "
+        f"<strong>{titulo_bono}</strong> en la Bandeja de Aprobaciones:</p>"
+        f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:0 0 14px;'>"
+        f"<p style='margin:4px 0;'><strong>Folio:</strong> {folio}</p>"
+        f"<p style='margin:4px 0;'><strong>Beneficio:</strong> {titulo_bono}</p>"
+        f"<p style='margin:4px 0;'><strong>Monto estimado:</strong> {monto_fmt}</p>"
+        f"<p style='margin:4px 0;'><strong>Estado:</strong> Pendiente de revisión por Directiva</p>"
+        f"</div>"
+        f"<p style='margin:0;'>Recibirá un segundo correo con la resolución oficial.</p>"
+    )
+    cuerpo_html = _envolver_html_institucional(
+        titulo="Postulación a Beneficio Social Recibida",
+        subtitulo=f"Folio {folio} • Emitido el {fecha_emision}",
+        contenido_html=contenido_html,
+    )
+    enviado_smtp, error_smtp = _despachar_correo(
+        destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport
+    )
+    payload = {
+        "tipo": "recepcion_beneficio",
+        "destinatario": destinatario,
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto,
+        "fechaEmision": fecha_emision,
+        "folio": folio,
+        "nombreDestinatario": socio_nombre,
+        "runDestinatario": socio_rut,
+        "estadoSolicitud": "PENDIENTE",
+        "resumenEstado": f"Postulación {folio} a {titulo_bono} ({monto_fmt}) recibida.",
+        "cuerpoTexto": cuerpo_texto,
+        "cuerpoHtml": cuerpo_html,
+        "enviadoSmtp": enviado_smtp,
+        "errorSmtp": error_smtp,
+        "modoEnvio": "smtp_real" if enviado_smtp else "buzon_institucional",
+    }
+    (buzon or default_buzon_store).registrar(payload)
+    return payload
+
+
+def generar_correo_resolucion_beneficio(
+    folio: str,
+    socio_nombre: str,
+    socio_rut: str,
+    email_destino: Optional[str],
+    titulo_bono: str,
+    monto_calculado: int,
+    accion: str,
+    motivo_rechazo: Optional[str] = None,
+    observaciones: Optional[str] = None,
+    numero_cheque: Optional[str] = None,
+    enviar_smtp: bool = True,
+    transport: Optional[SmtpTransportProtocol] = None,
+    buzon: Optional[EmailBuzonProtocol] = None,
+) -> Dict[str, Any]:
+    """Emite correo de resolución (APROBADO, RECHAZADO o LIQUIDADO) para un beneficio social."""
+    correo_final = (email_destino or "").strip()
+    destinatario = (
+        correo_final
+        if correo_final
+        else f"{socio_rut.replace('.', '').replace('-', '').lower()}@mperalillo.cl"
+    )
+    fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    monto_fmt = f"${int(monto_calculado):,.0f} CLP".replace(",", ".")
+    accion_up = (accion or "").upper()
+    if accion_up == "APROBAR":
+        estado_label = "APROBADA"
+        color_badge = "#166534"
+        detalle_resolucion = (observaciones or "").strip() or "Su postulación cumple con los requisitos reglamentarios y pasa a gestión de pago."
+    elif accion_up == "LIQUIDAR":
+        estado_label = "LIQUIDADA / PAGADA"
+        color_badge = "#006799"
+        detalle_resolucion = (
+            f"Pago emitido mediante documento N° {numero_cheque}."
+            if numero_cheque
+            else "Beneficio liquidado y listo para pago."
+        )
+    else:
+        estado_label = "RECHAZADA"
+        color_badge = "#be123c"
+        detalle_resolucion = (motivo_rechazo or observaciones or "").strip() or "No cumple con las bases reglamentarias vigentes."
+
+    asunto = f"[Bienestar Peralillo] Beneficio {titulo_bono} ({folio}) — {estado_label}"
+    cuerpo_texto = (
+        f"Estimado/a {socio_nombre},\n\n"
+        f"Informamos la resolución de su solicitud de beneficio social '{titulo_bono}' (Folio {folio}):\n"
+        f"- Resolución: {estado_label}\n"
+        f"- Monto: {monto_fmt}\n"
+        f"- Detalle: {detalle_resolucion}\n\n"
+        f"Atentamente,\nComité de Bienestar — I. Municipalidad de Peralillo"
+    )
+    contenido_html = (
+        f"<p style='margin:0 0 12px;'>Estimado/a <strong>{socio_nombre}</strong>,</p>"
+        f"<p style='margin:0 0 14px;'>La Directiva ha resuelto su postulación a "
+        f"<strong>{titulo_bono}</strong>:</p>"
+        f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:0 0 14px;'>"
+        f"<p style='margin:4px 0;'><strong>Folio:</strong> {folio}</p>"
+        f"<p style='margin:4px 0;'><strong>Estado:</strong> <span style='color:{color_badge};font-weight:700;'>{estado_label}</span></p>"
+        f"<p style='margin:4px 0;'><strong>Monto:</strong> {monto_fmt}</p>"
+        f"<p style='margin:4px 0;'><strong>Observación:</strong> {detalle_resolucion}</p>"
+        f"</div>"
+    )
+    cuerpo_html = _envolver_html_institucional(
+        titulo=f"Resolución de Beneficio Social: {estado_label}",
+        subtitulo=f"Folio {folio} • Emitido el {fecha_emision}",
+        contenido_html=contenido_html,
+    )
+    enviado_smtp, error_smtp = _despachar_correo(
+        destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport
+    )
+    payload = {
+        "tipo": "resolucion_beneficio",
+        "destinatario": destinatario,
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto,
+        "fechaEmision": fecha_emision,
+        "folio": folio,
+        "nombreDestinatario": socio_nombre,
+        "runDestinatario": socio_rut,
+        "estadoSolicitud": estado_label,
+        "resumenEstado": f"Beneficio {folio} ({titulo_bono}) marcado como {estado_label}.",
+        "cuerpoTexto": cuerpo_texto,
+        "cuerpoHtml": cuerpo_html,
+        "enviadoSmtp": enviado_smtp,
+        "errorSmtp": error_smtp,
+        "modoEnvio": "smtp_real" if enviado_smtp else "buzon_institucional",
+    }
+    (buzon or default_buzon_store).registrar(payload)
+    return payload

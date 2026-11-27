@@ -46,6 +46,7 @@ from app.schemas.afiliacion import (
 )
 from app.services.email_service import (
     actualizar_config_smtp_runtime,
+    generar_correo_recepcion_carga_familiar,
     generar_correo_recepcion_solicitud,
     generar_correo_resolucion_carga_familiar,
     generar_correo_resolucion_solicitud,
@@ -1408,6 +1409,23 @@ class AfiliacionService:
         )
         await db.commit()
         await db.refresh(nueva_sc)
+
+        # Disparar correo de confirmación de recepción de solicitud de carga familiar
+        try:
+            await sincronizar_smtp_desde_db(db)
+            generar_correo_recepcion_carga_familiar(
+                folio=nueva_sc.folio,
+                socio_nombre=nueva_sc.socio_nombre,
+                socio_rut=nueva_sc.socio_rut,
+                email_destino=nueva_sc.socio_email,
+                carga_nombre=nueva_sc.nombre_completo,
+                carga_run=formatear_run(nueva_sc.run),
+                parentesco=nueva_sc.parentesco or "Hijo/a",
+                enviar_smtp=True,
+            )
+        except Exception:
+            pass
+
         return to_solicitud_carga_out(nueva_sc)
 
     @staticmethod

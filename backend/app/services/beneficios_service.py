@@ -484,6 +484,25 @@ class BeneficiosService:
         )
         await db.commit()
         await db.refresh(solicitud)
+
+        # Disparar correo de confirmación al postular a un beneficio social
+        try:
+            from app.services.afiliacion_service import sincronizar_smtp_desde_db
+            from app.services.email_service import generar_correo_recepcion_beneficio
+
+            await sincronizar_smtp_desde_db(db)
+            generar_correo_recepcion_beneficio(
+                folio=f"BEN-{solicitud.id:04d}",
+                socio_nombre=socio_destino.nombre_completo,
+                socio_rut=socio_destino.rut,
+                email_destino=socio_destino.email,
+                titulo_bono=solicitud.titulo_bono,
+                monto_calculado=int(solicitud.monto_calculado),
+                enviar_smtp=True,
+            )
+        except Exception:
+            pass
+
         return solicitud
 
     @classmethod
@@ -574,6 +593,28 @@ class BeneficiosService:
         )
         await db.commit()
         await db.refresh(solicitud)
+
+        # Disparar correo de notificación de asignación directa de Bono de Vacaciones
+        try:
+            from app.services.afiliacion_service import sincronizar_smtp_desde_db
+            from app.services.email_service import generar_correo_resolucion_beneficio
+
+            await sincronizar_smtp_desde_db(db)
+            generar_correo_resolucion_beneficio(
+                folio=f"BEN-{solicitud.id:04d}",
+                socio_nombre=socio.nombre_completo,
+                socio_rut=socio.rut,
+                email_destino=socio.email,
+                titulo_bono=solicitud.titulo_bono,
+                monto_calculado=int(solicitud.monto_calculado),
+                accion="LIQUIDAR" if payload.numero_cheque else "APROBAR",
+                observaciones=solicitud.observaciones_admin,
+                numero_cheque=solicitud.numero_cheque,
+                enviar_smtp=True,
+            )
+        except Exception:
+            pass
+
         return solicitud
 
     @classmethod
@@ -642,6 +683,31 @@ class BeneficiosService:
         )
         await db.commit()
         await db.refresh(solicitud)
+
+        # Disparar correo de resolución (APROBAR, RECHAZAR o LIQUIDAR) al socio
+        try:
+            from app.services.afiliacion_service import sincronizar_smtp_desde_db
+            from app.services.email_service import generar_correo_resolucion_beneficio
+
+            socio_dest = await db.get(User, solicitud.socio_id)
+            if socio_dest:
+                await sincronizar_smtp_desde_db(db)
+                generar_correo_resolucion_beneficio(
+                    folio=f"BEN-{solicitud.id:04d}",
+                    socio_nombre=socio_dest.nombre_completo,
+                    socio_rut=socio_dest.rut,
+                    email_destino=socio_dest.email,
+                    titulo_bono=solicitud.titulo_bono,
+                    monto_calculado=int(solicitud.monto_calculado),
+                    accion=accion,
+                    motivo_rechazo=solicitud.motivo_rechazo,
+                    observaciones=solicitud.observaciones_admin,
+                    numero_cheque=solicitud.numero_cheque,
+                    enviar_smtp=True,
+                )
+        except Exception:
+            pass
+
         return solicitud
 
     @classmethod
