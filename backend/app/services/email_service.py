@@ -5,6 +5,7 @@
   - DIP: Acepta implementaciones abstractas (`SmtpTransportProtocol`, `EmailBuzonProtocol`) sin acoplarse a detalles concretos.
 """
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
@@ -36,6 +37,47 @@ from app.services.email_transport import (
 )
 
 
+_BONOS_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "bonos"
+
+_MAPA_IMAGEN_BONO: Dict[str, str] = {
+    "nacimiento": "nacimiento.jpg",
+    "invierno": "invierno.jpg",
+    "navidad": "navidad.jpg",
+    "vacaciones": "vacaciones.jpg",
+    "escolaridad": "escolaridad.jpg",
+    "fallecimiento_familiar": "fallecimiento.jpg",
+    "fallecimiento_afiliado": "fallecimiento.jpg",
+    "enfermedad_catastrofica": "enfermedad_catastrofica.jpg",
+    "catastrofe_siniestro": "catastrofe_siniestro.jpg",
+}
+
+
+def _obtener_imagen_bono_inline(tipo_bono: Optional[str]) -> Optional[Tuple[str, bytes, str]]:
+    """Carga la ilustración PNG temática del beneficio para incrustarla vía CID en el correo."""
+    clave = (tipo_bono or "").strip().lower()
+    filename = _MAPA_IMAGEN_BONO.get(clave)
+    if not filename:
+        return None
+    ruta = _BONOS_ASSETS_DIR / filename
+    if not ruta.exists():
+        return None
+    try:
+        return ("bono_ilustracion", ruta.read_bytes(), filename)
+    except OSError:
+        return None
+
+
+def _bloque_html_imagen_bono(titulo_bono: str, tiene_imagen: bool) -> str:
+    if not tiene_imagen:
+        return ""
+    return (
+        "<div style='margin:0 0 14px 0;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;'>"
+        f"<img src='cid:bono_ilustracion' alt='{titulo_bono}' "
+        "style='display:block;width:100%;max-height:190px;object-fit:cover;' />"
+        "</div>"
+    )
+
+
 def _despachar_correo(
     destinatario: str,
     asunto: str,
@@ -44,12 +86,20 @@ def _despachar_correo(
     enviar_smtp: bool,
     transport: Optional[SmtpTransportProtocol] = None,
     adjuntos: Optional[List[Tuple[str, bytes, str]]] = None,
+    imagenes_inline: Optional[List[Tuple[str, bytes, str]]] = None,
 ) -> tuple[bool, Optional[str]]:
     if not (enviar_smtp and destinatario):
         return False, None
     medio = transport or default_smtp_transport
-    if adjuntos:
-        return medio.enviar_html(destinatario, asunto, cuerpo_texto, cuerpo_html, adjuntos=adjuntos)  # type: ignore[call-arg]
+    if adjuntos or imagenes_inline:
+        return medio.enviar_html(  # type: ignore[call-arg]
+            destinatario,
+            asunto,
+            cuerpo_texto,
+            cuerpo_html,
+            adjuntos=adjuntos,
+            imagenes_inline=imagenes_inline,
+        )
     return medio.enviar_html(destinatario, asunto, cuerpo_texto, cuerpo_html)
 
 
@@ -692,6 +742,7 @@ def generar_correo_recepcion_beneficio(
     email_destino: Optional[str],
     titulo_bono: str,
     monto_calculado: int,
+    tipo_bono: Optional[str] = None,
     enviar_smtp: bool = True,
     transport: Optional[SmtpTransportProtocol] = None,
     buzon: Optional[EmailBuzonProtocol] = None,
@@ -705,6 +756,8 @@ def generar_correo_recepcion_beneficio(
     )
     fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
     monto_fmt = f"${int(monto_calculado):,.0f} CLP".replace(",", ".")
+    imagen_inline = _obtener_imagen_bono_inline(tipo_bono)
+    bloque_img = _bloque_html_imagen_bono(titulo_bono, bool(imagen_inline))
     asunto = f"[Bienestar Peralillo] Postulación a {titulo_bono} ({folio}) Recibida"
     cuerpo_texto = (
         f"Estimado/a {socio_nombre},\n\n"
@@ -729,6 +782,7 @@ def generar_correo_recepcion_beneficio(
             "en la Bandeja Consolidada de Aprobaciones de la Directiva."
         ),
         alerta_estado_html=(
+            f"{bloque_img}"
             "<div style='background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;"
             "font-size:13px;color:#92400e;font-weight:600;'>Estado actual: PENDIENTE DE APROBACIÓN</div>"
         ),
@@ -744,7 +798,13 @@ def generar_correo_recepcion_beneficio(
         ],
     )
     enviado_smtp, error_smtp = _despachar_correo(
-        destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport
+        destinatario,
+        asunto,
+        cuerpo_texto,
+        cuerpo_html,
+        enviar_smtp,
+        transport,
+        imagenes_inline=[imagen_inline] if imagen_inline else None,
     )
     payload = {
         "tipo": "recepcion_beneficio",
@@ -775,6 +835,7 @@ def generar_correo_resolucion_beneficio(
     titulo_bono: str,
     monto_calculado: int,
     accion: str,
+    tipo_bono: Optional[str] = None,
     motivo_rechazo: Optional[str] = None,
     observaciones: Optional[str] = None,
     numero_cheque: Optional[str] = None,
@@ -791,6 +852,8 @@ def generar_correo_resolucion_beneficio(
     )
     fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
     monto_fmt = f"${int(monto_calculado):,.0f} CLP".replace(",", ".")
+    imagen_inline = _obtener_imagen_bono_inline(tipo_bono)
+    bloque_img = _bloque_html_imagen_bono(titulo_bono, bool(imagen_inline))
     accion_up = (accion or "").upper()
     if accion_up == "APROBAR":
         estado_label = "APROBADA"
@@ -840,6 +903,7 @@ def generar_correo_resolucion_beneficio(
             f"<strong>{titulo_bono}</strong>."
         ),
         alerta_estado_html=(
+            f"{bloque_img}"
             f"<div style='background:{badge_bg};border:1px solid {color_badge}33;border-radius:10px;padding:12px 14px;"
             f"font-size:13px;color:{color_badge};font-weight:700;'>Resolución: {estado_label}</div>"
         ),
@@ -852,7 +916,13 @@ def generar_correo_resolucion_beneficio(
         ],
     )
     enviado_smtp, error_smtp = _despachar_correo(
-        destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport
+        destinatario,
+        asunto,
+        cuerpo_texto,
+        cuerpo_html,
+        enviar_smtp,
+        transport,
+        imagenes_inline=[imagen_inline] if imagen_inline else None,
     )
     payload = {
         "tipo": "resolucion_beneficio",

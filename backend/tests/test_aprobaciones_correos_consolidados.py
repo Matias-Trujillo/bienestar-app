@@ -48,6 +48,7 @@ async def test_correos_al_solicitar_carga_y_postular_resolver_beneficio(
         c for c in default_buzon_store.listar() if c.get("folio") == folio_ben and c.get("tipo") == "recepcion_beneficio"
     ]
     assert len(correos_ben_rec) >= 1
+    assert "cid:bono_ilustracion" in (correos_ben_rec[0].get("cuerpoHtml") or "")
 
     # 3. Aprobar beneficio social -> debe emitir correo de resolución APROBADA
     await BeneficiosService.validar_o_liquidar(

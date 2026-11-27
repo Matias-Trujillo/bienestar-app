@@ -498,6 +498,7 @@ class BeneficiosService:
                 email_destino=socio_destino.email,
                 titulo_bono=solicitud.titulo_bono,
                 monto_calculado=int(solicitud.monto_calculado),
+                tipo_bono=solicitud.tipo_bono,
                 enviar_smtp=True,
             )
         except Exception:
@@ -608,6 +609,7 @@ class BeneficiosService:
                 titulo_bono=solicitud.titulo_bono,
                 monto_calculado=int(solicitud.monto_calculado),
                 accion="LIQUIDAR" if payload.numero_cheque else "APROBAR",
+                tipo_bono=solicitud.tipo_bono,
                 observaciones=solicitud.observaciones_admin,
                 numero_cheque=solicitud.numero_cheque,
                 enviar_smtp=True,
@@ -700,6 +702,7 @@ class BeneficiosService:
                     titulo_bono=solicitud.titulo_bono,
                     monto_calculado=int(solicitud.monto_calculado),
                     accion=accion,
+                    tipo_bono=solicitud.tipo_bono,
                     motivo_rechazo=solicitud.motivo_rechazo,
                     observaciones=solicitud.observaciones_admin,
                     numero_cheque=solicitud.numero_cheque,

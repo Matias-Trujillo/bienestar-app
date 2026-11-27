@@ -102,6 +102,7 @@ class SmtpEmailTransport:
         cuerpo_texto: str,
         cuerpo_html: str,
         adjuntos: Optional[List[Tuple[str, bytes, str]]] = None,
+        imagenes_inline: Optional[List[Tuple[str, bytes, str]]] = None,
     ) -> Tuple[bool, Optional[str]]:
         """Envía el correo por SMTP real con logo institucional embebido (CID) y adjuntos opcionales."""
         estado = self.obtener_estado()
@@ -145,6 +146,16 @@ class SmtpEmailTransport:
                 img_part.add_header("Content-ID", "<logo_peralillo>")
                 img_part.add_header("Content-Disposition", "inline", filename="logo-peralillo.png")
                 msg_related.attach(img_part)
+
+            if imagenes_inline:
+                for cid, img_bytes, filename in imagenes_inline:
+                    if not img_bytes:
+                        continue
+                    subtipo = "jpeg" if filename.lower().endswith((".jpg", ".jpeg")) else "png"
+                    inline_part = MIMEImage(img_bytes, _subtype=subtipo)
+                    inline_part.add_header("Content-ID", f"<{cid}>")
+                    inline_part.add_header("Content-Disposition", "inline", filename=filename)
+                    msg_related.attach(inline_part)
 
             if adjuntos:
                 for filename, file_bytes, _mime in adjuntos:
