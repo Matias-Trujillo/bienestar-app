@@ -76,3 +76,83 @@ async def test_flujo_completo_hu04_pago_y_hu10_recepcion_conforme(
     assert out.estado == "pagado"
     assert out.numero_cheque_o_transferencia == "CHQ-998877"
     assert out.recepcion_conforme is True
+
+
+@pytest.mark.asyncio
+async def test_registrar_pago_bloquea_probidad_autopago_y_rol_auditor(
+    db_session: AsyncSession, socio_habilitado: User, usuario_admin: User
+) -> None:
+    from fastapi import HTTPException
+    from app.api.v1.endpoints.reembolsos import get_solicitud_detalle, patch_pagar_solicitud
+    from app.models.user import UserRole
+    from app.schemas.reembolso import RegistrarPagoReembolsoRequest
+
+    # Crear y aprobar solicitud del propio directivo (aprobada por otro usuario)
+    otro_directivo = User(
+        rut="12.345.678-9",
+        email="presidente.hu04@mperalillo.cl",
+        nombre_completo="Presidente HU04",
+        hashed_password="hash",
+        rol=UserRole.PRESIDENTE,
+        is_active=True,
+        meses_antiguedad=60,
+    )
+    auditor = User(
+        rut="17.345.678-6",
+        email="auditor.hu04@mperalillo.cl",
+        nombre_completo="Auditor HU04",
+        hashed_password="hash",
+        rol=UserRole.AUDITOR,
+        is_active=True,
+        meses_antiguedad=36,
+    )
+    db_session.add_all([otro_directivo, auditor])
+    await db_session.commit()
+
+    payload = ReembolsoCreateRequest(
+        tipo_prestacion="farmacia",
+        descripcion="Compra receta directivo",
+        beneficiario_nombre=usuario_admin.nombre_completo,
+        beneficiario_parentesco="Titular",
+        monto_boleta=20000,
+        monto_copago=15000,
+        fecha_atencion=date.today() - timedelta(days=2),
+        fecha_boleta=date.today() - timedelta(days=2),
+        tipo_documento="boleta_detallada",
+        declaracion_aceptada=True,
+    )
+    sol = await crear_solicitud(usuario_admin, payload, db_session)
+    sol = await resolver_solicitud_reembolso(
+        solicitud_id=sol.id,
+        accion="APROBAR",
+        motivo_rechazo="",
+        admin_user=otro_directivo,
+        db=db_session,
+    )
+
+    body_pago = RegistrarPagoReembolsoRequest(
+        metodo_pago="Transferencia Bancaria",
+        numero_cheque_o_transferencia="TRF-554433",
+        banco_emisor="BancoEstado",
+        fecha_pago="2026-11-26",
+        hora_proceso="10:15",
+    )
+
+    # 1. Auditor no puede registrar pagos (HTTP 403)
+    with pytest.raises(HTTPException) as exc_aud:
+        await patch_pagar_solicitud(sol.id, body_pago, user=auditor, db=db_session)
+    assert exc_aud.value.status_code == 403
+
+    # 2. Directivo no puede pagar su propio reembolso (HTTP 403 por probidad)
+    with pytest.raises(HTTPException) as exc_propio:
+        await patch_pagar_solicitud(sol.id, body_pago, user=usuario_admin, db=db_session)
+    assert exc_propio.value.status_code == 403
+
+    # 3. Otro directivo sí puede pagar y GET /solicitud/{id} devuelve los datos de pago
+    pagado = await patch_pagar_solicitud(sol.id, body_pago, user=otro_directivo, db=db_session)
+    assert pagado.numero_cheque_o_transferencia == "TRF-554433"
+
+    detalle = await get_solicitud_detalle(sol.id, user=usuario_admin, db=db_session)
+    assert detalle.estado == "pagado"
+    assert detalle.numero_cheque_o_transferencia == "TRF-554433"
+    assert detalle.metodo_pago == "Transferencia Bancaria"

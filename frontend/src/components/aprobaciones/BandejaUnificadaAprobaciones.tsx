@@ -614,7 +614,25 @@ export function BandejaUnificadaAprobaciones({
                           f.rawReembolso && (
                             <button
                               type="button"
-                              onClick={() => imprimirColillaReembolso(f.rawReembolso!)}
+                              onClick={() => {
+                                const r = f.rawReembolso!;
+                                imprimirColillaReembolso({
+                                  codigo: r.codigo,
+                                  socioNombre: r.socio_nombre || r.beneficiario_nombre || '',
+                                  socioRut: r.socio_rut || r.beneficiario_run || '',
+                                  beneficiarioNombre: r.beneficiario_nombre,
+                                  beneficiarioParentesco: r.beneficiario_parentesco,
+                                  prestacionLabel: r.tipo_prestacion_label,
+                                  montoReembolso: r.monto_reembolso || r.monto_copago,
+                                  metodoPago: r.metodo_pago,
+                                  numeroDocumento: r.numero_cheque_o_transferencia,
+                                  bancoEmisor: r.banco_emisor,
+                                  fechaPago: r.fecha_pago,
+                                  horaProceso: r.hora_proceso,
+                                  recepcionConforme: r.recepcion_conforme,
+                                  recepcionConformeAt: r.recepcion_conforme_at,
+                                });
+                              }}
                               className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer inline-flex items-center gap-1"
                             >
                               <Printer className="h-3.5 w-3.5" />

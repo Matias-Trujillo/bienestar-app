@@ -235,9 +235,12 @@ async def get_solicitud_detalle(
 ):
     from app.models.reembolso import SolicitudReembolso
     from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
 
     solicitud = await db.scalar(
-        select(SolicitudReembolso).where(
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .where(
             SolicitudReembolso.id == solicitud_id,
             SolicitudReembolso.socio_id == user.id,
         )
@@ -543,10 +546,10 @@ async def patch_pagar_solicitud(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not (user.is_superuser or user.rol in ROLES_GESTION_REEMBOLSOS):
+    if not (user.is_superuser or user.rol in ROLES_RESOLUTIVOS_REEMBOLSOS):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido a Tesorería, Directiva y Administradores.",
+            detail="Acceso restringido: solo miembros resolutivos de Tesorería, Directiva o Administración pueden registrar pagos.",
         )
     try:
         solicitud = await registrar_pago_reembolso(
@@ -560,6 +563,8 @@ async def patch_pagar_solicitud(
             db=db,
         )
         return solicitud_to_out(solicitud)
+    except PermissionError as pe:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(pe))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

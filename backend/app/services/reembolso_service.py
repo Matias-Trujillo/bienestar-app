@@ -991,6 +991,12 @@ async def registrar_pago_reembolso(
     if not solicitud:
         raise ValueError("Solicitud de reembolso no encontrada.")
 
+    # Principio de Probidad Administrativa: un directivo no puede registrar el pago de su propia solicitud
+    if solicitud.socio_id == admin_user.id:
+        raise PermissionError(
+            "Por principio de probidad administrativa, usted no puede registrar el pago de su propia solicitud de reembolso."
+        )
+
     if solicitud.estado != EstadoReembolso.APROBADO:
         raise ValueError(
             f"Solo se pueden liquidar solicitudes en estado Aprobado (estado actual: {solicitud.estado.value})."

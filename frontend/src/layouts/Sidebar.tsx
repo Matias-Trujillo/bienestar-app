@@ -53,6 +53,15 @@ export const navigationItems: NavItem[] = [
     ),
   },
   {
+    name: 'Beneficios Sociales',
+    href: '/beneficios',
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+      </svg>
+    ),
+  },
+  {
     name: 'Aprobaciones',
     href: '/aprobaciones',
     icon: (
@@ -61,15 +70,6 @@ export const navigationItems: NavItem[] = [
       </svg>
     ),
     adminOnly: true,
-  },
-  {
-    name: 'Beneficios Sociales',
-    href: '/beneficios',
-    icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-      </svg>
-    ),
   },
   {
     name: 'Ofertas Laborales',
@@ -166,7 +166,7 @@ function resolveSidebarBadge(
       const text = totalAprobaciones > 99 ? '99+' : `${totalAprobaciones}`;
       return {
         text,
-        tooltip: `${totalAprobaciones} expedientes totales pendientes de resolución`,
+        tooltip: `${totalAprobaciones} expedientes totales pendientes de aprobación`,
         className: 'bg-amber-500 text-white font-bold shadow-xs',
       };
     }

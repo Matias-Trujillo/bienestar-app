@@ -235,12 +235,23 @@ export default function AprobacionesPage() {
               Reembolsos médicos, creación de cuentas, cargas familiares y beneficios sociales con notificación automática por correo.
             </p>
           </div>
-          <Link
-            href="/"
-            className="px-4 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 rounded-xl border border-white/15 shrink-0 transition-colors"
-          >
-            ← Hoja Socio
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {user?.rol !== 'auditor' && (
+              <Link
+                href="/reembolsos"
+                className="px-3.5 py-2 text-xs font-bold text-emerald-100 bg-emerald-600/30 hover:bg-emerald-600/45 rounded-xl border border-emerald-400/35 shrink-0 transition-colors"
+                title="Ingresar una solicitud de reembolso asistida para un trabajador en oficina"
+              >
+                + Reembolso Asistido
+              </Link>
+            )}
+            <Link
+              href="/"
+              className="px-4 py-2 text-xs font-bold text-slate-100 bg-white/10 hover:bg-white/20 rounded-xl border border-white/15 shrink-0 transition-colors"
+            >
+              ← Resumen General
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -322,7 +333,7 @@ export default function AprobacionesPage() {
             <BandejaUnificadaAprobaciones
               token={token}
               userRol={user?.rol}
-              isSuperuser={user?.is_superuser}
+              isSuperuser={user?.isSuperuser}
               categoriaActiva={categoriaActiva}
               reembolsos={solicitudes}
               afiliaciones={afiliaciones}
