@@ -60,6 +60,14 @@ export interface SolicitudBeneficioItem {
   estado: string;
   motivo?: string | null;
   motivo_rechazo?: string | null;
+  documento_tipo?: string | null;
+  documento_nombre?: string | null;
+  decreto_numero?: string | null;
+  observaciones_admin?: string | null;
+  metodo_pago?: string | null;
+  numero_cheque?: string | null;
+  banco_emisor?: string | null;
+  fecha_liquidacion?: string | null;
   created_at: string;
 }
 
@@ -182,9 +190,12 @@ export function BandejaUnificadaAprobaciones({
 
   // Modal moderno de Pago para Beneficios Sociales (mismo flujo simple que Reembolsos)
   const [beneficioAPagar, setBeneficioAPagar] = useState<SolicitudBeneficioItem | null>(null);
+  const [beneficioDetalle, setBeneficioDetalle] = useState<SolicitudBeneficioItem | null>(null);
   const [metodoPagoBen, setMetodoPagoBen] = useState<'Cheque' | 'Transferencia'>('Cheque');
   const [numeroDocBen, setNumeroDocBen] = useState('');
   const [bancoBen, setBancoBen] = useState('BancoEstado');
+  const [fechaPagoBen, setFechaPagoBen] = useState(new Date().toISOString().slice(0, 10));
+  const [horaPagoBen, setHoraPagoBen] = useState(new Date().toTimeString().slice(0, 5));
 
   // Modal exclusivo de Admin para Revertir Pago (Reembolso o Beneficio)
   const [filaARevertir, setFilaARevertir] = useState<FilaUnificada | null>(null);
@@ -398,6 +409,7 @@ export function BandejaUnificadaAprobaciones({
           metodo_pago: metodoPagoBen,
           numero_cheque: numeroDocBen.trim(),
           banco: bancoBen.trim() || 'BancoEstado',
+          observaciones: `Pago registrado el ${fechaPagoBen} a las ${horaPagoBen}`,
         }),
       });
       setBeneficioAPagar(null);
@@ -682,6 +694,15 @@ export function BandejaUnificadaAprobaciones({
                             Ver
                           </button>
                         )}
+                        {f.tipo === 'beneficio' && f.rawBeneficio && (
+                          <button
+                            type="button"
+                            onClick={() => setBeneficioDetalle(f.rawBeneficio!)}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                          >
+                            Ver
+                          </button>
+                        )}
                         {f.estadoNormalizado === 'pendiente' && (
                           <>
                             <button
@@ -724,11 +745,43 @@ export function BandejaUnificadaAprobaciones({
                                 setMetodoPagoBen('Cheque');
                                 setNumeroDocBen('');
                                 setBancoBen('BancoEstado');
+                                setFechaPagoBen(new Date().toISOString().slice(0, 10));
+                                setHoraPagoBen(new Date().toTimeString().slice(0, 5));
                               }}
                               className="px-2.5 py-1 rounded-lg bg-[#006799] hover:bg-[#0c2b45] text-white font-semibold cursor-pointer inline-flex items-center gap-1"
                             >
                               <CreditCard className="h-3.5 w-3.5" />
                               <span>Registrar Pago</span>
+                            </button>
+                          )}
+                        {f.tipo === 'beneficio' &&
+                          f.estadoNormalizado === 'pagada' &&
+                          f.rawBeneficio && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const b = f.rawBeneficio!;
+                                imprimirColillaReembolso({
+                                  codigo: `BEN-${String(b.id).padStart(4, '0')}`,
+                                  socioNombre: b.socio_nombre || 'Socio',
+                                  socioRut: b.socio_rut || '',
+                                  beneficiarioNombre: b.socio_nombre || 'Titular',
+                                  beneficiarioParentesco: 'Titular',
+                                  prestacionLabel: `Beneficio Social • ${b.titulo_bono}`,
+                                  montoReembolso: b.monto_calculado || 0,
+                                  metodoPago: b.metodo_pago || 'Cheque',
+                                  numeroDocumento: b.numero_cheque || '',
+                                  bancoEmisor: b.banco_emisor || 'BancoEstado',
+                                  fechaPago: (b.fecha_liquidacion || '').slice(0, 10),
+                                  horaProceso: (b.fecha_liquidacion || '').slice(11, 16),
+                                  recepcionConforme: false,
+                                  recepcionConformeAt: null,
+                                });
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                              <span>Colilla</span>
                             </button>
                           )}
                         {f.tipo === 'reembolso' &&
@@ -970,8 +1023,30 @@ export function BandejaUnificadaAprobaciones({
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Fecha de Pago</label>
+                  <input
+                    type="date"
+                    required
+                    value={fechaPagoBen}
+                    onChange={(e) => setFechaPagoBen(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] tabular-nums"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Hora Proceso</label>
+                  <input
+                    type="time"
+                    required
+                    value={horaPagoBen}
+                    onChange={(e) => setHoraPagoBen(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799] tabular-nums"
+                  />
+                </div>
+              </div>
               <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-[#166534]">
-                Al confirmar, quedará en estado <strong>Pagado / Finalizado</strong> y se enviará correo automático al socio avisando el retiro del documento (plazo legal cheque: 60 días).
+                Al confirmar, quedará en estado <strong>Pagado</strong> y se enviará correo automático al socio avisando el retiro del documento (plazo legal cheque: 60 días).
               </div>
               <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
@@ -1051,6 +1126,97 @@ export function BandejaUnificadaAprobaciones({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalle de Beneficio Social (mismo estándar que Reembolsos Médicos) */}
+      {beneficioDetalle && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold">
+                  Detalle de Beneficio Social • BEN-{String(beneficioDetalle.id).padStart(4, '0')}
+                </h3>
+                <p className="text-[11px] text-sky-100 mt-0.5">{beneficioDetalle.titulo_bono}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBeneficioDetalle(null)}
+                className="text-white/80 hover:text-white text-lg font-bold cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6 space-y-3 text-xs">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">Solicitante</span>
+                  <span className="font-bold text-slate-900">{beneficioDetalle.socio_nombre}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">RUT</span>
+                  <span className="font-semibold text-slate-700 tabular-nums">{beneficioDetalle.socio_rut}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">Monto Beneficio</span>
+                  <span className="font-extrabold text-[#166534] tabular-nums">
+                    {formatClp(beneficioDetalle.monto_calculado)}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">Documento / Respaldo</span>
+                  <span className="font-medium text-slate-800">
+                    {beneficioDetalle.documento_tipo || beneficioDetalle.documento_nombre || 'Adjunto'}
+                  </span>
+                </div>
+                {beneficioDetalle.decreto_numero && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">N° Decreto</span>
+                    <span className="font-semibold text-slate-800">{beneficioDetalle.decreto_numero}</span>
+                  </div>
+                )}
+                {beneficioDetalle.motivo && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <span className="text-slate-500 block mb-0.5">Motivo / Detalle</span>
+                    <span className="text-slate-800">{beneficioDetalle.motivo}</span>
+                  </div>
+                )}
+              </div>
+
+              {normalizarEstado(beneficioDetalle.estado) === 'pagada' && (
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1.5">
+                  <div className="font-bold text-[#166534]">Respaldo de Pago Registrado</div>
+                  <div className="flex justify-between text-slate-700">
+                    <span>Medio / Documento:</span>
+                    <span className="font-semibold">
+                      {beneficioDetalle.metodo_pago || 'Cheque'} N° {beneficioDetalle.numero_cheque || '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-700">
+                    <span>Banco / Fecha:</span>
+                    <span className="font-semibold tabular-nums">
+                      {beneficioDetalle.banco_emisor || 'BancoEstado'} • {beneficioDetalle.fecha_liquidacion || '—'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-end border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setBeneficioDetalle(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
