@@ -1033,6 +1033,85 @@ async def registrar_pago_reembolso(
         )
     )
     await db.commit()
+    sol_final = await db.scalar(
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .execution_options(populate_existing=True)
+        .where(SolicitudReembolso.id == solicitud_id)
+    )
+
+    # Disparar correo oficial de solicitud finalizada / lista para retiro de cheque
+    try:
+        from app.services.afiliacion_service import sincronizar_smtp_desde_db
+        from app.services.email_service import generar_correo_pago_finalizado
+
+        if sol_final and sol_final.socio:
+            await sincronizar_smtp_desde_db(db)
+            generar_correo_pago_finalizado(
+                folio=sol_final.codigo,
+                tipo_tramite="Reembolso Médico",
+                socio_nombre=sol_final.socio.nombre_completo,
+                socio_rut=sol_final.socio.rut,
+                email_destino=sol_final.socio.email,
+                monto_clp=int(sol_final.monto_reembolso),
+                metodo_pago=pago.metodo_pago,
+                numero_documento=pago.numero_cheque_o_transferencia,
+                banco_emisor=pago.banco_emisor,
+                fecha_pago=pago.fecha_pago,
+                enviar_smtp=True,
+            )
+    except Exception:
+        pass
+
+    return sol_final
+
+
+async def revertir_pago_reembolso(
+    solicitud_id: int,
+    motivo: str,
+    admin_user: User,
+    db: AsyncSession,
+) -> SolicitudReembolso:
+    """Revierte un pago registrado (ej. cheque caducado o error de documento) devolviendo el reembolso a Aprobado."""
+    motivo_limpio = (motivo or "").strip()
+    if len(motivo_limpio) < 5:
+        raise ValueError("Debe ingresar un motivo válido (mínimo 5 caracteres) para revertir el pago.")
+
+    solicitud = await db.scalar(
+        select(SolicitudReembolso)
+        .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))
+        .execution_options(populate_existing=True)
+        .where(SolicitudReembolso.id == solicitud_id)
+    )
+    if not solicitud:
+        raise ValueError("Solicitud de reembolso no encontrada.")
+    if solicitud.estado != EstadoReembolso.PAGADO:
+        raise ValueError("Solo se puede revertir el pago de solicitudes en estado Pagado.")
+
+    doc_anterior = solicitud.pago.numero_cheque_o_transferencia if solicitud.pago else "S/N"
+    if solicitud.pago:
+        await db.delete(solicitud.pago)
+        solicitud.pago = None
+
+    solicitud.estado = EstadoReembolso.APROBADO
+    db.add(solicitud)
+    db.add(
+        AuditLog(
+            usuario_id=admin_user.id,
+            usuario_nombre=admin_user.nombre_completo,
+            usuario_rut=admin_user.rut,
+            usuario_rol=admin_user.rol.value if hasattr(admin_user.rol, "value") else str(admin_user.rol),
+            modulo="REEMBOLSOS",
+            accion="REVERTIR_PAGO_REEMBOLSO",
+            recurso_tipo="SolicitudReembolso",
+            recurso_id=solicitud.codigo,
+            detalles=(
+                f"Pago revertido para {solicitud.codigo} (doc. anterior N° {doc_anterior}). "
+                f"Devuelto a 'Listo para Pagar' por {admin_user.nombre_completo}. Motivo: {motivo_limpio}"
+            ),
+        )
+    )
+    await db.commit()
     return await db.scalar(
         select(SolicitudReembolso)
         .options(selectinload(SolicitudReembolso.socio), selectinload(SolicitudReembolso.pago))

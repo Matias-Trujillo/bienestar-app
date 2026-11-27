@@ -3,14 +3,18 @@
 import React, { useMemo, useState } from 'react';
 import {
   CheckCircle2,
+  CreditCard,
   Gift,
   HeartPulse,
+  Printer,
+  RotateCcw,
   Search,
   UserPlus,
   Users,
   XCircle,
 } from 'lucide-react';
 import { fetchFromApi } from '@/lib/api';
+import { imprimirColillaReembolso } from '@/lib/colillaReembolso';
 import { getErrorMessage } from '@/lib/utils';
 import { SolicitudReembolso } from '@/types';
 
@@ -79,6 +83,8 @@ interface FilaUnificada {
 
 interface Props {
   token: string | null;
+  userRol?: string;
+  isSuperuser?: boolean;
   categoriaActiva: FiltroCategoria;
   reembolsos: SolicitudReembolso[];
   afiliaciones: SolicitudAfiliacionItem[];
@@ -138,6 +144,8 @@ const BADGE_TIPO: Record<
 
 export function BandejaUnificadaAprobaciones({
   token,
+  userRol,
+  isSuperuser,
   categoriaActiva,
   reembolsos,
   afiliaciones,
@@ -152,6 +160,13 @@ export function BandejaUnificadaAprobaciones({
   onPagarReembolso,
   onVerDetalleReembolso,
 }: Props) {
+  const rolUpper = String(userRol || '').toUpperCase();
+  const puedeRevertirPago =
+    Boolean(isSuperuser) ||
+    rolUpper === 'ADMIN' ||
+    rolUpper === 'SUPERUSUARIO' ||
+    rolUpper === 'PRESIDENTE';
+
   const [filtroEstado, setFiltroEstado] = useState<'pendiente' | 'todos' | 'aprobada' | 'rechazada' | 'pagada'>('pendiente');
   const [busqueda, setBusqueda] = useState('');
 
@@ -164,6 +179,16 @@ export function BandejaUnificadaAprobaciones({
   const [numeroActa, setNumeroActa] = useState('Acta Ordinaria');
   const [observaciones, setObservaciones] = useState('');
   const [procesando, setProcesando] = useState(false);
+
+  // Modal moderno de Pago para Beneficios Sociales (mismo flujo simple que Reembolsos)
+  const [beneficioAPagar, setBeneficioAPagar] = useState<SolicitudBeneficioItem | null>(null);
+  const [metodoPagoBen, setMetodoPagoBen] = useState<'Cheque' | 'Transferencia'>('Cheque');
+  const [numeroDocBen, setNumeroDocBen] = useState('');
+  const [bancoBen, setBancoBen] = useState('BancoEstado');
+
+  // Modal exclusivo de Admin para Revertir Pago (Reembolso o Beneficio)
+  const [filaARevertir, setFilaARevertir] = useState<FilaUnificada | null>(null);
+  const [motivoReversion, setMotivoReversion] = useState('');
 
   const filasUnificadas: FilaUnificada[] = useMemo(() => {
     const lista: FilaUnificada[] = [];
@@ -341,18 +366,91 @@ export function BandejaUnificadaAprobaciones({
     }
   };
 
+  const handleConfirmarPagoBeneficio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!beneficioAPagar || !token || numeroDocBen.trim().length < 2) {
+      onNotificarError('Ingresa el número de cheque o comprobante de transferencia.');
+      return;
+    }
+    setProcesando(true);
+    try {
+      await fetchFromApi(`/beneficios/solicitudes/${beneficioAPagar.id}/validar`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accion: 'LIQUIDAR',
+          metodo_pago: metodoPagoBen,
+          numero_cheque: numeroDocBen.trim(),
+          banco: bancoBen.trim() || 'BancoEstado',
+        }),
+      });
+      setBeneficioAPagar(null);
+      setNumeroDocBen('');
+      onNotificarOk(
+        `Beneficio BEN-${String(beneficioAPagar.id).padStart(4, '0')} marcado como PAGADO (${metodoPagoBen} N° ${numeroDocBen.trim()}). Se envió correo al socio con aviso de retiro.`
+      );
+      await onRefreshTodo();
+    } catch (err: unknown) {
+      onNotificarError(getErrorMessage(err));
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const handleConfirmarReversion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!filaARevertir || !token || motivoReversion.trim().length < 5) {
+      onNotificarError('Ingresa un motivo de al menos 5 caracteres para revertir el pago.');
+      return;
+    }
+    setProcesando(true);
+    try {
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+      if (filaARevertir.tipo === 'reembolso' && filaARevertir.rawReembolso) {
+        await fetchFromApi(`/reembolsos/admin/solicitud/${filaARevertir.rawReembolso.id}/revertir-pago`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ motivo: motivoReversion.trim() }),
+        });
+      } else if (filaARevertir.tipo === 'beneficio' && filaARevertir.rawBeneficio) {
+        await fetchFromApi(`/beneficios/solicitudes/${filaARevertir.rawBeneficio.id}/revertir-pago`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ motivo: motivoReversion.trim() }),
+        });
+      }
+      const folioRev = filaARevertir.folio;
+      setFilaARevertir(null);
+      setMotivoReversion('');
+      onNotificarOk(
+        `Pago revertido para ${folioRev}. La solicitud volvió a "2. Listos para Pagar" y quedó registrada en auditoría.`
+      );
+      await onRefreshTodo();
+    } catch (err: unknown) {
+      onNotificarError(getErrorMessage(err));
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   return (
     <div className="card-modern overflow-hidden min-w-0">
-      {/* Barra de filtros unificada */}
+      {/* Barra de filtros unificada con lenguaje claro en 3 pasos */}
       <div className="p-4 sm:px-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {(
             [
-              { id: 'pendiente', label: 'Pendientes' },
-              { id: 'aprobada', label: 'Aprobadas' },
-              { id: 'pagada', label: 'Pagadas / Liquidadas' },
-              { id: 'rechazada', label: 'Rechazadas' },
-              { id: 'todos', label: 'Todas' },
+              { id: 'pendiente', label: '1. Por Revisar' },
+              { id: 'aprobada', label: '2. Listos para Pagar' },
+              { id: 'pagada', label: '3. Pagados / Finalizados' },
+              { id: 'rechazada', label: 'Rechazados' },
+              { id: 'todos', label: 'Todos' },
             ] as const
           ).map((st) => (
             <button
@@ -488,9 +586,55 @@ export function BandejaUnificadaAprobaciones({
                             <button
                               type="button"
                               onClick={() => onPagarReembolso(f.rawReembolso!)}
-                              className="px-2.5 py-1 rounded-lg bg-[#006799] hover:bg-[#0c2b45] text-white font-semibold cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-[#006799] hover:bg-[#0c2b45] text-white font-semibold cursor-pointer inline-flex items-center gap-1"
                             >
-                              Emitir Pago
+                              <CreditCard className="h-3.5 w-3.5" />
+                              <span>Registrar Pago</span>
+                            </button>
+                          )}
+                        {f.tipo === 'beneficio' &&
+                          f.estadoNormalizado === 'aprobada' &&
+                          f.rawBeneficio && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBeneficioAPagar(f.rawBeneficio!);
+                                setMetodoPagoBen('Cheque');
+                                setNumeroDocBen('');
+                                setBancoBen('BancoEstado');
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-[#006799] hover:bg-[#0c2b45] text-white font-semibold cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                              <span>Registrar Pago</span>
+                            </button>
+                          )}
+                        {f.tipo === 'reembolso' &&
+                          f.estadoNormalizado === 'pagada' &&
+                          f.rawReembolso && (
+                            <button
+                              type="button"
+                              onClick={() => imprimirColillaReembolso(f.rawReembolso!)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                              <span>Colilla</span>
+                            </button>
+                          )}
+                        {puedeRevertirPago &&
+                          f.estadoNormalizado === 'pagada' &&
+                          (f.tipo === 'reembolso' || f.tipo === 'beneficio') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFilaARevertir(f);
+                                setMotivoReversion('');
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-semibold cursor-pointer inline-flex items-center gap-1"
+                              title="Solo Admin/Presidente: devolver a Listo para Pagar (ej. cheque caducado o corrección)"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              <span>Revertir Pago</span>
                             </button>
                           )}
                       </div>
@@ -617,6 +761,156 @@ export function BandejaUnificadaAprobaciones({
                     : itemModal.accion === 'aprobar'
                     ? 'Confirmar Aprobación y Notificar'
                     : 'Confirmar Rechazo y Notificar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Simple de Registro de Pago para Beneficio Social */}
+      {beneficioAPagar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold">Registrar Pago — Beneficio Social</h3>
+                <p className="text-[11px] text-sky-100 mt-0.5">
+                  BEN-{String(beneficioAPagar.id).padStart(4, '0')} • {beneficioAPagar.socio_nombre} ({formatClp(beneficioAPagar.monto_calculado)})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBeneficioAPagar(null)}
+                className="text-white/80 hover:text-white text-lg font-bold cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleConfirmarPagoBeneficio} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Medio de Pago</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['Cheque', 'Transferencia'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMetodoPagoBen(m)}
+                      className={`py-2 rounded-xl border font-semibold cursor-pointer ${
+                        metodoPagoBen === m
+                          ? 'bg-sky-50 border-[#006799] text-[#006799]'
+                          : 'bg-slate-50 border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  N° de {metodoPagoBen === 'Cheque' ? 'Cheque' : 'Comprobante de Transferencia'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={metodoPagoBen === 'Cheque' ? 'Ej: 0045123' : 'Ej: TRF-202611-889'}
+                  value={numeroDocBen}
+                  onChange={(e) => setNumeroDocBen(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Banco Emisor</label>
+                <input
+                  type="text"
+                  value={bancoBen}
+                  onChange={(e) => setBancoBen(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#006799]"
+                />
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-[#166534]">
+                Al confirmar, quedará en estado <strong>Pagado / Finalizado</strong> y se enviará correo automático al socio avisando el retiro del documento (plazo legal cheque: 60 días).
+              </div>
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setBeneficioAPagar(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={procesando}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#0c2b45] to-[#006799] text-white font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {procesando ? 'Registrando...' : 'Confirmar Pago y Notificar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Exclusivo de Admin para Revertir Pago (Cheque Caducado / Corrección) */}
+      {filaARevertir && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold">Revertir Pago (Solo Administración)</h3>
+                <p className="text-[11px] text-amber-100 mt-0.5">
+                  Folio {filaARevertir.folio} • {filaARevertir.solicitanteNombre}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilaARevertir(null)}
+                className="text-white/80 hover:text-white text-lg font-bold cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleConfirmarReversion} className="p-6 space-y-4 text-xs">
+              <p className="text-slate-600 leading-relaxed">
+                Esta acción anulará el pago actual y devolverá la solicitud a <strong>“2. Listos para Pagar”</strong> para que Tesorería pueda emitir un nuevo cheque o transferencia.
+              </p>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Motivo de la reversión (obligatorio)
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Ej: Cheque caducado tras 60 días sin retiro por el socio; se reemitirá transferencia."
+                  value={motivoReversion}
+                  onChange={(e) => setMotivoReversion(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setFilaARevertir(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={procesando}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {procesando ? 'Revirtiendo...' : 'Sí, Revertir a Listo para Pagar'}
                 </button>
               </div>
             </form>

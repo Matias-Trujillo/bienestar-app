@@ -43,6 +43,7 @@ from app.services.reembolso_service import (
     asegurar_columnas_reembolso,
     confirmar_recepcion_conforme_reembolso,
     crear_solicitud,
+    revertir_pago_reembolso,
     listar_socios_para_asistencia,
     listar_solicitudes_socio,
     listar_todas_solicitudes_admin,
@@ -555,6 +556,37 @@ async def patch_pagar_solicitud(
             banco_emisor=body.banco_emisor,
             fecha_pago=body.fecha_pago,
             hora_proceso=body.hora_proceso,
+            admin_user=user,
+            db=db,
+        )
+        return solicitud_to_out(solicitud)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.patch(
+    "/admin/solicitud/{solicitud_id}/revertir-pago",
+    response_model=ReembolsoOut,
+    summary="Revertir pago de reembolso (solo Admin/Presidente/Superusuario — ej. cheque caducado)",
+)
+async def patch_revertir_pago_solicitud(
+    solicitud_id: int,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not (
+        user.is_superuser
+        or user.rol in (UserRole.ADMIN, UserRole.SUPERUSUARIO, UserRole.PRESIDENTE)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo Administración, Presidencia o Superusuario pueden revertir un pago registrado.",
+        )
+    try:
+        solicitud = await revertir_pago_reembolso(
+            solicitud_id=solicitud_id,
+            motivo=str(body.get("motivo") or ""),
             admin_user=user,
             db=db,
         )

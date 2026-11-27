@@ -711,6 +711,46 @@ class BeneficiosService:
         return solicitud
 
     @classmethod
+    async def revertir_pago(
+        cls, db: AsyncSession, admin_user: User, solicitud_id: int, motivo: str
+    ) -> SolicitudBeneficio:
+        """Revierte un pago/liquidación de beneficio devolviéndolo a APROBADO (Listo para Pagar)."""
+        motivo_limpio = (motivo or "").strip()
+        if len(motivo_limpio) < 5:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Debe ingresar un motivo válido (mínimo 5 caracteres) para revertir el pago.",
+            )
+        solicitud = await db.get(SolicitudBeneficio, solicitud_id)
+        if not solicitud:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+        if solicitud.estado != "LIQUIDADO":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo se puede revertir el pago de beneficios en estado Pagado / Liquidado.",
+            )
+        doc_ant = solicitud.numero_cheque or "S/N"
+        solicitud.estado = "APROBADO"
+        solicitud.numero_cheque = None
+        solicitud.fecha_liquidacion = None
+        solicitud.liquidado_por_id = None
+        solicitud.observaciones_admin = (
+            f"{solicitud.observaciones_admin or ''} | Pago revertido (doc. {doc_ant}): {motivo_limpio}"
+        ).strip(" |")
+        await registrar_auditoria(
+            db=db,
+            usuario=admin_user,
+            modulo="BENEFICIOS",
+            accion="REVERTIR_PAGO_BENEFICIO",
+            recurso_tipo="SolicitudBeneficio",
+            recurso_id=f"BEN-{solicitud.id:04d}",
+            detalles=f"Pago revertido para BEN-{solicitud.id:04d} (doc. {doc_ant}). Motivo: {motivo_limpio}",
+        )
+        await db.commit()
+        await db.refresh(solicitud)
+        return solicitud
+
+    @classmethod
     async def simular_nomina_masiva(
         cls, db: AsyncSession, req: SimularNominaRequest
     ) -> SimularNominaResponse:

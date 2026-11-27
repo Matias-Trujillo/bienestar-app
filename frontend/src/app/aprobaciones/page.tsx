@@ -321,6 +321,8 @@ export default function AprobacionesPage() {
           ) : (
             <BandejaUnificadaAprobaciones
               token={token}
+              userRol={user?.rol}
+              isSuperuser={user?.is_superuser}
               categoriaActiva={categoriaActiva}
               reembolsos={solicitudes}
               afiliaciones={afiliaciones}

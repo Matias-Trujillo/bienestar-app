@@ -797,13 +797,19 @@ def generar_correo_resolucion_beneficio(
         color_badge = "#166534"
         detalle_resolucion = (observaciones or "").strip() or "Su postulación cumple con los requisitos reglamentarios y pasa a gestión de pago."
     elif accion_up == "LIQUIDAR":
-        estado_label = "LIQUIDADA / PAGADA"
+        estado_label = "PAGADA / FINALIZADA"
         color_badge = "#006799"
-        detalle_resolucion = (
-            f"Pago emitido mediante documento N° {numero_cheque}."
-            if numero_cheque
-            else "Beneficio liquidado y listo para pago."
-        )
+        if numero_cheque:
+            detalle_resolucion = (
+                f"Su solicitud ya se encuentra finalizada y su documento/cheque N° {numero_cheque} por {monto_fmt} fue emitido. "
+                "Le solicitamos retirarlo en nuestras instalaciones del Comité de Bienestar presentando su cédula de identidad. "
+                "Recuerde que en Chile el plazo legal para cobrar un cheque en la misma plaza es de 60 días corridos desde su emisión."
+            )
+        else:
+            detalle_resolucion = (
+                f"Su solicitud ya se encuentra finalizada y pagada por {monto_fmt}. "
+                "Puede acercarse a nuestras instalaciones del Comité de Bienestar para cualquier consulta o respaldo."
+            )
     else:
         estado_label = "RECHAZADA"
         color_badge = "#be123c"
@@ -859,6 +865,113 @@ def generar_correo_resolucion_beneficio(
         "runDestinatario": socio_rut,
         "estadoSolicitud": estado_label,
         "resumenEstado": f"Beneficio {folio} ({titulo_bono}) marcado como {estado_label}.",
+        "cuerpoTexto": cuerpo_texto,
+        "cuerpoHtml": cuerpo_html,
+        "enviadoSmtp": enviado_smtp,
+        "errorSmtp": error_smtp,
+        "modoEnvio": "smtp_real" if enviado_smtp else "buzon_institucional",
+    }
+    (buzon or default_buzon_store).registrar(payload)
+    return payload
+
+
+def generar_correo_pago_finalizado(
+    folio: str,
+    tipo_tramite: str,
+    socio_nombre: str,
+    socio_rut: str,
+    email_destino: Optional[str],
+    monto_clp: int,
+    metodo_pago: str,
+    numero_documento: str,
+    banco_emisor: str = "BancoEstado",
+    fecha_pago: Optional[str] = None,
+    enviar_smtp: bool = True,
+    transport: Optional[SmtpTransportProtocol] = None,
+    buzon: Optional[EmailBuzonProtocol] = None,
+) -> Dict[str, Any]:
+    """Envía correo oficial al socio indicando que su solicitud quedó PAGADA / FINALIZADA."""
+    correo_final = (email_destino or "").strip()
+    destinatario = (
+        correo_final
+        if correo_final
+        else f"{socio_rut.replace('.', '').replace('-', '').lower()}@mperalillo.cl"
+    )
+    fecha_emision = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    monto_fmt = f"${int(monto_clp):,.0f} CLP".replace(",", ".")
+    es_cheque = "cheque" in (metodo_pago or "Cheque").lower()
+
+    if es_cheque:
+        instruccion_retiro = (
+            f"Su solicitud ya se encuentra finalizada y su cheque N° {numero_documento} ({banco_emisor}) "
+            f"por {monto_fmt} está listo. Le solicitamos retirarlo en nuestras instalaciones del Comité de Bienestar "
+            f"presentando su cédula de identidad. Recuerde que el plazo legal en Chile para cobrar un cheque "
+            f"es de 60 días corridos desde su fecha de emisión ({fecha_pago or fecha_emision[:10]})."
+        )
+        pasos = [
+            "Acérquese a las oficinas del Comité de Bienestar de la I. Municipalidad de Peralillo con su cédula de identidad.",
+            f"Retire el Cheque N° {numero_documento} y firme la colilla de recepción conforme.",
+            "Cobre o deposite el cheque dentro del plazo legal de 60 días corridos desde su emisión para evitar su caducidad.",
+        ]
+    else:
+        instruccion_retiro = (
+            f"Su solicitud ya se encuentra finalizada. El pago por {monto_fmt} fue procesado mediante "
+            f"{metodo_pago} (Comprobante N° {numero_documento} — {banco_emisor})."
+        )
+        pasos = [
+            "Verifique el abono en su cuenta bancaria con el número de comprobante indicado.",
+            "Puede descargar el comprobante oficial ingresando al Portal de Bienestar Municipal.",
+        ]
+
+    asunto = f"[Bienestar Peralillo] Solicitud {folio} Finalizada y Pagada ({monto_fmt})"
+    cuerpo_texto = (
+        f"Estimado/a {socio_nombre},\n\n"
+        f"{instruccion_retiro}\n\n"
+        f"- Trámite: {tipo_tramite}\n"
+        f"- Folio: {folio}\n"
+        f"- Monto pagado: {monto_fmt}\n"
+        f"- Medio de pago: {metodo_pago} N° {numero_documento} ({banco_emisor})\n\n"
+        f"Atentamente,\nComité de Bienestar — I. Municipalidad de Peralillo"
+    )
+    cuerpo_html = _envolver_html_institucional(
+        folio=folio,
+        fecha_emision=fecha_emision,
+        badge_texto="SOLICITUD FINALIZADA • PAGADA",
+        badge_bg="#dcfce7",
+        badge_color="#166534",
+        banner_bg="#0c2b45",
+        banner_subtitulo=f"COMITÉ DE BIENESTAR • {tipo_tramite.upper()}",
+        banner_titulo="Su solicitud se encuentra Finalizada y Pagada",
+        saludo_nombre=socio_nombre,
+        intro_html=instruccion_retiro,
+        alerta_estado_html=(
+            "<div style='background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:12px 14px;"
+            "font-size:13px;color:#166534;font-weight:700;'>Estado: PAGADO / FINALIZADO</div>"
+        ),
+        filas_tabla=[
+            ("Folio", folio),
+            ("Tipo de Trámite", tipo_tramite),
+            ("Monto Pagado", monto_fmt),
+            ("Medio de Pago", f"{metodo_pago} N° {numero_documento}"),
+            ("Banco Emisor", banco_emisor),
+            ("Fecha de Emisión", fecha_pago or fecha_emision[:10]),
+        ],
+        pasos=pasos,
+    )
+    enviado_smtp, error_smtp = _despachar_correo(
+        destinatario, asunto, cuerpo_texto, cuerpo_html, enviar_smtp, transport
+    )
+    payload = {
+        "tipo": "pago_finalizado",
+        "destinatario": destinatario,
+        "remitente": f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>",
+        "asunto": asunto,
+        "fechaEmision": fecha_emision,
+        "folio": folio,
+        "nombreDestinatario": socio_nombre,
+        "runDestinatario": socio_rut,
+        "estadoSolicitud": "PAGADO",
+        "resumenEstado": f"Solicitud {folio} finalizada y pagada ({metodo_pago} N° {numero_documento}).",
         "cuerpoTexto": cuerpo_texto,
         "cuerpoHtml": cuerpo_html,
         "enviadoSmtp": enviado_smtp,

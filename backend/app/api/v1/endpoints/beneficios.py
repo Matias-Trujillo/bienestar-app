@@ -262,6 +262,26 @@ async def validar_solicitud(
     return _to_solicitud_out(solicitud, socio)
 
 
+@router.patch(
+    "/solicitudes/{solicitud_id}/revertir-pago",
+    response_model=SolicitudBeneficioOut,
+    summary="Revertir pago de beneficio (solo Admin/Presidente/Superusuario — ej. cheque caducado)",
+)
+async def revertir_pago_beneficio(
+    solicitud_id: int,
+    payload: Dict[str, Any],
+    user: User = Depends(
+        require_roles(UserRole.ADMIN, UserRole.SUPERUSUARIO, UserRole.PRESIDENTE)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    solicitud = await BeneficiosService.revertir_pago(
+        db, user, solicitud_id, str(payload.get("motivo") or "")
+    )
+    socio = await db.get(User, solicitud.socio_id)
+    return _to_solicitud_out(solicitud, socio)
+
+
 @router.post("/nominas/simular", response_model=SimularNominaResponse, summary="HU-06: Simular Nómina Masiva de Calendario")
 async def simular_nomina_masiva(
     req: SimularNominaRequest,

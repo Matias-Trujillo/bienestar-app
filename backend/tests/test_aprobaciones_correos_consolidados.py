@@ -64,3 +64,31 @@ async def test_correos_al_solicitar_carga_y_postular_resolver_beneficio(
         and c.get("estadoSolicitud") == "APROBADA"
     ]
     assert len(correos_ben_res) >= 1
+
+    # 4. Liquidar (pagar) beneficio -> correo con aviso de retiro y 60 días + reversión Admin
+    await BeneficiosService.validar_o_liquidar(
+        db_session,
+        usuario_admin,
+        sol_ben.id,
+        ValidarSolicitudRequest(
+            accion="LIQUIDAR",
+            metodo_pago="Cheque",
+            numero_cheque="0099112",
+            banco="BancoEstado",
+        ),
+    )
+    correos_ben_pag = [
+        c
+        for c in default_buzon_store.listar()
+        if c.get("folio") == folio_ben
+        and c.get("tipo") == "resolucion_beneficio"
+        and c.get("estadoSolicitud") == "PAGADA / FINALIZADA"
+    ]
+    assert len(correos_ben_pag) >= 1
+    assert "60 días" in correos_ben_pag[0]["cuerpoTexto"]
+
+    revertido = await BeneficiosService.revertir_pago(
+        db_session, usuario_admin, sol_ben.id, "Cheque caducado tras 60 días sin retiro"
+    )
+    assert revertido.estado == "APROBADO"
+    assert revertido.numero_cheque is None
