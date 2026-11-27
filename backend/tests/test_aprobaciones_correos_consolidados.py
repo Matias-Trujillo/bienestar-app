@@ -24,6 +24,7 @@ async def test_correos_al_solicitar_carga_y_postular_resolver_beneficio(
             parentesco="Hijo/a",
             certificadoNombre="cert_nac.pdf",
             certificadoTipo="Certificado de Nacimiento",
+            certificadoData="data:image/png;base64,iVBORw0KGgo=",
         ),
     )
     correos_carga = [
