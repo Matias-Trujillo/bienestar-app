@@ -60,6 +60,8 @@ def test_esquema_orm_sin_tablas_isla_y_con_16_fks():
     assert "bonos_catalogo.id" in fks_por_tabla["nominas_masivas"]
     # 6. Audit logs conectada a usuarios
     assert "usuarios.id" in fks_por_tabla["audit_logs"]
+    # 7. Permisos dinámicos de Administración conectados a usuarios
+    assert "usuarios.id" in fks_por_tabla["permisos_rol_modulo"]
 
 
 def test_tipado_estricto_montos_clp_integer_y_fechas_date():

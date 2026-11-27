@@ -23,6 +23,7 @@ from app.models.beneficios import (
 )
 
 from app.models.audit import AuditLog
+from app.models.permisos import PermisoRolAdmin
 from app.models.finanzas import (
     AporteMunicipalUtm,
     ConciliacionPlanilla,
@@ -46,6 +47,7 @@ __all__ = [
     "User",
     "UserRole",
     "AuditLog",
+    "PermisoRolAdmin",
     "AporteMunicipalUtm",
     "ConciliacionPlanilla",
     "PagoAporteMensual",

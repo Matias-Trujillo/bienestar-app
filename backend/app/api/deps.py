@@ -7,6 +7,7 @@ from app.core.interfaces import (
     AuditLoggerProtocol,
     EmailBuzonProtocol,
     PasswordHasherProtocol,
+    PermisosAdminProtocol,
     SmtpTransportProtocol,
 )
 from app.core.security import BcryptPasswordHasher, decode_access_token
@@ -15,6 +16,7 @@ from app.models import User, UserRole
 from app.services.audit_service import SqlAlchemyAuditLogger
 from app.services.email_buzon import default_buzon_store
 from app.services.email_transport import default_smtp_transport
+from app.services.permisos_service import PermisosAdminService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -68,3 +70,23 @@ def get_smtp_transport() -> SmtpTransportProtocol:
 
 def get_password_hasher() -> PasswordHasherProtocol:
     return BcryptPasswordHasher()
+
+
+def get_permisos_admin_service(
+    audit_logger: AuditLoggerProtocol = Depends(get_audit_logger),
+) -> PermisosAdminProtocol:
+    return PermisosAdminService(audit_logger=audit_logger)
+
+
+async def require_admin_panel_access(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    permisos: PermisosAdminProtocol = Depends(get_permisos_admin_service),
+) -> User:
+    """Dependencia DIP: permite acceso a Administración solo si el usuario es Superusuario o su rol está habilitado en BD."""
+    if await permisos.usuario_tiene_acceso_admin(db, user):
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Acceso restringido: su rol no tiene permiso habilitado para ingresar a Administración.",
+    )

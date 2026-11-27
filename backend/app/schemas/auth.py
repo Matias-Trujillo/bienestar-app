@@ -47,6 +47,7 @@ class UserOut(BaseModel):
     puedeEliminar: bool = False
     motivoNoEliminable: Optional[str] = None
     tieneDobleVista: bool = False
+    puedeAccederAdmin: bool = False
     accesoAnterior: Optional[str] = None
 
 

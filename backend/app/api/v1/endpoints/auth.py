@@ -12,12 +12,15 @@ from app.api.deps import (
     get_audit_logger,
     get_current_user,
     get_password_hasher,
+    get_permisos_admin_service,
     get_smtp_transport,
+    require_admin_panel_access,
     require_roles,
 )
 from app.core.interfaces import (
     AuditLoggerProtocol,
     PasswordHasherProtocol,
+    PermisosAdminProtocol,
     SmtpTransportProtocol,
 )
 from app.db.session import get_db
@@ -67,14 +70,19 @@ async def login(
 
 
 @router.get("/me", response_model=UserOut)
-async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def me(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    permisos: PermisosAdminProtocol = Depends(get_permisos_admin_service),
+):
     try:
         await obtener_resumen_socio(user, db)
         await db.refresh(user)
     except Exception:
         user = (await db.get(User, user.id)) or user
     sec = await obtener_seguridad_usuario(db, user.id)
-    return to_out(user, sec)
+    puede_admin = await permisos.usuario_tiene_acceso_admin(db, user)
+    return to_out(user, sec, puede_acceder_admin=puede_admin)
 
 
 @router.post("/cambiar-password", response_model=UserOut, summary="Cambiar contraseña personal del usuario autenticado")
@@ -91,7 +99,7 @@ async def cambiar_password_propia(
 
 @router.get("/usuarios", response_model=List[UserOut])
 async def listar_usuarios(
-    _: User = Depends(require_roles(UserRole.SUPERUSUARIO, UserRole.ADMIN)),
+    _: User = Depends(require_admin_panel_access),
     db: AsyncSession = Depends(get_db),
 ):
     return await AuthService().listar_usuarios(db)

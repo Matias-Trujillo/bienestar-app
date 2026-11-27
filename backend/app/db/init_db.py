@@ -678,3 +678,31 @@ async def init_db() -> None:
                 )
             await db.commit()
             logger.info("Catálogo inicial de competencias técnicas creado en competencias_catalogo")
+
+        # 5. Semilla idempotente de permisos de acceso a Administración por rol (solo SUPERUSUARIO habilitado por defecto)
+        from app.models.permisos import PermisoRolAdmin
+
+        existentes_perm = set(
+            (await db.scalars(select(PermisoRolAdmin.rol))).all()
+        )
+        creados_perm = 0
+        for rol_enum in UserRole:
+            if rol_enum not in existentes_perm:
+                db.add(
+                    PermisoRolAdmin(
+                        rol=rol_enum,
+                        puede_acceder_admin=(rol_enum == UserRole.SUPERUSUARIO),
+                    )
+                )
+                creados_perm += 1
+        # Garantizar siempre que SUPERUSUARIO conserve acceso habilitado por defecto
+        perm_super = await db.scalar(
+            select(PermisoRolAdmin).where(PermisoRolAdmin.rol == UserRole.SUPERUSUARIO)
+        )
+        if perm_super and not perm_super.puede_acceder_admin:
+            perm_super.puede_acceder_admin = True
+            db.add(perm_super)
+            creados_perm += 1
+        if creados_perm:
+            await db.commit()
+            logger.info("Permisos iniciales de Administración sincronizados en permisos_rol_modulo")

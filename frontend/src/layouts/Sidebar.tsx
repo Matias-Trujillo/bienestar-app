@@ -223,7 +223,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const esAdminOSuper = isAdminView && (user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser));
   const esDirectiva = isAdminView && Boolean(user && (user.isSuperuser || ROLES_DIRECTIVA.includes(user.rol)));
   const esSocioNormal = Boolean(user && !user.isSuperuser && user.rol === 'socio');
-  const itemsVisibles = navigationItems.filter((item) => !item.adminOnly || esAdminOSuper || esDirectiva);
+  const puedeAccederModuloAdmin =
+    isAdminView &&
+    Boolean(user && (user.isSuperuser || user.rol === 'superusuario' || user.puedeAccederAdmin));
+
+  const itemsVisibles = navigationItems.filter((item) => {
+    if (item.href === '/admin') {
+      return puedeAccederModuloAdmin;
+    }
+    return !item.adminOnly || esAdminOSuper || esDirectiva;
+  });
 
   const cargarConteoPendientes = useCallback(async () => {
     if (!token) return;

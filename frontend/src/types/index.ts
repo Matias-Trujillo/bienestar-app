@@ -35,6 +35,7 @@ export interface User {
   puedeEliminar?: boolean;
   motivoNoEliminable?: string | null;
   tieneDobleVista?: boolean;
+  puedeAccederAdmin?: boolean;
   accesoAnterior?: string | null;
 }
 
@@ -433,6 +434,15 @@ export interface ParametroSistemaItem {
   clave: string;
   valor: string;
   descripcion?: string;
+}
+
+export interface PermisoRolAdminItem {
+  rol: UserRole;
+  rolLabel: string;
+  puedeAccederAdmin: boolean;
+  inmutable: boolean;
+  otorgadoPorNombre?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface FormPostulacionBono {

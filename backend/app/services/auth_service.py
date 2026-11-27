@@ -177,6 +177,7 @@ def to_out(
     sec: Optional[Dict[str, Any]] = None,
     puede_eliminar: bool = False,
     motivo_no_eliminable: Optional[str] = None,
+    puede_acceder_admin: Optional[bool] = None,
 ) -> UserOut:
     sec_data = sec or {
         "i": getattr(u, "intentos_fallidos", 0) or 0,
@@ -211,6 +212,9 @@ def to_out(
         else None
     )
 
+    es_super = bool(u.is_superuser or rol_str == UserRole.SUPERUSUARIO.value)
+    acceso_admin_final = es_super if puede_acceder_admin is None else bool(es_super or puede_acceder_admin)
+
     return UserOut(
         id=str(u.id),
         rut=u.rut,
@@ -235,6 +239,7 @@ def to_out(
         puedeEliminar=puede_eliminar,
         motivoNoEliminable=motivo_no_eliminable,
         tieneDobleVista=bool(u.is_superuser or rol_str != UserRole.SOCIO.value),
+        puedeAccederAdmin=acceso_admin_final,
         accesoAnterior=acceso_anterior_val,
     )
 
@@ -324,8 +329,11 @@ class AuthService:
         except Exception:
             user = (await db.get(User, user.id)) or user
 
+        from app.services.permisos_service import PermisosAdminService
+
+        puede_admin = await PermisosAdminService().usuario_tiene_acceso_admin(db, user)
         token = create_access_token(user.id, extra_claims={"rol": _val(user.rol)})
-        return TokenResponse(access_token=token, user=to_out(user, sec))
+        return TokenResponse(access_token=token, user=to_out(user, sec, puede_acceder_admin=puede_admin))
 
     async def cambiar_password(
         self, db: AsyncSession, user: User, nueva_password: str, password_actual: Optional[str] = None

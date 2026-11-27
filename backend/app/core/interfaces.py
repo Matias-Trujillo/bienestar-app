@@ -82,3 +82,19 @@ class DashboardAdminProtocol(Protocol):
 
     async def obtener_resumen_general(self, db: AsyncSession, usuario: User) -> Any:
         ...
+
+
+@runtime_checkable
+class PermisosAdminProtocol(Protocol):
+    """Contrato segregado (ISP) para autorización dinámica de roles en la sección Administración."""
+
+    async def usuario_tiene_acceso_admin(self, db: AsyncSession, usuario: User) -> bool:
+        ...
+
+    async def listar_permisos_roles(self, db: AsyncSession) -> List[Any]:
+        ...
+
+    async def actualizar_permiso_rol(
+        self, db: AsyncSession, rol_str: str, puede_acceder_admin: bool, superuser: User
+    ) -> Any:
+        ...

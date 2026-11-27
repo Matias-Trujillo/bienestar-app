@@ -7,7 +7,7 @@ import { Mail, KeyRound, Send, CheckCircle2, AlertTriangle, ExternalLink } from 
 import { useAuth } from '@/context/AuthContext';
 import { fetchFromApi } from '@/lib/api';
 import { getErrorMessage } from '@/lib/utils';
-import { User, AdminStats, ParametroSistemaItem, BonoFormData } from '@/types';
+import { User, AdminStats, ParametroSistemaItem, BonoFormData, PermisoRolAdminItem } from '@/types';
 import { AdminDashboardHeader } from '@/components/admin/AdminDashboardHeader';
 import { GestionUsuariosTable } from '@/components/admin/GestionUsuariosTable';
 import { AuditLogViewer, AuditLogItem } from '@/components/admin/AuditLogViewer';
@@ -15,12 +15,13 @@ import { ModalEditarUsuario } from '@/components/admin/ModalEditarUsuario';
 import { CatalogoBonosAdmin, BonoAdminItem } from '@/components/admin/CatalogoBonosAdmin';
 import { ModalCrearEditarBono } from '@/components/admin/ModalCrearEditarBono';
 import { OfertasLaboralesAdmin } from '@/components/admin/OfertasLaboralesAdmin';
+import { PermisosRolesAdminPanel } from '@/components/admin/PermisosRolesAdminPanel';
 import {
   ModalCargaMasivaSocios,
   esCuentaAutorizadaCargaMasiva,
 } from '@/components/admin/ModalCargaMasivaSocios';
 
-type TabAdmin = 'usuarios' | 'bonos' | 'ofertas' | 'auditoria' | 'parametros';
+type TabAdmin = 'usuarios' | 'permisos' | 'bonos' | 'ofertas' | 'auditoria' | 'parametros';
 
 export default function AdminPage() {
   const { user, token, isAdminView, isLoading: authLoading } = useAuth();
@@ -33,6 +34,8 @@ export default function AdminPage() {
   const [bonos, setBonos] = useState<BonoAdminItem[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [parametros, setParametros] = useState<ParametroSistemaItem[]>([]);
+  const [permisosRoles, setPermisosRoles] = useState<PermisoRolAdminItem[]>([]);
+  const [loadingPermisos, setLoadingPermisos] = useState(false);
 
   const [loadingUsuarios, setLoadingUsuarios] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -158,17 +161,66 @@ export default function AdminPage() {
     }
   };
 
+  const esSuperusuario = Boolean(user?.isSuperuser || user?.rol === 'superusuario');
+  const puedeAccederAdmin = Boolean(esSuperusuario || user?.puedeAccederAdmin);
+
+  const cargarPermisosRoles = useCallback(async () => {
+    if (!token || !esSuperusuario) return;
+    setLoadingPermisos(true);
+    try {
+      const data = await fetchFromApi<PermisoRolAdminItem[]>('/admin/permisos-roles', {
+        headers: authHeaders,
+      });
+      setPermisosRoles(Array.isArray(data) ? data : []);
+    } catch {
+      setPermisosRoles([]);
+    } finally {
+      setLoadingPermisos(false);
+    }
+  }, [token, esSuperusuario]);
+
+  const handleTogglePermisoRol = async (rol: string, nuevoEstado: boolean) => {
+    await fetchFromApi<PermisoRolAdminItem>(`/admin/permisos-roles/${rol}`, {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({ puedeAccederAdmin: nuevoEstado }),
+    });
+    setMensajeExito(
+      nuevoEstado
+        ? `Acceso a Administración HABILITADO para el rol "${rol}" con trazabilidad en auditoría.`
+        : `Acceso a Administración REVOCADO para el rol "${rol}" con trazabilidad en auditoría.`
+    );
+    setTimeout(() => setMensajeExito(null), 6000);
+    await cargarPermisosRoles();
+    await cargarStats();
+  };
+
   useEffect(() => {
     if (!authLoading && user && !isAdminView) {
       router.replace('/');
       return;
     }
-    if (!isAdminView) return;
+    if (!isAdminView || !puedeAccederAdmin) return;
     cargarUsuarios();
     cargarBonos();
     cargarStats();
     cargarParametros();
-  }, [authLoading, user, isAdminView, router, cargarUsuarios, cargarBonos, cargarStats, cargarParametros]);
+    if (esSuperusuario) {
+      cargarPermisosRoles();
+    }
+  }, [
+    authLoading,
+    user,
+    isAdminView,
+    puedeAccederAdmin,
+    esSuperusuario,
+    router,
+    cargarUsuarios,
+    cargarBonos,
+    cargarStats,
+    cargarParametros,
+    cargarPermisosRoles,
+  ]);
 
   useEffect(() => {
     if (tab === 'auditoria') {
@@ -297,10 +349,7 @@ export default function AdminPage() {
     }
   };
 
-  const esAdminOSuper =
-    user?.rol === 'admin' || user?.rol === 'superusuario' || Boolean(user?.isSuperuser);
-
-  if (!esAdminOSuper) {
+  if (!puedeAccederAdmin) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center animate-fade-in">
         <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
@@ -310,13 +359,13 @@ export default function AdminPage() {
         </div>
         <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
         <p className="text-sm text-slate-500 max-w-md mb-6">
-          El módulo de Administración está reservado exclusivamente para Administradores y Superusuarios del Comité de Bienestar.
+          El módulo de Administración está reservado exclusivamente para el Superusuario y los roles que éste haya habilitado expresamente.
         </p>
         <Link
           href="/"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition shadow-sm"
         >
-          Volver al Inicio
+          Volver al Resumen General
         </Link>
       </div>
     );
@@ -378,6 +427,19 @@ export default function AdminPage() {
             Usuarios, Roles y Claves
           </button>
 
+          {esSuperusuario && (
+            <button
+              onClick={() => setTab('permisos')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                tab === 'permisos'
+                  ? 'bg-gradient-to-r from-purple-700 to-[#006799] text-white shadow-xs'
+                  : 'text-purple-700 bg-purple-50/70 hover:bg-purple-100/70'
+              }`}
+            >
+              Permisos por Rol
+            </button>
+          )}
+
           <button
             onClick={() => setTab('ofertas')}
             className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
@@ -434,10 +496,19 @@ export default function AdminPage() {
             href="/"
             className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs transition-colors"
           >
-            ← Volver al Dashboard
+            ← Resumen General
           </Link>
         </div>
       </div>
+
+      {/* Pestaña Exclusiva Superusuario: Permisos de Acceso por Rol */}
+      {tab === 'permisos' && esSuperusuario && (
+        <PermisosRolesAdminPanel
+          permisos={permisosRoles}
+          loading={loadingPermisos}
+          onTogglePermiso={handleTogglePermisoRol}
+        />
+      )}
 
       {/* Pestaña 1: Catálogo de Bonos Dinámico */}
       {tab === 'bonos' && (
